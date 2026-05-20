@@ -185,68 +185,44 @@ def get_portfolio_history(
     user: User = Depends(get_current_user),
 ):
     """
-    Valor histórico de la cartera reconstruido transacción a transacción.
-    Para cada fecha del historial de precios calcula las acciones en posesión
-    en ese momento (buys acumulados - sells acumulados hasta esa fecha).
-    Incluye tanto posiciones abiertas como las ya cerradas en periodos pasados.
+    Valor histórico aproximado de la cartera (posiciones abiertas).
+    Usa las acciones actuales para cada fecha histórica — no recalcula la
+    composición en cada momento, por lo que es una aproximación válida para
+    mostrar la tendencia del valor.
     """
     positions = db.scalars(
         select(Position).where(Position.user_id == user.id)
     ).all()
+    repo = PortfolioRepository(db)
+
+    open_pos: list[tuple[Security, Decimal, str]] = []
+    for pos in positions:
+        txs  = repo.transactions_for_position(pos.id)
+        divs = repo.dividends_for_position(pos.id)
+        result = compute_position(txs, divs)
+        if not result.is_closed:
+            first_buy = min(
+                (tx.date.isoformat() for tx in txs if tx.type == "buy"),
+                default=None,
+            )
+            open_pos.append((pos.security, result.current_shares, first_buy))
+
+    if not open_pos:
+        return []
 
     rate_row = db.scalar(select(EcbRate).order_by(EcbRate.date.desc()))
     current_rate = rate_row.rate if rate_row else Decimal("1")
 
     date_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
-    for pos in positions:
-        sec: Security = pos.security
+    for sec, shares, first_buy in open_pos:
         rate = current_rate if sec.currency == "USD" else Decimal("1")
-
-        tx_rows = db.scalars(
-            select(TransactionRow)
-            .where(TransactionRow.position_id == pos.id)
-            .order_by(TransactionRow.date)
-        ).all()
-
-        if not tx_rows:
-            continue
-
-        first_buy_date = next(
-            (tx.date for tx in tx_rows if tx.type == "buy"), None
-        )
-        if not first_buy_date:
-            continue
-
-        price_rows = db.scalars(
-            select(PriceHistory)
-            .where(
-                PriceHistory.security_id == sec.id,
-                PriceHistory.date >= first_buy_date,
-            )
-            .order_by(PriceHistory.date)
-        ).all()
-
-        if not price_rows:
-            continue
-
-        # Barrido paralelo: acumula shares en ejecución conforme avanzan las fechas
-        running_shares = Decimal("0")
-        tx_idx = 0
-        n_tx = len(tx_rows)
-
-        for price_row in price_rows:
-            # Aplica todas las transacciones con fecha <= fecha del precio
-            while tx_idx < n_tx and tx_rows[tx_idx].date <= price_row.date:
-                tx = tx_rows[tx_idx]
-                if tx.type == "buy":
-                    running_shares += tx.shares
-                else:
-                    running_shares -= tx.shares
-                tx_idx += 1
-
-            if running_shares > Decimal("0"):
-                date_totals[price_row.date] += running_shares * price_row.close / rate
+        query = select(PriceHistory).where(PriceHistory.security_id == sec.id)
+        if first_buy:
+            query = query.where(PriceHistory.date >= first_buy)
+        rows = db.scalars(query.order_by(PriceHistory.date)).all()
+        for row in rows:
+            date_totals[row.date] += shares * row.close / rate
 
     return [
         {"date": d, "value": float(date_totals[d])}
