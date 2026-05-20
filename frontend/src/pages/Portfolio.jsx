@@ -50,20 +50,13 @@ function Bar3D({ x, y, width, height, value }) {
   const y0 = Math.min(y, y + height)  // extremo superior en coordenadas de pantalla
   const h  = Math.abs(height)
 
-  if (isPos) {
-    return (
-      <g>
-        <path d={`M${x+width},${y0} L${x+width+d},${y0-d} L${x+width+d},${y0+h-d} L${x+width},${y0+h} Z`} fill={side} />
-        <path d={`M${x},${y0} L${x+d},${y0-d} L${x+width+d},${y0-d} L${x+width},${y0} Z`} fill={top} />
-        <rect x={x} y={y0} width={width} height={h} fill={front} />
-      </g>
-    )
-  }
+  // Misma estructura para positivo y negativo: lado → capitel → frontal encima.
+  // El capitel (top) se dibuja en la línea del cero para ambos casos.
   return (
     <g>
-      <rect x={x} y={y0} width={width} height={h} fill={front} />
       <path d={`M${x+width},${y0} L${x+width+d},${y0-d} L${x+width+d},${y0+h-d} L${x+width},${y0+h} Z`} fill={side} />
-      <path d={`M${x},${y0+h} L${x+d},${y0+h-d} L${x+width+d},${y0+h-d} L${x+width},${y0+h} Z`} fill={shadeHex(front, -20)} />
+      <path d={`M${x},${y0} L${x+d},${y0-d} L${x+width+d},${y0-d} L${x+width},${y0} Z`} fill={top} />
+      <rect x={x} y={y0} width={width} height={h} fill={front} />
     </g>
   )
 }
