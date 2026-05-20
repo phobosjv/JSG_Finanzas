@@ -177,7 +177,7 @@ export default function Portfolio() {
         />
         {realizedTotal !== 0 && (
           <Card
-            label="Beneficio realizado"
+            label="Beneficio ventas"
             value={`${sign(realizedTotal)}${fmt(realizedTotal)} €`}
             clsName={cls(realizedTotal)}
           />
