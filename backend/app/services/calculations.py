@@ -336,9 +336,11 @@ def value_position(
     unrealized_native = market_value_native - result.invested_native
     unrealized_eur = market_value_eur - result.invested_eur
 
+    # Porcentaje en EUR para que sea consistente con unrealized_eur:
+    # un inversor en EUR mide su rentabilidad en EUR, no en la divisa nativa.
     unrealized_pct = (
-        (unrealized_native / result.invested_native * Decimal("100"))
-        if result.invested_native > Decimal("0")
+        (unrealized_eur / result.invested_eur * Decimal("100"))
+        if result.invested_eur > Decimal("0")
         else Decimal("0")
     )
 
