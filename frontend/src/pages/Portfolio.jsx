@@ -40,27 +40,30 @@ function shadeHex(hex, pct) {
 }
 
 function Bar3D({ x, y, width, height, value }) {
-  if (!height || !width || Math.abs(height) < 2) return null
+  if (!width || Math.abs(height || 0) < 2) return null
   const isPos = Number(value) >= 0
   const front = isPos ? '#22c55e' : '#ef4444'
   const top   = isPos ? '#4ade80' : '#fca5a5'
   const side  = isPos ? '#15803d' : '#b91c1c'
   const d     = Math.max(3, Math.min(width * 0.22, 9))
+  // Recharts pasa height negativo para barras bajo el eje; SVG ignora rect con height<0
+  const y0 = Math.min(y, y + height)  // extremo superior en coordenadas de pantalla
+  const h  = Math.abs(height)
 
   if (isPos) {
     return (
       <g>
-        <path d={`M${x+width},${y} L${x+width+d},${y-d} L${x+width+d},${y+height-d} L${x+width},${y+height} Z`} fill={side} />
-        <path d={`M${x},${y} L${x+d},${y-d} L${x+width+d},${y-d} L${x+width},${y} Z`} fill={top} />
-        <rect x={x} y={y} width={width} height={height} fill={front} />
+        <path d={`M${x+width},${y0} L${x+width+d},${y0-d} L${x+width+d},${y0+h-d} L${x+width},${y0+h} Z`} fill={side} />
+        <path d={`M${x},${y0} L${x+d},${y0-d} L${x+width+d},${y0-d} L${x+width},${y0} Z`} fill={top} />
+        <rect x={x} y={y0} width={width} height={h} fill={front} />
       </g>
     )
   }
   return (
     <g>
-      <rect x={x} y={y} width={width} height={height} fill={front} />
-      <path d={`M${x+width},${y} L${x+width+d},${y-d} L${x+width+d},${y+height-d} L${x+width},${y+height} Z`} fill={side} />
-      <path d={`M${x},${y+height} L${x+d},${y+height-d} L${x+width+d},${y+height-d} L${x+width},${y+height} Z`} fill={shadeHex(front, -20)} />
+      <rect x={x} y={y0} width={width} height={h} fill={front} />
+      <path d={`M${x+width},${y0} L${x+width+d},${y0-d} L${x+width+d},${y0+h-d} L${x+width},${y0+h} Z`} fill={side} />
+      <path d={`M${x},${y0+h} L${x+d},${y0+h-d} L${x+width+d},${y0+h-d} L${x+width},${y0+h} Z`} fill={shadeHex(front, -20)} />
     </g>
   )
 }
