@@ -42,15 +42,12 @@ function TxRow({ tx, onDelete, onEdit }) {
 }
 
 function DivRow({ div, onDelete, onEdit }) {
-  const net = Number(div.gross_amount) - Number(div.withholding_tax)
   return (
     <tr>
       <td>{div.date}</td>
       <td className="num">{fmt(div.shares_at_date, 4)}</td>
       <td className="num">{fmt(div.gross_per_share)}</td>
       <td className="num">{fmt(div.gross_amount)}</td>
-      <td className="num">{fmt(div.withholding_tax)}</td>
-      <td className="num">{fmt(net)}</td>
       <td className="num">{div.currency}</td>
       <td style={{ display: 'flex', gap: 4 }}>
         <button className="btn-ghost btn-sm" onClick={() => onEdit(div)}>✎</button>
@@ -170,13 +167,12 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
     shares_at_date: String(editDiv.shares_at_date),
     gross_per_share: String(editDiv.gross_per_share),
     gross_amount: String(editDiv.gross_amount),
-    withholding_tax: String(editDiv.withholding_tax),
     currency: editDiv.currency,
     exchange_rate: String(editDiv.exchange_rate),
   } : {
     date: new Date().toISOString().slice(0, 10),
     shares_at_date: '', gross_per_share: '', gross_amount: '',
-    withholding_tax: '0', currency: 'EUR', exchange_rate: '1',
+    currency: 'EUR', exchange_rate: '1',
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -200,7 +196,7 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
         shares_at_date: Number(form.shares_at_date),
         gross_per_share: Number(form.gross_per_share),
         gross_amount: Number(form.gross_amount),
-        withholding_tax: Number(form.withholding_tax),
+        withholding_tax: 0,
         exchange_rate: Number(form.exchange_rate),
       }
       if (editDiv) {
@@ -237,10 +233,6 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
             <div className="form-group" style={{ flex: 1 }}>
               <label>Total bruto</label>
               <input type="number" step="any" min="0" {...field('gross_amount')} required />
-            </div>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label>Retención</label>
-              <input type="number" step="any" min="0" {...field('withholding_tax')} />
             </div>
           </div>
           <div className="card-row">
@@ -474,8 +466,8 @@ export default function SecurityDetail() {
 
   const buys  = transactions.filter(t => t.type === 'buy')
   const sells = transactions.filter(t => t.type === 'sell')
-  const totalDivsNet = dividends.reduce(
-    (s, d) => s + Number(d.gross_amount) - Number(d.withholding_tax), 0
+  const totalDivsGross = dividends.reduce(
+    (s, d) => s + Number(d.gross_amount), 0
   )
   // Comisiones en EUR: fee / exchange_rate (igual que el resto de conversiones)
   const totalFeesEur = transactions.reduce(
@@ -570,7 +562,7 @@ export default function SecurityDetail() {
               </div>
               <div className="card small">
                 <div className="value">{fmt(closedSummary.dividends_eur)} €</div>
-                <div className="label">Dividendos (neto)</div>
+                <div className="label">Dividendos (bruto)</div>
               </div>
               <div className="card small">
                 <div className="value neg">{totalFeesEur > 0 ? `-${fmt(totalFeesEur)}` : fmt(totalFeesEur)} €</div>
@@ -580,7 +572,7 @@ export default function SecurityDetail() {
                 <div className={`value ${cls(closedSummary.total_profit_eur)}`}>
                   {sign(closedSummary.total_profit_eur)}{fmt(closedSummary.total_profit_eur)} €
                 </div>
-                <div className="label">Beneficio total</div>
+                <div className="label">B/P Total</div>
               </div>
             </>
           )}
@@ -601,7 +593,7 @@ export default function SecurityDetail() {
               </div>
               <div className="card small">
                 <div className="value">{fmt(posResult.dividends_eur)} €</div>
-                <div className="label">Dividendos (neto)</div>
+                <div className="label">Dividendos (bruto)</div>
               </div>
               <div className="card small">
                 <div className="value neg">{totalFeesEur > 0 ? `-${fmt(totalFeesEur)}` : fmt(totalFeesEur)} €</div>
@@ -611,7 +603,7 @@ export default function SecurityDetail() {
                 <div className={`value ${cls(posResult.total_profit_eur)}`}>
                   {sign(posResult.total_profit_eur)}{fmt(posResult.total_profit_eur)} €
                 </div>
-                <div className="label">Beneficio total</div>
+                <div className="label">B/P Total</div>
               </div>
             </>
           )}
@@ -766,9 +758,9 @@ export default function SecurityDetail() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ marginBottom: 0 }}>
             Dividendos
-            {totalDivsNet > 0 && (
+            {totalDivsGross > 0 && (
               <span style={{ marginLeft: 10, fontSize: '0.85rem', color: 'var(--green)', fontFamily: 'var(--mono)' }}>
-                +{fmt(totalDivsNet)} € neto
+                +{fmt(totalDivsGross)} €
               </span>
             )}
           </h2>
@@ -787,8 +779,6 @@ export default function SecurityDetail() {
                   <th className="num">Acciones</th>
                   <th className="num">€/acc.</th>
                   <th className="num">Bruto</th>
-                  <th className="num">Retención</th>
-                  <th className="num">Neto</th>
                   <th className="num">Divisa</th>
                   <th></th>
                 </tr>
