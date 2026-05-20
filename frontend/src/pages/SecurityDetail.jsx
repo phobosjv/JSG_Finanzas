@@ -483,8 +483,12 @@ export default function SecurityDetail() {
   const grossUnrealizedEur = posResult
     ? Number(posResult.unrealized_pnl_eur) + totalFeesEur
     : 0
+  // Beneficio realizado en posición aún abierta (ventas parciales pasadas)
+  const openRealizedEur = posResult ? Number(posResult.realized_pnl_eur) : 0
+  // B/P Total: latente + realizadas + dividendos - comisiones
+  // = (unrealized + fees) + realized + dividends - fees = unrealized + realized + dividends
   const openBpTotalEur = posResult
-    ? grossUnrealizedEur + Number(posResult.dividends_eur) - totalFeesEur
+    ? grossUnrealizedEur + openRealizedEur + Number(posResult.dividends_eur) - totalFeesEur
     : 0
 
   return (
@@ -604,6 +608,14 @@ export default function SecurityDetail() {
                 </div>
                 <div className="label">B/P latente</div>
               </div>
+              {openRealizedEur !== 0 && (
+                <div className="card small">
+                  <div className={`value ${cls(openRealizedEur)}`}>
+                    {sign(openRealizedEur)}{fmt(openRealizedEur)} €
+                  </div>
+                  <div className="label">B/P Venta</div>
+                </div>
+              )}
               <div className="card small">
                 <div className="value">{fmt(posResult.dividends_eur)} €</div>
                 <div className="label">Dividendos (bruto)</div>
