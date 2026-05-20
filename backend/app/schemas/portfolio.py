@@ -129,6 +129,7 @@ class PositionSummary(BaseModel):
     dividends_eur: Decimal
     realized_pnl_eur: Decimal    # beneficio realizado de ventas parciales
     total_profit_eur: Decimal    # unrealized_pnl + realized_pnl + dividends
+    fees_eur: Decimal            # suma de comisiones de todas las transacciones en EUR
     # Objetivo de venta e indicadores
     target_sell_price: Decimal | None
     max_1y: Decimal | None
@@ -146,3 +147,4 @@ class ClosedPositionSummary(BaseModel):
     realized_pnl_eur: Decimal
     dividends_eur: Decimal
     total_profit_eur: Decimal    # realized_pnl + dividends
+    fees_eur: Decimal

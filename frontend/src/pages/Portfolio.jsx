@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   PieChart, Pie, Cell, Tooltip as ReTooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
+  AreaChart, Area,
 } from 'recharts'
 import { api } from '../api/client'
 
@@ -117,12 +118,17 @@ function TargetSellCell({ pos, onUpdate }) {
 export default function Portfolio() {
   const [positions, setPositions]   = useState(null)
   const [closed, setClosed]         = useState([])
+  const [history, setHistory]       = useState([])
   const [error, setError]           = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
-    Promise.all([api.get('/portfolio'), api.get('/portfolio/closed')])
-      .then(([open, cls]) => { setPositions(open); setClosed(cls) })
+    Promise.all([
+      api.get('/portfolio'),
+      api.get('/portfolio/closed'),
+      api.get('/portfolio/history'),
+    ])
+      .then(([open, cls, hist]) => { setPositions(open); setClosed(cls); setHistory(hist) })
       .catch(err => setError(err.message))
   }, [])
 
@@ -135,53 +141,55 @@ export default function Portfolio() {
   if (error)     return <div className="state-error">{error}</div>
   if (!positions) return <div className="state-loading"><div className="spinner" /></div>
 
-  // Totales de posiciones abiertas
-  const totalValue     = positions.reduce((s, p) => s + Number(p.market_value_eur), 0)
-  const totalCost      = positions.reduce((s, p) => s + Number(p.cost_eur), 0)
-  const totalPnL       = positions.reduce((s, p) => s + Number(p.unrealized_pnl_eur), 0)
-  const totalDivs      = positions.reduce((s, p) => s + Number(p.dividends_eur), 0)
-                       + closed.reduce((s, p) => s + Number(p.dividends_eur), 0)
-  const totalDayEur    = positions.reduce((s, p) => s + (p.daily_change_eur != null ? Number(p.daily_change_eur) : 0), 0)
-  const realizedTotal  = closed.reduce((s, p) => s + Number(p.realized_pnl_eur), 0)
-
-  // Beneficio total histórico: latente + realizado (parciales y cerradas) + dividendos
-  const totalHistorical = positions.reduce(
-    (s, p) => s + Number(p.unrealized_pnl_eur) + Number(p.realized_pnl_eur) + Number(p.dividends_eur), 0
-  ) + closed.reduce((s, p) => s + Number(p.total_profit_eur), 0)
+  // Totales
+  const totalValue    = positions.reduce((s, p) => s + Number(p.market_value_eur), 0)
+  const totalCost     = positions.reduce((s, p) => s + Number(p.cost_eur), 0)
+  const totalPnL      = positions.reduce((s, p) => s + Number(p.unrealized_pnl_eur), 0)
+  const totalDivs     = positions.reduce((s, p) => s + Number(p.dividends_eur), 0)
+                      + closed.reduce((s, p) => s + Number(p.dividends_eur), 0)
+  const totalDayEur   = positions.reduce((s, p) => s + (p.daily_change_eur != null ? Number(p.daily_change_eur) : 0), 0)
+  const realizedNet   = positions.reduce((s, p) => s + Number(p.realized_pnl_eur), 0)
+                      + closed.reduce((s, p) => s + Number(p.realized_pnl_eur), 0)
+  const totalFees     = positions.reduce((s, p) => s + Number(p.fees_eur), 0)
+                      + closed.reduce((s, p) => s + Number(p.fees_eur), 0)
+  // Beneficio ventas sin comisiones: realized neto + comisiones (precios puros)
+  const grossRealized = realizedNet + totalFees
+  // B/P Total = latente + ventas_bruto + dividendos - comisiones = latente + realized_neto + divs
+  const bpTotal       = totalPnL + realizedNet + totalDivs
   return (
     <div>
       <h1>Mi cartera</h1>
 
       {/* Tarjetas resumen */}
       <div className="card-row">
-        <Card
-          label="Beneficio total histórico"
-          value={`${sign(totalHistorical)}${fmt(totalHistorical)} €`}
-          clsName={cls(totalHistorical)}
-        />
-        <Card label="Importe invertido"  value={`${fmt(totalCost)} €`} />
-        <Card label="Valor actual"       value={`${fmt(totalValue)} €`} />
+        <Card label="Importe invertido" value={`${fmt(totalCost)} €`} />
+        <Card label="Valor actual"      value={`${fmt(totalValue)} €`} />
         <Card
           label="B/P latente"
           value={`${sign(totalPnL)}${fmt(totalPnL)} €`}
           clsName={cls(totalPnL)}
         />
         <Card
-          label="Dividendos cobrados"
-          value={`${fmt(totalDivs)} €`}
-        />
-        <Card
           label="Var. hoy"
           value={`${sign(totalDayEur)}${fmt(totalDayEur)} €`}
           clsName={cls(totalDayEur)}
         />
-        {realizedTotal !== 0 && (
-          <Card
-            label="Beneficio ventas"
-            value={`${sign(realizedTotal)}${fmt(realizedTotal)} €`}
-            clsName={cls(realizedTotal)}
-          />
-        )}
+        <Card
+          label="Beneficio ventas"
+          value={`${sign(grossRealized)}${fmt(grossRealized)} €`}
+          clsName={cls(grossRealized)}
+        />
+        <Card label="Dividendos cobrados" value={`${fmt(totalDivs)} €`} />
+        <Card
+          label="Comisiones pagadas"
+          value={`-${fmt(totalFees)} €`}
+          clsName="neg"
+        />
+        <Card
+          label="Beneficio total"
+          value={`${sign(bpTotal)}${fmt(bpTotal)} €`}
+          clsName={cls(bpTotal)}
+        />
       </div>
 
       {/* Gráficos — solo si hay posiciones abiertas */}
@@ -278,6 +286,49 @@ export default function Portfolio() {
             </ResponsiveContainer>
           </div>
 
+        </div>
+      )}
+
+      {/* Gráfico de líneas: evolución del valor de cartera */}
+      {history.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h2>Evolución del valor de cartera</h2>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={history} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+              <defs>
+                <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                tickFormatter={d => d.slice(5)}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                tickFormatter={v => `${fmt(v / 1000, 0)}k`}
+                width={44}
+              />
+              <ReTooltip
+                contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.82rem' }}
+                formatter={v => [`${fmt(v)} €`, 'Valor cartera']}
+                labelFormatter={d => d}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#6366f1"
+                strokeWidth={2}
+                fill="url(#portfolioGrad)"
+                dot={false}
+                activeDot={{ r: 4, fill: '#6366f1' }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       )}
 

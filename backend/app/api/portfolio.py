@@ -24,7 +24,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
-from app.models import DividendRow, EcbRate, Position, PriceSnapshot, Security, TransactionRow, User
+from collections import defaultdict
+
+from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, Security, TransactionRow, User
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.schemas.portfolio import (
     ClosedPositionSummary,
@@ -90,6 +92,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
     dividends_eur    = result.dividends_net_eur
     realized_pnl_eur = result.realized_gain_eur
     total_profit_eur = unrealized_pnl_eur + realized_pnl_eur + dividends_eur
+    fees_eur         = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
 
     return PositionSummary(
         position_id=pos.id,
@@ -109,6 +112,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         dividends_eur=dividends_eur,
         realized_pnl_eur=realized_pnl_eur,
         total_profit_eur=total_profit_eur,
+        fees_eur=fees_eur,
         target_sell_price=pos.target_sell_price,
         max_1y=max_1y,
         notes=pos.notes,
@@ -172,6 +176,58 @@ def get_portfolio(
 
 
 # ---------------------------------------------------------------------------
+#  Historial de valor de cartera (para gráfico de líneas en Portfolio)
+# ---------------------------------------------------------------------------
+
+@router.get("/history")
+def get_portfolio_history(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Valor histórico aproximado de la cartera (posiciones abiertas).
+    Usa las acciones actuales para cada fecha histórica — no recalcula la
+    composición en cada momento, por lo que es una aproximación válida para
+    mostrar la tendencia del valor.
+    """
+    positions = db.scalars(
+        select(Position).where(Position.user_id == user.id)
+    ).all()
+    repo = PortfolioRepository(db)
+
+    open_pos: list[tuple[Security, Decimal]] = []
+    for pos in positions:
+        txs  = repo.transactions_for_position(pos.id)
+        divs = repo.dividends_for_position(pos.id)
+        result = compute_position(txs, divs)
+        if not result.is_closed:
+            open_pos.append((pos.security, result.current_shares))
+
+    if not open_pos:
+        return []
+
+    rate_row = db.scalar(select(EcbRate).order_by(EcbRate.date.desc()))
+    current_rate = rate_row.rate if rate_row else Decimal("1")
+
+    date_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+
+    for sec, shares in open_pos:
+        rate = current_rate if sec.currency == "USD" else Decimal("1")
+        rows = db.scalars(
+            select(PriceHistory)
+            .where(PriceHistory.security_id == sec.id)
+            .order_by(PriceHistory.date)
+        ).all()
+        for row in rows:
+            date_totals[row.date] += shares * row.close / rate
+
+    return [
+        {"date": d, "value": float(date_totals[d])}
+        for d in sorted(date_totals)
+    ]
+
+
+# ---------------------------------------------------------------------------
 #  Resumen de una posición por security_id (para SecurityDetail)
 # ---------------------------------------------------------------------------
 
@@ -228,6 +284,8 @@ def get_closed_positions(
         cost_eur     = sum((m.cost_eur     for m in computed.sale_matches), Decimal("0"))
         proceeds_eur = sum((m.proceeds_eur for m in computed.sale_matches), Decimal("0"))
 
+        fees_eur = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
+
         result.append(ClosedPositionSummary(
             position_id=pos.id,
             security_id=sec.id,
@@ -239,6 +297,7 @@ def get_closed_positions(
             realized_pnl_eur=computed.realized_gain_eur,
             dividends_eur=computed.dividends_net_eur,
             total_profit_eur=computed.realized_gain_eur + computed.dividends_net_eur,
+            fees_eur=fees_eur,
         ))
 
     return result
