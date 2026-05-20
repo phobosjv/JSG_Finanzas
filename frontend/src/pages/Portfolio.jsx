@@ -387,7 +387,14 @@ export default function Portfolio() {
                     >
                       <td>
                         <div className="ticker">{p.yahoo_ticker}</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{p.name}</div>
+                        <div style={{ fontSize: '0.78rem', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{p.name}</span>
+                          {p.current_price != null && (
+                            <span style={{ color: 'var(--text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                              {fmt(p.current_price)}{p.currency === 'USD' ? ' $' : ' €'}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="num">{fmt(p.shares, 4)}</td>
                       <td className="num">{fmt(p.avg_cost_eur)}</td>
