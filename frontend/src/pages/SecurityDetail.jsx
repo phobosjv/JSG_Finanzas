@@ -478,6 +478,14 @@ export default function SecurityDetail() {
   const grossSaleGainEur = isClosed && closedSummary
     ? Number(closedSummary.realized_pnl_eur) + totalFeesEur
     : 0
+  // B/P Latente sin comisiones: se añaden las comisiones de compra ya incluidas
+  // en el coste de los lotes, para mostrar solo el movimiento de precio.
+  const grossUnrealizedEur = posResult
+    ? Number(posResult.unrealized_pnl_eur) + totalFeesEur
+    : 0
+  const openBpTotalEur = posResult
+    ? grossUnrealizedEur + Number(posResult.dividends_eur) - totalFeesEur
+    : 0
 
   return (
     <div>
@@ -588,8 +596,8 @@ export default function SecurityDetail() {
                 <div className="label">Invertido</div>
               </div>
               <div className="card small">
-                <div className={`value ${cls(posResult.unrealized_pnl_eur)}`}>
-                  {sign(posResult.unrealized_pnl_eur)}{fmt(posResult.unrealized_pnl_eur)} €
+                <div className={`value ${cls(grossUnrealizedEur)}`}>
+                  {sign(grossUnrealizedEur)}{fmt(grossUnrealizedEur)} €
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
                   {sign(posResult.unrealized_pnl_pct)}{fmt(posResult.unrealized_pnl_pct)}%
@@ -605,8 +613,8 @@ export default function SecurityDetail() {
                 <div className="label">Comisiones pagadas</div>
               </div>
               <div className="card small">
-                <div className={`value ${cls(posResult.total_profit_eur)}`}>
-                  {sign(posResult.total_profit_eur)}{fmt(posResult.total_profit_eur)} €
+                <div className={`value ${cls(openBpTotalEur)}`}>
+                  {sign(openBpTotalEur)}{fmt(openBpTotalEur)} €
                 </div>
                 <div className="label">B/P Total</div>
               </div>
