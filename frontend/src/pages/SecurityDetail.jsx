@@ -473,6 +473,11 @@ export default function SecurityDetail() {
   const totalFeesEur = transactions.reduce(
     (s, tx) => s + Number(tx.fee) / Number(tx.exchange_rate), 0
   )
+  // Ganancia en venta SIN comisiones: se añaden de nuevo las comisiones
+  // ya descontadas en el cálculo FIFO, para mostrar el movimiento de precio puro.
+  const grossSaleGainEur = isClosed && closedSummary
+    ? Number(closedSummary.realized_pnl_eur) + totalFeesEur
+    : 0
 
   return (
     <div>
@@ -555,8 +560,8 @@ export default function SecurityDetail() {
           {isClosed && closedSummary && (
             <>
               <div className="card small">
-                <div className={`value ${cls(closedSummary.realized_pnl_eur)}`}>
-                  {sign(closedSummary.realized_pnl_eur)}{fmt(closedSummary.realized_pnl_eur)} €
+                <div className={`value ${cls(grossSaleGainEur)}`}>
+                  {sign(grossSaleGainEur)}{fmt(grossSaleGainEur)} €
                 </div>
                 <div className="label">Ganancia en venta</div>
               </div>
