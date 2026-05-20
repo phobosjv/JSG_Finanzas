@@ -25,9 +25,44 @@ function Card({ label, value, sub, clsName }) {
 }
 
 const DONUT_COLORS = [
-  '#4f8ef7', '#a78bfa', '#34d399', '#f59e0b', '#f87171',
-  '#38bdf8', '#fb923c', '#e879f9', '#a3e635', '#94a3b8',
+  '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981',
+  '#3b82f6', '#f97316', '#14b8a6', '#eab308', '#06b6d4',
 ]
+
+function shadeHex(hex, pct) {
+  const n = parseInt(hex.slice(1), 16)
+  const a = Math.round(2.55 * pct)
+  const r = Math.max(0, Math.min(255, (n >> 16) + a))
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 0xff) + a))
+  const b = Math.max(0, Math.min(255, (n & 0xff) + a))
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)
+}
+
+function Bar3D({ x, y, width, height, value }) {
+  if (!height || !width || Math.abs(height) < 2) return null
+  const isPos = Number(value) >= 0
+  const front = isPos ? '#22c55e' : '#ef4444'
+  const top   = isPos ? '#4ade80' : '#fca5a5'
+  const side  = isPos ? '#15803d' : '#b91c1c'
+  const d     = Math.max(3, Math.min(width * 0.22, 9))
+
+  if (isPos) {
+    return (
+      <g>
+        <path d={`M${x+width},${y} L${x+width+d},${y-d} L${x+width+d},${y+height-d} L${x+width},${y+height} Z`} fill={side} />
+        <path d={`M${x},${y} L${x+d},${y-d} L${x+width+d},${y-d} L${x+width},${y} Z`} fill={top} />
+        <rect x={x} y={y} width={width} height={height} fill={front} />
+      </g>
+    )
+  }
+  return (
+    <g>
+      <rect x={x} y={y} width={width} height={height} fill={front} />
+      <path d={`M${x+width},${y} L${x+width+d},${y-d} L${x+width+d},${y+height-d} L${x+width},${y+height} Z`} fill={side} />
+      <path d={`M${x},${y+height} L${x+d},${y+height-d} L${x+width+d},${y+height-d} L${x+width},${y+height} Z`} fill={shadeHex(front, -20)} />
+    </g>
+  )
+}
 
 /** Celda de precio objetivo de venta editable en línea. */
 function TargetSellCell({ pos, onUpdate }) {
@@ -153,80 +188,92 @@ export default function Portfolio() {
       {positions.length > 0 && (
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
 
-          {/* Donut: distribución de cartera */}
+          {/* Donut 3D: distribución de cartera */}
           <div className="card" style={{ flex: '1 1 340px', minWidth: 0 }}>
             <h2>Distribución de cartera</h2>
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie
-                  data={positions.map(p => ({
-                    name: p.yahoo_ticker,
-                    value: Number(p.market_value_eur),
-                  }))}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="52%"
-                  outerRadius="78%"
-                  dataKey="value"
-                  paddingAngle={2}
-                >
-                  {positions.map((_, i) => (
-                    <Cell
-                      key={i}
-                      fill={DONUT_COLORS[i % DONUT_COLORS.length]}
+            <div style={{ position: 'relative' }}>
+              {/* Sombra elíptica debajo del donut */}
+              <div style={{
+                position: 'absolute', bottom: 4, left: '50%',
+                transform: 'translateX(-50%)',
+                width: '52%', height: 18,
+                background: 'rgba(0,0,0,0.45)',
+                borderRadius: '50%',
+                filter: 'blur(10px)',
+                pointerEvents: 'none',
+              }} />
+              <div style={{
+                transform: 'perspective(520px) rotateX(22deg)',
+                transformOrigin: 'center 68%',
+                filter: 'drop-shadow(0 14px 18px rgba(0,0,0,0.55))',
+              }}>
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie
+                      data={positions.map(p => ({
+                        name: p.yahoo_ticker,
+                        value: Number(p.market_value_eur),
+                      }))}
+                      cx="50%"
+                      cy="52%"
+                      innerRadius="46%"
+                      outerRadius="72%"
+                      dataKey="value"
+                      paddingAngle={3}
+                      strokeWidth={0}
+                    >
+                      {positions.map((_, i) => {
+                        const base = DONUT_COLORS[i % DONUT_COLORS.length]
+                        return (
+                          <Cell
+                            key={i}
+                            fill={base}
+                            stroke={shadeHex(base, -30)}
+                            strokeWidth={1.5}
+                          />
+                        )
+                      })}
+                    </Pie>
+                    <ReTooltip
+                      contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.82rem' }}
+                      formatter={(value, name) => [
+                        `${fmt(value)} € (${totalValue > 0 ? fmt(value / totalValue * 100) : '0'}%)`,
+                        name,
+                      ]}
                     />
-                  ))}
-                </Pie>
-                <ReTooltip
-                  contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.82rem' }}
-                  formatter={(value, name) => [
-                    `${fmt(value)} € (${totalValue > 0 ? fmt(value / totalValue * 100) : '0'}%)`,
-                    name,
-                  ]}
-                />
-                <Legend
-                  iconType="circle"
-                  iconSize={8}
-                  wrapperStyle={{ fontSize: '0.78rem' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '0.78rem' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
 
-          {/* Barras: % B/P por acción */}
+          {/* Barras 3D: % B/P por acción */}
           <div className="card" style={{ flex: '2 1 420px', minWidth: 0 }}>
             <h2>Beneficio / Pérdida por acción (%)</h2>
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart
                 data={[...positions]
                   .sort((a, b) => Number(b.unrealized_pnl_pct) - Number(a.unrealized_pnl_pct))
                   .map(p => ({
                     name: p.yahoo_ticker,
                     pct: Number(p.unrealized_pnl_pct),
+                    value: Number(p.unrealized_pnl_pct),
                   }))}
-                margin={{ top: 8, right: 8, left: 8, bottom: 4 }}
+                margin={{ top: 16, right: 20, left: 8, bottom: 4 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
                 <YAxis
                   tickFormatter={v => `${v}%`}
                   tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
-                  width={48}
+                  width={50}
                 />
                 <ReTooltip
                   contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.82rem' }}
                   formatter={v => [`${sign(v)}${fmt(v)}%`, 'B/P']}
                 />
-                <Bar dataKey="pct" radius={[3, 3, 0, 0]}>
-                  {[...positions]
-                    .sort((a, b) => Number(b.unrealized_pnl_pct) - Number(a.unrealized_pnl_pct))
-                    .map((p, i) => (
-                      <Cell
-                        key={i}
-                        fill={Number(p.unrealized_pnl_pct) >= 0 ? 'var(--green)' : 'var(--red)'}
-                      />
-                    ))}
-                </Bar>
+                <Bar dataKey="pct" shape={<Bar3D />} isAnimationActive={true} />
               </BarChart>
             </ResponsiveContainer>
           </div>
