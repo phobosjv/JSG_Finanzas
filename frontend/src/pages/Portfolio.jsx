@@ -219,7 +219,7 @@ export default function Portfolio() {
                   <PieChart>
                     <Pie
                       data={positions.map(p => ({
-                        name: p.yahoo_ticker,
+                        name: p.name,
                         value: Number(p.market_value_eur),
                       }))}
                       cx="50%"
@@ -264,7 +264,7 @@ export default function Portfolio() {
                 data={[...positions]
                   .sort((a, b) => Number(b.unrealized_pnl_pct) - Number(a.unrealized_pnl_pct))
                   .map(p => ({
-                    name: p.yahoo_ticker,
+                    name: p.name,
                     pct: Number(p.unrealized_pnl_pct),
                     value: Number(p.unrealized_pnl_pct),
                   }))}
