@@ -69,6 +69,8 @@ class YahooProvider(PriceProvider):
         t = yf.Ticker(ticker)
         # 5 dias garantiza al menos 2 sesiones aunque caiga un festivo.
         df = t.history(period="5d", auto_adjust=True)
+        # Descartar filas con Close NaN (pre-mercado, festivos sin datos)
+        df = df.dropna(subset=["Close"])
         if len(df) < 2:
             raise ValueError(
                 f"No hay suficientes datos de cotizacion para '{ticker}'"

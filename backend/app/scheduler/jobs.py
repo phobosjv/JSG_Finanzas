@@ -133,6 +133,9 @@ def update_snapshots(db: Session) -> None:
 
 def _update_snapshot_for_security(db: Session, sec: Security) -> None:
     quote = _yahoo.fetch_live_quote(sec.yahoo_ticker)
+    # Si no hay precio (mercado cerrado, festivo), conservar el snapshot anterior
+    if quote.last_price is None:
+        return
 
     # Rangos calculados desde el historico almacenado en BD
     rows = db.execute(
