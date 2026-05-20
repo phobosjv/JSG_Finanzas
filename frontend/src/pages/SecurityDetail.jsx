@@ -563,7 +563,7 @@ export default function SecurityDetail() {
                 <div className={`value ${cls(grossSaleGainEur)}`}>
                   {sign(grossSaleGainEur)}{fmt(grossSaleGainEur)} €
                 </div>
-                <div className="label">Ganancia en venta</div>
+                <div className="label">B/P Venta</div>
               </div>
               <div className="card small">
                 <div className="value">{fmt(closedSummary.dividends_eur)} €</div>
