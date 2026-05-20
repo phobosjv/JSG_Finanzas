@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
@@ -122,6 +122,12 @@ export default function AdminPanel() {
   const [changingPw, setChangingPw] = useState(null)
 
   const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
+
+  // Backup admin
+  const adminFileRef                        = useRef(null)
+  const [adminImporting, setAdminImporting] = useState(false)
+  const [adminBackupMsg, setAdminBackupMsg] = useState(null)
+  const [adminBackupErr, setAdminBackupErr] = useState(null)
   const [pwBusy, setPwBusy] = useState(false)
   const [pwError, setPwError] = useState(null)
   const [pwOk, setPwOk] = useState(false)
@@ -138,6 +144,46 @@ export default function AdminPanel() {
       setPwOk(true)
     } catch (err) { setPwError(err.message) }
     finally { setPwBusy(false) }
+  }
+
+  async function exportAdminBackup() {
+    setAdminBackupErr(null)
+    const res = await fetch('/api/admin/backup/export', { credentials: 'include' })
+    if (!res.ok) { setAdminBackupErr('Error al exportar'); return }
+    const blob = await res.blob()
+    const cd = res.headers.get('Content-Disposition') ?? ''
+    const match = cd.match(/filename="([^"]+)"/)
+    const filename = match ? match[1] : 'finanzas_admin_backup.json'
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function importAdminBackup(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAdminImporting(true); setAdminBackupErr(null); setAdminBackupMsg(null)
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      const r = await api.post('/admin/backup/import', data)
+      setAdminBackupMsg(
+        `Importado: ${r.users_created} usuarios nuevos, ` +
+        `${r.securities_created} valores nuevos (${r.securities_updated} actualizados), ` +
+        `${r.positions_found} posiciones, ` +
+        `${r.transactions_added} transacciones, ` +
+        `${r.dividends_added} dividendos, ` +
+        `${r.favorites_added} favoritos.` +
+        (r.errors?.length ? ` Avisos: ${r.errors.join('; ')}` : '')
+      )
+      loadUsers()
+    } catch (err) {
+      setAdminBackupErr(err.message ?? 'Error al importar')
+    } finally {
+      setAdminImporting(false)
+      e.target.value = ''
+    }
   }
 
   async function loadUsers() {
@@ -306,6 +352,36 @@ export default function AdminPanel() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Backup completo del sistema */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>Backup completo del sistema</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
+          Exporta todos los usuarios, el catálogo de valores y todas las carteras a un JSON.
+          La importación es idempotente: crea lo que no existe y omite lo que ya está.
+        </p>
+        {adminBackupErr && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{adminBackupErr}</div>}
+        {adminBackupMsg && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12, fontSize: '0.85rem' }}>{adminBackupMsg}</div>}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button className="btn-primary btn-sm" onClick={exportAdminBackup}>
+            ↓ Exportar backup completo
+          </button>
+          <button
+            className="btn-ghost btn-sm"
+            disabled={adminImporting}
+            onClick={() => adminFileRef.current?.click()}
+          >
+            {adminImporting ? 'Importando…' : '↑ Importar backup'}
+          </button>
+          <input
+            ref={adminFileRef}
+            type="file"
+            accept=".json,application/json"
+            style={{ display: 'none' }}
+            onChange={importAdminBackup}
+          />
+        </div>
       </div>
 
       {showCreate && (
