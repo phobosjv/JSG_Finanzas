@@ -353,10 +353,27 @@ def update_transaction(
     if tx is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
 
-    # Validar que la posición sigue siendo coherente con esta transacción editada
+    # Validar que la posición sigue siendo coherente con esta transacción editada.
+    # Se consultan TransactionRow (tienen .id) en lugar de usar el repositorio,
+    # que devuelve Transaction (dataclass puro, sin .id).
     if body.type == "sell":
-        repo = PortfolioRepository(db)
-        other_txs = [t for t in repo.transactions_for_position(position_id) if t.id != tx_id]
+        other_rows = db.scalars(
+            select(TransactionRow).where(
+                TransactionRow.position_id == position_id,
+                TransactionRow.id != tx_id,
+            )
+        ).all()
+        other_txs = [
+            Transaction(
+                type=r.type,
+                date=date_type.fromisoformat(r.date),
+                shares=r.shares,
+                price=r.price,
+                fee=r.fee,
+                exchange_rate=r.exchange_rate,
+            )
+            for r in other_rows
+        ]
         new_tx = Transaction(
             type="sell",
             date=date_type.fromisoformat(body.date),
