@@ -1,0 +1,357 @@
+/* =========================================================
+   Variables de tema — paleta oscura estilo finanzas
+   ========================================================= */
+:root {
+  --bg:          #0f0f1a;
+  --bg-card:     #1a1a2e;
+  --bg-input:    #16213e;
+  --border:      #2a2a4a;
+  --text:        #e2e2f0;
+  --text-muted:  #7a7a9a;
+  --accent:      #4f8ef7;
+  --accent-dim:  #2a4a8a;
+  --green:       #2ecc71;
+  --red:         #e74c3c;
+  --yellow:      #f39c12;
+  --radius:      8px;
+  --nav-h:       56px;        /* altura barra nav móvil */
+  --side-w:      200px;       /* ancho sidebar escritorio */
+  --font:        system-ui, -apple-system, sans-serif;
+  --mono:        'Courier New', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   Layout principal
+   ========================================================= */
+.layout {
+  display: flex;
+  height: 100%;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: calc(var(--nav-h) + 16px); /* espacio para nav móvil */
+}
+
+@media (min-width: 768px) {
+  .main-content {
+    padding-bottom: 16px;
+    padding-left: calc(var(--side-w) + 16px);
+  }
+}
+
+/* =========================================================
+   Tipografía
+   ========================================================= */
+h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 12px; }
+h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
+h3 { font-size: 0.95rem; font-weight: 600; }
+
+/* =========================================================
+   Cards
+   ========================================================= */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.card.small {
+  flex: 1;
+  min-width: 140px;
+  text-align: center;
+}
+
+.card.small .value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--mono);
+}
+
+.card.small .label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+/* =========================================================
+   Tabla
+   ========================================================= */
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+tr:last-child td { border-bottom: none; }
+
+tr:hover td { background: var(--bg-input); }
+
+.num { text-align: right; font-family: var(--mono); }
+
+/* =========================================================
+   Colores positivo / negativo
+   ========================================================= */
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+.neu { color: var(--text-muted); }
+
+/* =========================================================
+   Botones
+   ========================================================= */
+button, .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  font-family: var(--font);
+  transition: opacity 0.15s;
+}
+
+button:hover { opacity: 0.85; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-primary   { background: var(--accent); color: #fff; }
+.btn-danger    { background: var(--red); color: #fff; }
+.btn-ghost     { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-sm        { padding: 4px 10px; font-size: 0.8rem; }
+
+/* =========================================================
+   Formularios
+   ========================================================= */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+
+input, select {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  font-family: var(--font);
+  outline: none;
+}
+
+input:focus, select:focus { border-color: var(--accent); }
+
+/* =========================================================
+   Badge / chip
+   ========================================================= */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badge-market   { background: var(--accent-dim); color: var(--accent); }
+.badge-buy      { background: #1a3a2a; color: var(--green); }
+.badge-sell     { background: #3a1a1a; color: var(--red); }
+
+/* =========================================================
+   Estado vacío / carga / error
+   ========================================================= */
+.state-empty, .state-loading, .state-error {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-muted);
+}
+.state-error { color: var(--red); }
+
+/* =========================================================
+   Spinner
+   ========================================================= */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 24px; height: 24px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto;
+}
+
+/* =========================================================
+   Modal
+   ========================================================= */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.modal h2 { margin-bottom: 16px; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* =========================================================
+   Ticker chip en lista
+   ========================================================= */
+.ticker {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* =========================================================
+   Gráfico
+   ========================================================= */
+.chart-wrap {
+  width: 100%;
+  height: 220px;
+  margin: 12px 0;
+}
+
+/* =========================================================
+   Pestañas de mercado
+   ========================================================= */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--text-muted);
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover { color: var(--text); opacity: 1; }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* =========================================================
+   Cabecera de índice de mercado
+   ========================================================= */
+.index-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.index-header .idx-name  { font-weight: 700; font-size: 1rem; }
+.index-header .idx-ticker { color: var(--text-muted); font-size: 0.75rem; font-family: var(--mono); }
+.index-header .idx-price { font-family: var(--mono); font-size: 1.1rem; font-weight: 700; }
+.index-header .idx-change { font-family: var(--mono); font-size: 0.9rem; font-weight: 600; }
+.index-header .idx-chart { margin-left: auto; }
+
+/* =========================================================
+   Badge mínimo histórico (naranja, sin parpadeo)
+   ========================================================= */
+.badge-min {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(243,156,18,0.15);
+  color: var(--yellow);
+  white-space: nowrap;
+}
+
+/* =========================================================
+   Alerta "¡Comprar!" parpadeante
+   ========================================================= */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.alert-buy {
+  display: inline-block;
+  color: var(--green);
+  font-weight: 700;
+  font-size: 0.75rem;
+  animation: blink 1s step-start infinite;
+}
+
+/* Celda precio objetivo — input inline pequeño */
+.target-input {
+  width: 80px;
+  padding: 3px 6px;
+  font-size: 0.8rem;
+  text-align: right;
+}

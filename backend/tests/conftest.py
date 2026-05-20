@@ -1,0 +1,104 @@
+"""
+conftest.py
+===========
+Infraestructura compartida de todos los tests.
+
+Fixtures de BD (para tests de repositorio y servicio)
+------------------------------------------------------
+- engine : SQLite en memoria con foreign_keys=ON y esquema creado.
+- db     : Session limpia por test.
+
+Fixtures de API (para tests de integración)
+--------------------------------------------
+- client      : TestClient sin sesión iniciada.
+- auth_client : TestClient con sesión de un usuario de prueba ya activa.
+- test_user   : el User creado en la BD de prueba.
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
+
+from app.models import Base, User
+from app.auth.security import hash_password
+
+
+# ---------------------------------------------------------------------------
+#  BD en memoria compartida por los tests de repositorio
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def engine():
+    # StaticPool: todas las conexiones del mismo engine comparten la misma
+    # BD en memoria. Sin esto, cada conexion nueva abre una BD vacia y el
+    # TestClient no ve las tablas creadas por create_all.
+    eng = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+    @event.listens_for(eng, "connect")
+    def _fk_on(dbapi_conn, _record):
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA foreign_keys = ON")
+        cur.close()
+
+    Base.metadata.create_all(eng)
+    yield eng
+    Base.metadata.drop_all(eng)
+
+
+@pytest.fixture()
+def db(engine):
+    with Session(engine) as session:
+        yield session
+
+
+# ---------------------------------------------------------------------------
+#  TestClient de FastAPI con BD en memoria inyectada
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def client(engine):
+    """TestClient sin sesión. La BD es SQLite en memoria."""
+    from app.main import app
+    from app.database import get_db
+
+    def _override_db():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_db] = _override_db
+    # raise_server_exceptions=True hace que los errores 500 salten como
+    # excepción en el test en lugar de devolver una respuesta opaca.
+    with TestClient(app, raise_server_exceptions=True) as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def test_user(engine) -> User:
+    """Usuario de prueba insertado directamente en la BD."""
+    with Session(engine) as session:
+        user = User(
+            username="testuser",
+            password_hash=hash_password("testpass123"),
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+
+
+@pytest.fixture()
+def auth_client(client, test_user):
+    """TestClient con sesión ya iniciada (cookie presente)."""
+    resp = client.post("/api/auth/login", json={
+        "username": "testuser",
+        "password": "testpass123",
+    })
+    assert resp.status_code == 200, resp.text
+    return client

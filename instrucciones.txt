@@ -1,0 +1,129 @@
+- Aplicación web para instalar en servidor web sencillo.
+- Base de datos local en el mismo servidor. SQLite preferentemente.
+- Capacidad de crear varias cuentas, con control de acceso por contraseña.
+- Diseño responsive. Se visualizará en navegadores web de ordenadores y en teléfonos móviles.
+- Posibilidad de instalar como PWA.
+- Cuando esté terminada, me gustaría prepararla para un contenedor docker, servicio único.
+- Obtención de datos de google finance.
+- Obtener inspiración de aplicaciones como snowball-analytics
+
+Al cargar la web:
+- Mostrar login de usuario.
+
+Al introducir usuario:
+- Mostrar resumen de posición, y del cambio diario. Mostrar los 5 valores que mas suben del ibex y los 5 que mas bajan. Mostrar también los 5 valores que mas suben y los 5 que mas bajan del nasdaq.
+
+Principales secciones de la app.
+- Explorador de mercados:
+-- IBEX 35
+-- Mercado Contínuo
+-- Nasdaq
+-- Favoritos - Contiene los valores que desde las tres pestaña anteriores se han marcado como favoritas.
+- Cartera:
+-- Lista de cartera de valores poseídos - Información, acciones y alertas descritos más adelante.
+-- Explorador individual de valores y acciones - Permite abrir a pantalla completa la información de un valor adquirido. Información como dividendos cobrados, precio de compra etc, se describirá más adelante.
+- Utilidades.
+-- Pestaña para utilidades varias:
+--- Generador de informe para campaña anual de la renta.
+
+Detalle de Sección Explorador de Mercados:
+- A través de un select, o pestañas, permitir intercambiar entre Favoritos, ibex35, mercado continuo español y nasdaq.
+- La pestaña favoritos podrá contener valores de cualquiera de las tres bolsas mencionadas.
+- Para añadir un favorito, tendremos un botón con forma de estrella en las tablas de ibex35, nasdaq y mercado continuo.
+- Para cada mercado, identifcar mediante un título el nombre del mercado (ibex35, nasdaq..), y con menos tamaño de fuente la cotización diaria, el incremento o decremento comparado con el último día de bolsa anterior, y un pequeño gráfico de la evolución del último año.
+- En la tabla de valores (en cada uno de los mercados), para cada valor, indicar:
+-- Nombre del valor
+-- ISIN
+-- Picker de GOogle
+-- Valor
+-- Diferencia último día en %
+-- Indicador en naranja negrita, fijo sin parpadear, que indique si está en precio mínimo del último año, de los dos últimos años, o de los cinco últimos años. En caso de estar en los tres casos de precio mínimo, mostrar siempre el más amplio en tiempo.
+-- La cotización mínima en el último año.
+-- Cotización mínima en los dos últimos años
+-- Coticación Mínima en los cinco últimos años.
+-- El valor del dividendo pagado
+- Permitir también fijar en cada fila:
+-- Precio objetivo para comprar
+-- % que falta para llegar a ese precio objetivo de compra
+-- Indicador verde, que parpadee que pongo "Comprar!!" si está por debajo de ese precio objetivo de compra.
+-- Boton "Estrella", para añadir a favoritos.
+- La tabla de valores favoritos será igual a la de los mercados, pero cambiamos el botón de agregar a favorito, por una papelera para borrarlo de favoritos.
+
+Detalle de la sección Cartera
+- Datos Generales
+-- Importe gastado en comprar las acciones, las que tenemos actualmente en posesión.
+-- Importe que vale hoy en día esas acciones
+-- Diferencia, en euros y %, del importe invertido en la compra, con lo que vale hoy en día.
+-- Beneficio total obtenido, en euros, teniendo en cuenta las acciones que tenemos, y lo que hemos obtenido de las ventas. A ese beneficio hay que descontar las comisiones por compra y venta.
+-- % Promedio de beneficio obtenido en acciones vendidas, y las poseidas en actual teniendo en cuenta el valor a dia de hoy.
+- En una ventana superior, mostar las acciones que actualmente se tiene. Campos:
+-- Nombre de la acción
+-- Número de acciones adquiridas
+-- Precio medio de adquisición
+-- Importe invertido en la compra (lo que se pagó en el momento de la compra)
+-- Cotización actual
+-- Valor total actual de las acciones que tenemos.
+-- % diferencia entre el valor medio de compra y el valor actual
+-- Variación del importe, entre lo pagado en la compra con lo que vale actualmente
+-- Variación diaria de lo poseido, en %
+-- Variación diaria de lo poseido, en importe.
+-- Importe cobrado por pago de dividendos.
+-- Beneficio (o pérdita) total, teniendo en cuenta la variación del valor y lo cobrado en dividendos.
+-- Precio objetivo para vender.
+-- Valoración máxima del último año
+-- % Beneficio obtenido si vendemos a ese precio
+-- % que queda para llegar a ese valor de venta
+-- Campo Alerta, que si llega al precio objetivo de venta, aparezca en verde negrita parpadeante la palabra "Vender!!"
+- En otra ventana inferior, mostrar las que se han vendido, pero queremos mantener para consulta. Campos:
+-- Número de acciones
+-- Precio de compra
+-- Importe total enviertido en comprar
+-- Precio de venta
+-- Importe total de la venta
+-- Beneficio obtenido en la venta.
+-- Ingresado por dividendos.
+-- Beneficio total entre lo obtenido por la venta y los dividendos
+
+Detalle del explorador individual de acciones.
+- Será el utilizado para introducir los datos.
+- Tendrá el mecanismo necesario para operaciones crud.
+- Nombre de la acción
+- ISIN
+- Ticker de Google
+- Cotización Última obtenida de googe finance
+- % diferencia desde compra
+- % diferencia desde último día de volsa
+- Num. de  acciones en posesión
+- Importe pagado en comprar las acciones
+- Valor actual de todas esas acciones
+- Beneficio o pérdida actual, en euros (tener en cuenta acciones en posesión, como vendidas)
+- Total cobrado en dividendos
+- Beneficio Total (diferencia entre compra y venta, entre compra y valor actual (si no se ha vendido aún, incluyendo dividendos, incluyendo comisiones pagadas)
+- Gráfica de evolución del precio de la acción en el último año.
+- Tabla para anotar compras
+-- Fecha
+-- Precio de compra
+-- Num. de acciones
+-- Comisión de compra
+-- Total de la operación
+- Tabla de ventas
+-- Fecha
+-- Precio de venta
+-- Acciones vendidas
+-- Importe obtenido
+-- Comisión de venta
+-- Total de la operación
+- Tabla de dividendos
+-- Fecha
+-- Num de acciones en el momento del dividendo
+-- Euros por acción del pago
+-- Total cobrado.
+
+Sección de Utilidades.
+- Meter aquí la configuración de la aplicación
+-- Importar y exportar datos (backups)
+-- Generación de informes en pdf para declaración de la renta.
+--- Seleccionar año de campaña de la renta
+--- De cada valor vendido en el año seleccionado, imprimir las acciones vendidas, y cuando se compraron esas mismas acciones, detallando fechas, valores de compra, valores de venta, comisiones de compra, comisiones de venta, etc. Imprimir así para cada valor vendido ese año, y un resumen final con lo ganado o perdido derivado de ventas de acciones ese año.
+
+

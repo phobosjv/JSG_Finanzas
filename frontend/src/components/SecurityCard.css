@@ -1,0 +1,31 @@
+.sec-card { cursor: pointer; }
+.sec-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sec-card-right {
+  margin-left: auto;
+  text-align: right;
+}
+.sec-price  { font-family: var(--mono); font-size: 1rem; }
+.sec-name   { font-size: 0.8rem; color: var(--text-muted); }
+.sec-change { font-size: 0.875rem; font-weight: 600; }
+.sec-chevron { color: var(--text-muted); font-size: 0.7rem; flex-shrink: 0; }
+
+.sec-card-body {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.sec-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+.sec-stat-row .num {
+  font-family: var(--mono);
+  color: var(--text);
+}

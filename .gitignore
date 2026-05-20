@@ -1,0 +1,37 @@
+# Base de datos y backups
+*.db
+*.db-shm
+*.db-wal
+/data/
+
+# Variables de entorno (nunca al repo)
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Alembic — versiones sí van al repo, la BD no
+backend/finanzas.db
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,280 @@
+<!--
+  reports/templates/tax_report.html
+  =================================
+  Plantilla del informe fiscal anual. La renderiza pdf_generator.py con
+  Jinja2 y WeasyPrint la convierte a PDF.
+
+  Variables que recibe (del objeto TaxReport, ya formateadas a str por el
+  generador para controlar el formato de numeros y fechas):
+    year, generated_at
+    sale_lines[]      : security_name, isin, market, sell_date, buy_date,
+                        shares, cost_eur, proceeds_eur, gain_eur,
+                        loss_disallowed (bool), disallowed_reason
+    dividend_lines[]  : security_name, isin, market, pay_date,
+                        gross_eur, withholding_eur, net_eur
+    totals            : gains, losses_computable, losses_disallowed,
+                        net_capital, div_gross, div_withholding, div_net
+    warnings[]
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  /* ---- Configuracion de pagina ---- */
+  @page {
+    size: A4;
+    margin: 2cm 1.8cm 2.5cm 1.8cm;
+    @bottom-center {
+      content: "Pagina " counter(page) " de " counter(pages);
+      font-size: 8pt;
+      color: #888;
+    }
+  }
+
+  /* ---- Tipografia base ---- */
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 9.5pt;
+    color: #1a1a1a;
+    line-height: 1.4;
+  }
+
+  h1 { font-size: 18pt; margin: 0 0 2pt 0; }
+  h2 {
+    font-size: 12pt;
+    margin: 22pt 0 8pt 0;
+    padding-bottom: 3pt;
+    border-bottom: 1.5pt solid #2c3e50;
+    color: #2c3e50;
+  }
+  .subtitle { color: #666; font-size: 9pt; margin-bottom: 2pt; }
+
+  /* ---- Cabecera ---- */
+  .header {
+    border-bottom: 2pt solid #2c3e50;
+    padding-bottom: 10pt;
+    margin-bottom: 6pt;
+  }
+
+  /* ---- Tablas ---- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4pt;
+  }
+  th {
+    background: #2c3e50;
+    color: #fff;
+    font-size: 8pt;
+    font-weight: 600;
+    text-align: right;
+    padding: 5pt 6pt;
+  }
+  th.left, td.left { text-align: left; }
+  td {
+    padding: 4pt 6pt;
+    text-align: right;
+    border-bottom: 0.5pt solid #ddd;
+    font-size: 8.5pt;
+  }
+  tr:nth-child(even) td { background: #f7f8fa; }
+
+  /* Resultado positivo / negativo */
+  .pos { color: #1a7a3a; }
+  .neg { color: #c0392b; }
+
+  /* Linea de perdida no computable: atenuada y marcada */
+  tr.disallowed td {
+    color: #999;
+    font-style: italic;
+  }
+  .flag {
+    display: inline-block;
+    background: #e67e22;
+    color: #fff;
+    font-size: 6.5pt;
+    font-weight: 700;
+    padding: 1pt 4pt;
+    border-radius: 2pt;
+    vertical-align: middle;
+  }
+
+  /* Fila de totales */
+  tr.total td {
+    font-weight: 700;
+    border-top: 1.5pt solid #2c3e50;
+    border-bottom: none;
+    background: #eef1f4 !important;
+    font-size: 9pt;
+  }
+
+  /* ---- Cajas de resumen ---- */
+  .summary {
+    margin-top: 10pt;
+    background: #f0f4f8;
+    border-left: 3pt solid #2c3e50;
+    padding: 10pt 12pt;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2pt 0;
+  }
+  .summary-row.highlight {
+    font-weight: 700;
+    font-size: 11pt;
+    border-top: 1pt solid #c2cdd6;
+    margin-top: 4pt;
+    padding-top: 5pt;
+  }
+
+  /* ---- Avisos ---- */
+  .warnings {
+    margin-top: 24pt;
+    background: #fef9e7;
+    border: 0.5pt solid #f1c40f;
+    padding: 10pt 12pt;
+    font-size: 8pt;
+    color: #6b5d1a;
+  }
+  .warnings .title { font-weight: 700; margin-bottom: 4pt; }
+  .warnings ul { margin: 0; padding-left: 14pt; }
+  .warnings li { margin-bottom: 3pt; }
+
+  .note-disallowed {
+    font-size: 7.5pt;
+    color: #999;
+    font-style: italic;
+    padding: 2pt 6pt 6pt 6pt;
+  }
+
+  .empty {
+    color: #999;
+    font-style: italic;
+    padding: 8pt 0;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ============ CABECERA ============ -->
+  <div class="header">
+    <h1>Informe para la declaración de la renta</h1>
+    <div class="subtitle">Ejercicio fiscal {{ year }}</div>
+    <div class="subtitle">Generado el {{ generated_at }}</div>
+  </div>
+
+  <!-- ============ BLOQUE 1: GANANCIAS Y PÉRDIDAS PATRIMONIALES ============ -->
+  <h2>1. Ganancias y pérdidas patrimoniales (venta de acciones)</h2>
+
+  {% if sale_lines %}
+  <table>
+    <thead>
+      <tr>
+        <th class="left">Valor</th>
+        <th class="left">ISIN</th>
+        <th>F. compra</th>
+        <th>F. venta</th>
+        <th>Acciones</th>
+        <th>Coste (€)</th>
+        <th>Venta (€)</th>
+        <th>Resultado (€)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in sale_lines %}
+      <tr class="{{ 'disallowed' if line.loss_disallowed else '' }}">
+        <td class="left">
+          {{ line.security_name }}
+          {% if line.loss_disallowed %}<span class="flag">NO COMPUTA</span>{% endif %}
+        </td>
+        <td class="left">{{ line.isin or '—' }}</td>
+        <td>{{ line.buy_date }}</td>
+        <td>{{ line.sell_date }}</td>
+        <td>{{ line.shares }}</td>
+        <td>{{ line.cost_eur }}</td>
+        <td>{{ line.proceeds_eur }}</td>
+        <td class="{{ 'pos' if line.gain_positive else 'neg' }}">{{ line.gain_eur }}</td>
+      </tr>
+      {% if line.disallowed_reason %}
+      <tr class="disallowed">
+        <td colspan="8" class="note-disallowed">▸ {{ line.disallowed_reason }}</td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="summary">
+    <div class="summary-row">
+      <span>Ganancias del ejercicio</span>
+      <span class="pos">{{ totals.gains }} €</span>
+    </div>
+    <div class="summary-row">
+      <span>Pérdidas computables</span>
+      <span class="neg">{{ totals.losses_computable }} €</span>
+    </div>
+    <div class="summary-row">
+      <span>Pérdidas marcadas (no computan este ejercicio)</span>
+      <span>{{ totals.losses_disallowed }} €</span>
+    </div>
+    <div class="summary-row highlight">
+      <span>Saldo computable del ejercicio</span>
+      <span class="{{ 'pos' if net_capital_positive else 'neg' }}">{{ totals.net_capital }} €</span>
+    </div>
+  </div>
+  {% else %}
+  <p class="empty">No se han registrado ventas de acciones en este ejercicio.</p>
+  {% endif %}
+
+  <!-- ============ BLOQUE 2: RENDIMIENTOS DEL CAPITAL MOBILIARIO ============ -->
+  <h2>2. Rendimientos del capital mobiliario (dividendos)</h2>
+
+  {% if dividend_lines %}
+  <table>
+    <thead>
+      <tr>
+        <th class="left">Valor</th>
+        <th class="left">ISIN</th>
+        <th>Fecha de cobro</th>
+        <th>Bruto (€)</th>
+        <th>Retención origen (€)</th>
+        <th>Neto (€)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in dividend_lines %}
+      <tr>
+        <td class="left">{{ line.security_name }}</td>
+        <td class="left">{{ line.isin or '—' }}</td>
+        <td>{{ line.pay_date }}</td>
+        <td>{{ line.gross_eur }}</td>
+        <td>{{ line.withholding_eur }}</td>
+        <td>{{ line.net_eur }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="total">
+        <td class="left" colspan="3">TOTAL</td>
+        <td>{{ totals.div_gross }}</td>
+        <td>{{ totals.div_withholding }}</td>
+        <td>{{ totals.div_net }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No se han registrado dividendos en este ejercicio.</p>
+  {% endif %}
+
+  <!-- ============ AVISOS ============ -->
+  <div class="warnings">
+    <div class="title">Avisos importantes</div>
+    <ul>
+      {% for w in warnings %}
+      <li>{{ w }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+</body>
+</html>

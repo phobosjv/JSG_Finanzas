@@ -1,0 +1,105 @@
+finanzas/
+│
+├── docker-compose.yml          # orquestación local: 1 servicio + volúmenes
+├── Dockerfile                  # multi-stage: compila front, empaqueta back
+├── .dockerignore
+├── .env.example                # plantilla de variables de entorno
+├── .gitignore
+├── README.md
+│
+├── backend/
+│   ├── pyproject.toml          # dependencias Python (o requirements.txt)
+│   ├── alembic.ini             # config de migraciones
+│   │
+│   ├── alembic/
+│   │   ├── env.py
+│   │   └── versions/           # migraciones versionadas
+│   │
+│   └── app/
+│       ├── __init__.py
+│       ├── main.py             # crea la app FastAPI, monta routers y estáticos
+│       ├── config.py           # carga settings desde entorno (pydantic-settings)
+│       ├── database.py         # engine SQLAlchemy, sesión, PRAGMA foreign_keys
+│       │
+│       ├── models/             # tablas SQLAlchemy (1 fichero por dominio)
+│       │   ├── __init__.py
+│       │   ├── user.py
+│       │   ├── security.py
+│       │   ├── price.py        # price_history, price_snapshots, ecb_rates
+│       │   └── portfolio.py    # positions, transactions, dividends, favorites
+│       │
+│       ├── schemas/            # modelos Pydantic (entrada/salida de la API)
+│       │   ├── __init__.py
+│       │   ├── auth.py
+│       │   ├── security.py
+│       │   ├── market.py
+│       │   └── portfolio.py
+│       │
+│       ├── api/                # routers, un fichero por sección
+│       │   ├── __init__.py
+│       │   ├── deps.py         # dependencias: sesión BD, usuario actual
+│       │   ├── auth.py
+│       │   ├── markets.py
+│       │   ├── favorites.py
+│       │   ├── dashboard.py
+│       │   ├── portfolio.py
+│       │   ├── securities.py
+│       │   └── reports.py
+│       │
+│       ├── services/           # lógica de negocio, SIN saber de HTTP
+│       │   ├── __init__.py
+│       │   ├── calculations.py # FIFO, beneficios, % — funciones puras
+│       │   ├── currency.py     # conversión EUR/USD con tipos BCE
+│       │   ├── indicators.py   # mínimos 1/2/5a, máximo 1a
+│       │   ├── tax_report.py   # lógica del informe de la renta
+│       │   └── backup.py       # exportar / importar datos
+│       │
+│       ├── providers/          # fuentes de datos externas (abstracción)
+│       │   ├── __init__.py
+│       │   ├── base.py         # interfaz PriceProvider
+│       │   ├── yahoo.py        # implementación con yfinance
+│       │   └── ecb.py          # tipos de cambio del BCE
+│       │
+│       ├── scheduler/          # trabajos en segundo plano (APScheduler)
+│       │   ├── __init__.py
+│       │   └── jobs.py         # cotización en vivo, histórico, indicadores
+│       │
+│       ├── auth/               # seguridad
+│       │   ├── __init__.py
+│       │   ├── security.py     # hash de contraseñas, verificación
+│       │   └── session.py      # gestión de cookie de sesión
+│       │
+│       ├── reports/
+│       │   └── templates/      # plantilla HTML del PDF de la renta
+│       │
+│       └── scripts/
+│           └── seed_history.py # carga inicial de 5 años de histórico
+│
+└── frontend/
+    ├── package.json
+    ├── vite.config.js          # incluye vite-plugin-pwa
+    ├── index.html
+    ├── public/
+    │   ├── manifest.json       # manifiesto PWA
+    │   └── icons/              # iconos de la PWA
+    │
+    └── src/
+        ├── main.jsx
+        ├── App.jsx             # router principal
+        ├── api/                # cliente HTTP hacia el backend
+        │   └── client.js
+        ├── context/
+        │   └── AuthContext.jsx # estado de sesión del usuario
+        ├── components/         # componentes reutilizables
+        │   ├── Navigation.jsx  # barra inferior (móvil) / lateral (escritorio)
+        │   ├── SecurityTable.jsx   # tabla en escritorio
+        │   ├── SecurityCard.jsx    # tarjeta desplegable en móvil
+        │   └── ...
+        ├── pages/              # una por pantalla
+        │   ├── Login.jsx
+        │   ├── Dashboard.jsx
+        │   ├── Markets.jsx
+        │   ├── Portfolio.jsx
+        │   ├── SecurityDetail.jsx
+        │   └── Utilities.jsx
+        └── styles/

@@ -1,0 +1,48 @@
+"""
+api/auth.py
+===========
+Endpoints de autenticacion: login y logout.
+
+POST /auth/login   — verifica credenciales, crea cookie de sesion.
+POST /auth/logout  — borra la cookie de sesion.
+GET  /auth/me      — devuelve el usuario de la sesion activa.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user, get_db
+from app.auth.security import hash_password, needs_rehash, verify_password
+from app.auth.session import clear_session_cookie, create_session_cookie
+from app.models import User
+from app.schemas.auth import LoginRequest, UserOut
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/login", response_model=UserOut)
+def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    user = db.scalar(select(User).where(User.username == body.username))
+    if user is None or not verify_password(body.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales incorrectas",
+        )
+    # Actualizar hash si el algoritmo ha sido marcado obsoleto
+    if needs_rehash(user.password_hash):
+        user.password_hash = hash_password(body.password)
+        db.commit()
+
+    create_session_cookie(response, user.id)
+    return user
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(response: Response):
+    clear_session_cookie(response)
+
+
+@router.get("/me", response_model=UserOut)
+def me(current_user: User = Depends(get_current_user)):
+    return current_user
