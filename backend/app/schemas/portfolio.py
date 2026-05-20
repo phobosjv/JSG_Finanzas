@@ -1,10 +1,20 @@
 """Schemas de cartera: posiciones, transacciones y dividendos."""
 from __future__ import annotations
 
+from datetime import date as date_type
 from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, field_validator, model_validator
+
+
+def _valid_date(v: str) -> str:
+    """Valida que la cadena sea una fecha ISO válida (YYYY-MM-DD)."""
+    try:
+        date_type.fromisoformat(v)
+    except ValueError:
+        raise ValueError(f"Fecha inválida: '{v}'. Formato esperado: YYYY-MM-DD")
+    return v
 
 
 class PositionCreate(BaseModel):
@@ -31,6 +41,11 @@ class TransactionCreate(BaseModel):
     fee: Decimal = Decimal("0")
     currency: Literal["EUR", "USD"]
     exchange_rate: Decimal = Decimal("1")
+
+    @field_validator("date")
+    @classmethod
+    def valid_date(cls, v: str) -> str:
+        return _valid_date(v)
 
     @field_validator("shares", "price")
     @classmethod
@@ -76,6 +91,11 @@ class DividendCreate(BaseModel):
     withholding_tax: Decimal = Decimal("0")
     currency: Literal["EUR", "USD"]
     exchange_rate: Decimal = Decimal("1")
+
+    @field_validator("date")
+    @classmethod
+    def valid_date(cls, v: str) -> str:
+        return _valid_date(v)
 
     @field_validator("shares_at_date", "gross_per_share", "gross_amount")
     @classmethod
