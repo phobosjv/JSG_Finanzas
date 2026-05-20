@@ -86,7 +86,9 @@ class YahooProvider(PriceProvider):
         last_dividend: Decimal | None = None
         divs = t.dividends
         if divs is not None and not divs.empty:
-            last_div_val = float(divs.iloc[-1])
+            raw = divs.iloc[-1]
+            # yfinance puede devolver Series (DataFrame multi-col) o escalar
+            last_div_val = float(raw.iloc[0] if hasattr(raw, 'iloc') else raw)
             if not math.isnan(last_div_val) and last_div_val > 0:
                 last_dividend = _to_decimal(last_div_val)
 
