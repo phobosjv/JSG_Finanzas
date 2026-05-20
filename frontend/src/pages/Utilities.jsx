@@ -24,6 +24,12 @@ export default function Utilities() {
   const [taxYear, setTaxYear]       = useState(currentYear - 1)
   const [taxBusy, setTaxBusy]       = useState(false)
 
+  // Cambio de contraseña
+  const [pwForm, setPwForm]         = useState({ current: '', newPw: '', confirm: '' })
+  const [pwBusy, setPwBusy]         = useState(false)
+  const [pwError, setPwError]       = useState(null)
+  const [pwOk, setPwOk]             = useState(false)
+
   // Backup
   const [importing, setImporting]   = useState(false)
   const [backupMsg, setBackupMsg]   = useState(null)
@@ -125,6 +131,20 @@ export default function Utilities() {
       )
     } catch (err) { setBackupErr(err.message) }
     finally { setImporting(false); e.target.value = '' }
+  }
+
+  async function changePassword(e) {
+    e.preventDefault()
+    setPwError(null); setPwOk(false)
+    if (pwForm.newPw.length < 8) { setPwError('La nueva contraseña debe tener al menos 8 caracteres'); return }
+    if (pwForm.newPw !== pwForm.confirm) { setPwError('Las contraseñas no coinciden'); return }
+    setPwBusy(true)
+    try {
+      await api.patch('/auth/password', { current_password: pwForm.current, new_password: pwForm.newPw })
+      setPwForm({ current: '', newPw: '', confirm: '' })
+      setPwOk(true)
+    } catch (err) { setPwError(err.message) }
+    finally { setPwBusy(false) }
   }
 
   async function del(id, ticker) {
@@ -275,6 +295,50 @@ export default function Utilities() {
             {taxBusy ? 'Generando…' : '↓ Descargar PDF'}
           </button>
         </div>
+      </div>
+
+      {/* Cambiar contraseña */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>Cambiar contraseña</h2>
+        {pwError && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{pwError}</div>}
+        {pwOk    && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12 }}>Contraseña actualizada correctamente.</div>}
+        <form onSubmit={changePassword}>
+          <div className="card-row">
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Contraseña actual</label>
+              <input
+                type="password"
+                value={pwForm.current}
+                onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Nueva contraseña</label>
+              <input
+                type="password"
+                value={pwForm.newPw}
+                onChange={e => setPwForm(f => ({ ...f, newPw: e.target.value }))}
+                required
+                minLength={8}
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Repetir nueva contraseña</label>
+              <input
+                type="password"
+                value={pwForm.confirm}
+                onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="submit" className="btn-primary btn-sm" disabled={pwBusy}>
+              {pwBusy ? 'Guardando…' : 'Cambiar contraseña'}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Backup */}

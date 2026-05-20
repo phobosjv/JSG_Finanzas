@@ -127,7 +127,8 @@ class PositionSummary(BaseModel):
     daily_change_eur: Decimal | None
     # Dividendos y beneficio total
     dividends_eur: Decimal
-    total_profit_eur: Decimal    # unrealized_pnl + dividends
+    realized_pnl_eur: Decimal    # beneficio realizado de ventas parciales
+    total_profit_eur: Decimal    # unrealized_pnl + realized_pnl + dividends
     # Objetivo de venta e indicadores
     target_sell_price: Decimal | None
     max_1y: Decimal | None

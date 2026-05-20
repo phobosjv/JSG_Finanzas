@@ -9,6 +9,13 @@ function fmt(val, dec = 2) {
   if (val == null) return '—'
   return Number(val).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
+function fmtShares(val) {
+  if (val == null) return '—'
+  const n = Number(val)
+  return n % 1 === 0
+    ? n.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    : n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+}
 function sign(val) { return Number(val) >= 0 ? '+' : '' }
 function cls(val)  { return Number(val) > 0 ? 'pos' : Number(val) < 0 ? 'neg' : 'neu' }
 
@@ -21,7 +28,7 @@ function TxRow({ tx, onDelete, onEdit }) {
   return (
     <tr>
       <td>{tx.date}</td>
-      <td className="num">{fmt(tx.shares, 4)}</td>
+      <td className="num">{fmtShares(tx.shares)}</td>
       <td className="num">{fmt(tx.price)}</td>
       <td className="num">{fmt(tx.fee)}</td>
       <td className="num">{tx.currency}</td>
@@ -261,6 +268,92 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
   )
 }
 
+const MARKETS    = ['ibex35', 'continuo', 'nasdaq']
+const CURRENCIES = ['EUR', 'USD']
+
+function EditSecurityModal({ security, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name:          security.name,
+    isin:          security.isin          ?? '',
+    yahoo_ticker:  security.yahoo_ticker,
+    google_ticker: security.google_ticker ?? '',
+    market:        security.market,
+    currency:      security.currency,
+  })
+  const [busy, setBusy]   = useState(false)
+  const [error, setError] = useState(null)
+
+  function field(name) {
+    return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    try {
+      const body = { ...form }
+      if (!body.isin)          delete body.isin
+      if (!body.google_ticker) delete body.google_ticker
+      const updated = await api.patch(`/securities/${security.id}`, body)
+      // Refresca los datos de precio con el nuevo ticker
+      await api.post(`/markets/${security.id}/refresh`).catch(() => {})
+      onSaved(updated)
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h2>Editar valor</h2>
+        {error && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{error}</div>}
+        <form onSubmit={submit}>
+          <div className="card-row">
+            <div className="form-group" style={{ flex: 2 }}>
+              <label>Nombre *</label>
+              <input type="text" {...field('name')} required />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>ISIN</label>
+              <input type="text" {...field('isin')} />
+            </div>
+          </div>
+          <div className="card-row">
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Yahoo Ticker *</label>
+              <input type="text" {...field('yahoo_ticker')} required />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Google Ticker</label>
+              <input type="text" {...field('google_ticker')} />
+            </div>
+          </div>
+          <div className="card-row">
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Mercado *</label>
+              <select {...field('market')}>
+                {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Divisa *</label>
+              <select {...field('currency')}>
+                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Guardando…' : 'Guardar y refrescar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function SecurityDetail() {
   const { id } = useParams()
   const secId = parseInt(id, 10)
@@ -270,8 +363,10 @@ export default function SecurityDetail() {
   const [history, setHistory]       = useState([])
   const [transactions, setTxs]      = useState([])
   const [dividends, setDivs]        = useState([])
-  const [positionId, setPositionId] = useState(null)
-  const [posResult, setPosResult]   = useState(null)
+  const [positionId, setPositionId]   = useState(null)
+  const [posResult, setPosResult]     = useState(null)
+  const [isClosed, setIsClosed]       = useState(false)
+  const [closedSummary, setClosedSummary] = useState(null)
   const [showTxModal, setTxModal]     = useState(false)
   const [txModalType, setTxModalType] = useState('buy')
   const [editingTx, setEditingTx]     = useState(null)
@@ -283,8 +378,12 @@ export default function SecurityDetail() {
   const [error, setError]           = useState(null)
   const [opError, setOpError]       = useState(null)
   const [isFav, setIsFav]           = useState(false)
+  const [showEditSec, setShowEditSec] = useState(false)
 
   async function loadAll() {
+    setPosResult(null)
+    setIsClosed(false)
+    setClosedSummary(null)
     try {
       const [sec, snap, hist, posResult, favs] = await Promise.all([
         api.get(`/securities/${secId}`),
@@ -302,6 +401,7 @@ export default function SecurityDetail() {
         // Posición abierta encontrada directamente
         setPositionId(posResult.position_id)
         setPosResult(posResult)
+        setIsClosed(false)
         setNotesVal(posResult.notes ?? '')
         const [txs, divs] = await Promise.all([
           api.get(`/portfolio/${posResult.position_id}/transactions`),
@@ -315,6 +415,8 @@ export default function SecurityDetail() {
         const closedPos = closedAll.find(p => p.security_id === secId)
         if (closedPos) {
           setPositionId(closedPos.position_id)
+          setIsClosed(true)
+          setClosedSummary(closedPos)
           const [txs, divs] = await Promise.all([
             api.get(`/portfolio/${closedPos.position_id}/transactions`),
             api.get(`/portfolio/${closedPos.position_id}/dividends`),
@@ -375,6 +477,10 @@ export default function SecurityDetail() {
   const totalDivsNet = dividends.reduce(
     (s, d) => s + Number(d.gross_amount) - Number(d.withholding_tax), 0
   )
+  // Comisiones en EUR: fee / exchange_rate (igual que el resto de conversiones)
+  const totalFeesEur = transactions.reduce(
+    (s, tx) => s + Number(tx.fee) / Number(tx.exchange_rate), 0
+  )
 
   return (
     <div>
@@ -414,6 +520,7 @@ export default function SecurityDetail() {
           <button className="btn-ghost btn-sm" onClick={toggleFav}>
             {isFav ? '★ Favorito' : '☆ Añadir a favoritos'}
           </button>
+          <button className="btn-ghost btn-sm" onClick={() => setShowEditSec(true)}>✎ Editar</button>
           <button className="btn-ghost btn-sm" onClick={refresh}>↺ Actualizar</button>
         </div>
       </div>
@@ -442,36 +549,72 @@ export default function SecurityDetail() {
         </div>
       )}
 
-      {/* Resumen posición abierta */}
-      {posResult && (
+      {/* Resumen posición */}
+      {(posResult || isClosed) && (
         <div className="card-row">
           <div className="card small">
-            <div className="value">{fmt(posResult.cost_eur)} €</div>
-            <div className="label">Invertido</div>
+            <div className="value">{posResult ? fmtShares(posResult.shares) : '0'}</div>
+            <div className="label">Acciones en posesión</div>
           </div>
           <div className="card small">
-            <div className="value">{fmt(posResult.market_value_eur)} €</div>
+            <div className="value">{fmt(posResult ? posResult.market_value_eur : 0)} €</div>
             <div className="label">Valor actual</div>
           </div>
-          <div className="card small">
-            <div className={`value ${cls(posResult.unrealized_pnl_eur)}`}>
-              {sign(posResult.unrealized_pnl_eur)}{fmt(posResult.unrealized_pnl_eur)} €
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
-              {sign(posResult.unrealized_pnl_pct)}{fmt(posResult.unrealized_pnl_pct)}%
-            </div>
-            <div className="label">B/P latente</div>
-          </div>
-          <div className="card small">
-            <div className="value">{fmt(posResult.dividends_eur)} €</div>
-            <div className="label">Dividendos (neto)</div>
-          </div>
-          <div className="card small">
-            <div className={`value ${cls(posResult.total_profit_eur)}`}>
-              {sign(posResult.total_profit_eur)}{fmt(posResult.total_profit_eur)} €
-            </div>
-            <div className="label">Beneficio total</div>
-          </div>
+          {isClosed && closedSummary && (
+            <>
+              <div className="card small">
+                <div className={`value ${cls(closedSummary.realized_pnl_eur)}`}>
+                  {sign(closedSummary.realized_pnl_eur)}{fmt(closedSummary.realized_pnl_eur)} €
+                </div>
+                <div className="label">Ganancia en venta</div>
+              </div>
+              <div className="card small">
+                <div className="value">{fmt(closedSummary.dividends_eur)} €</div>
+                <div className="label">Dividendos (neto)</div>
+              </div>
+              <div className="card small">
+                <div className="value neg">{totalFeesEur > 0 ? `-${fmt(totalFeesEur)}` : fmt(totalFeesEur)} €</div>
+                <div className="label">Comisiones pagadas</div>
+              </div>
+              <div className="card small">
+                <div className={`value ${cls(closedSummary.total_profit_eur)}`}>
+                  {sign(closedSummary.total_profit_eur)}{fmt(closedSummary.total_profit_eur)} €
+                </div>
+                <div className="label">Beneficio total</div>
+              </div>
+            </>
+          )}
+          {posResult && (
+            <>
+              <div className="card small">
+                <div className="value">{fmt(posResult.cost_eur)} €</div>
+                <div className="label">Invertido</div>
+              </div>
+              <div className="card small">
+                <div className={`value ${cls(posResult.unrealized_pnl_eur)}`}>
+                  {sign(posResult.unrealized_pnl_eur)}{fmt(posResult.unrealized_pnl_eur)} €
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
+                  {sign(posResult.unrealized_pnl_pct)}{fmt(posResult.unrealized_pnl_pct)}%
+                </div>
+                <div className="label">B/P latente</div>
+              </div>
+              <div className="card small">
+                <div className="value">{fmt(posResult.dividends_eur)} €</div>
+                <div className="label">Dividendos (neto)</div>
+              </div>
+              <div className="card small">
+                <div className="value neg">{totalFeesEur > 0 ? `-${fmt(totalFeesEur)}` : fmt(totalFeesEur)} €</div>
+                <div className="label">Comisiones pagadas</div>
+              </div>
+              <div className="card small">
+                <div className={`value ${cls(posResult.total_profit_eur)}`}>
+                  {sign(posResult.total_profit_eur)}{fmt(posResult.total_profit_eur)} €
+                </div>
+                <div className="label">Beneficio total</div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -656,6 +799,13 @@ export default function SecurityDetail() {
         )}
       </div>
 
+      {showEditSec && (
+        <EditSecurityModal
+          security={security}
+          onClose={() => setShowEditSec(false)}
+          onSaved={updated => { setSecurity(updated); setShowEditSec(false); loadAll() }}
+        />
+      )}
       {showTxModal && (
         <AddTxModal
           positionId={positionId}

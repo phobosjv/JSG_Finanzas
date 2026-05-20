@@ -87,8 +87,9 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         else:
             daily_chg_eur = None
 
-    dividends_eur   = result.dividends_net_eur
-    total_profit_eur = unrealized_pnl_eur + dividends_eur
+    dividends_eur    = result.dividends_net_eur
+    realized_pnl_eur = result.realized_gain_eur
+    total_profit_eur = unrealized_pnl_eur + realized_pnl_eur + dividends_eur
 
     return PositionSummary(
         position_id=pos.id,
@@ -106,6 +107,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         daily_change_pct=daily_chg_pct,
         daily_change_eur=daily_chg_eur,
         dividends_eur=dividends_eur,
+        realized_pnl_eur=realized_pnl_eur,
         total_profit_eur=total_profit_eur,
         target_sell_price=pos.target_sell_price,
         max_1y=max_1y,

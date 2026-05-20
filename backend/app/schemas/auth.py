@@ -65,3 +65,15 @@ class ChangePasswordRequest(BaseModel):
         if len(v) < 8:
             raise ValueError("Mínimo 8 caracteres")
         return v
+
+
+class SelfChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_valid(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Mínimo 8 caracteres")
+        return v

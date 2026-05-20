@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  PieChart, Pie, Cell, Tooltip as ReTooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
+} from 'recharts'
 import { api } from '../api/client'
 
 function fmt(val, dec = 2) {
@@ -19,6 +23,11 @@ function Card({ label, value, sub, clsName }) {
     </div>
   )
 }
+
+const DONUT_COLORS = [
+  '#4f8ef7', '#a78bfa', '#34d399', '#f59e0b', '#f87171',
+  '#38bdf8', '#fb923c', '#e879f9', '#a3e635', '#94a3b8',
+]
 
 /** Celda de precio objetivo de venta editable en línea. */
 function TargetSellCell({ pos, onUpdate }) {
@@ -96,25 +105,27 @@ export default function Portfolio() {
   const totalCost      = positions.reduce((s, p) => s + Number(p.cost_eur), 0)
   const totalPnL       = positions.reduce((s, p) => s + Number(p.unrealized_pnl_eur), 0)
   const totalDivs      = positions.reduce((s, p) => s + Number(p.dividends_eur), 0)
+                       + closed.reduce((s, p) => s + Number(p.dividends_eur), 0)
   const totalDayEur    = positions.reduce((s, p) => s + (p.daily_change_eur != null ? Number(p.daily_change_eur) : 0), 0)
   const realizedTotal  = closed.reduce((s, p) => s + Number(p.realized_pnl_eur), 0)
-  const diff           = totalValue - totalCost
-  const diffPct        = totalCost > 0 ? diff / totalCost * 100 : 0
 
+  // Beneficio total histórico: latente + realizado (parciales y cerradas) + dividendos
+  const totalHistorical = positions.reduce(
+    (s, p) => s + Number(p.unrealized_pnl_eur) + Number(p.realized_pnl_eur) + Number(p.dividends_eur), 0
+  ) + closed.reduce((s, p) => s + Number(p.total_profit_eur), 0)
   return (
     <div>
       <h1>Mi cartera</h1>
 
       {/* Tarjetas resumen */}
       <div className="card-row">
+        <Card
+          label="Beneficio total histórico"
+          value={`${sign(totalHistorical)}${fmt(totalHistorical)} €`}
+          clsName={cls(totalHistorical)}
+        />
         <Card label="Importe invertido"  value={`${fmt(totalCost)} €`} />
         <Card label="Valor actual"       value={`${fmt(totalValue)} €`} />
-        <Card
-          label="Diferencia"
-          value={`${sign(diff)}${fmt(diff)} €`}
-          sub={`${sign(diffPct)}${fmt(diffPct)}%`}
-          clsName={cls(diff)}
-        />
         <Card
           label="B/P latente"
           value={`${sign(totalPnL)}${fmt(totalPnL)} €`}
@@ -137,6 +148,91 @@ export default function Portfolio() {
           />
         )}
       </div>
+
+      {/* Gráficos — solo si hay posiciones abiertas */}
+      {positions.length > 0 && (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+
+          {/* Donut: distribución de cartera */}
+          <div className="card" style={{ flex: '1 1 340px', minWidth: 0 }}>
+            <h2>Distribución de cartera</h2>
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie
+                  data={positions.map(p => ({
+                    name: p.yahoo_ticker,
+                    value: Number(p.market_value_eur),
+                  }))}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="52%"
+                  outerRadius="78%"
+                  dataKey="value"
+                  paddingAngle={2}
+                >
+                  {positions.map((_, i) => (
+                    <Cell
+                      key={i}
+                      fill={DONUT_COLORS[i % DONUT_COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <ReTooltip
+                  contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.82rem' }}
+                  formatter={(value, name) => [
+                    `${fmt(value)} € (${totalValue > 0 ? fmt(value / totalValue * 100) : '0'}%)`,
+                    name,
+                  ]}
+                />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: '0.78rem' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Barras: % B/P por acción */}
+          <div className="card" style={{ flex: '2 1 420px', minWidth: 0 }}>
+            <h2>Beneficio / Pérdida por acción (%)</h2>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart
+                data={[...positions]
+                  .sort((a, b) => Number(b.unrealized_pnl_pct) - Number(a.unrealized_pnl_pct))
+                  .map(p => ({
+                    name: p.yahoo_ticker,
+                    pct: Number(p.unrealized_pnl_pct),
+                  }))}
+                margin={{ top: 8, right: 8, left: 8, bottom: 4 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                <YAxis
+                  tickFormatter={v => `${v}%`}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                  width={48}
+                />
+                <ReTooltip
+                  contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.82rem' }}
+                  formatter={v => [`${sign(v)}${fmt(v)}%`, 'B/P']}
+                />
+                <Bar dataKey="pct" radius={[3, 3, 0, 0]}>
+                  {[...positions]
+                    .sort((a, b) => Number(b.unrealized_pnl_pct) - Number(a.unrealized_pnl_pct))
+                    .map((p, i) => (
+                      <Cell
+                        key={i}
+                        fill={Number(p.unrealized_pnl_pct) >= 0 ? 'var(--green)' : 'var(--red)'}
+                      />
+                    ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+        </div>
+      )}
 
       {/* Tabla posiciones abiertas */}
       {positions.length === 0 ? (

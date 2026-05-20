@@ -16,7 +16,7 @@ from app.api.deps import get_current_user, get_db
 from app.auth.security import hash_password, needs_rehash, verify_password
 from app.auth.session import clear_session_cookie, create_session_cookie
 from app.models import User
-from app.schemas.auth import LoginRequest, UserOut
+from app.schemas.auth import LoginRequest, SelfChangePasswordRequest, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -46,3 +46,18 @@ def logout(response: Response):
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/password", status_code=status.HTTP_204_NO_CONTENT)
+def change_own_password(
+    body: SelfChangePasswordRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Contraseña actual incorrecta",
+        )
+    user.password_hash = hash_password(body.new_password)
+    db.commit()

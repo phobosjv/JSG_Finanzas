@@ -106,8 +106,9 @@ export default function Dashboard() {
   if (error) return <div className="state-error">{error}</div>
   if (positions === null) return <div className="state-loading"><div className="spinner" /></div>
 
-  const totalValue = positions.reduce((s, p) => s + Number(p.market_value_eur), 0)
-  const totalPnL   = positions.reduce((s, p) => s + Number(p.unrealized_pnl_eur), 0)
+  const totalValue  = positions.reduce((s, p) => s + Number(p.market_value_eur), 0)
+  const totalPnL    = positions.reduce((s, p) => s + Number(p.unrealized_pnl_eur), 0)
+  const totalDayEur = positions.reduce((s, p) => s + (p.daily_change_eur != null ? Number(p.daily_change_eur) : 0), 0)
 
   return (
     <div>
@@ -119,6 +120,7 @@ export default function Dashboard() {
       <div className="card-row">
         <SummaryCard label="Valor cartera"  value={`${fmt(totalValue)} €`} />
         <SummaryCard label="B/P latente"    value={`${sign(totalPnL)}${fmt(totalPnL)} €`} clsName={cls(totalPnL)} />
+        <SummaryCard label="Var. hoy"       value={`${sign(totalDayEur)}${fmt(totalDayEur)} €`} clsName={cls(totalDayEur)} />
         <SummaryCard label="Posiciones"     value={positions.length} />
       </div>
 
@@ -134,6 +136,7 @@ export default function Dashboard() {
                   <th className="num">Valor (€)</th>
                   <th className="num">B/P (€)</th>
                   <th className="num">B/P %</th>
+                  <th className="num">Var. hoy %</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,6 +152,9 @@ export default function Dashboard() {
                       <td className="num">{fmt(p.market_value_eur)}</td>
                       <td className={`num ${cls(pnl)}`}>{sign(pnl)}{fmt(pnl)}</td>
                       <td className={`num ${cls(p.unrealized_pnl_pct)}`}>{sign(p.unrealized_pnl_pct)}{fmt(p.unrealized_pnl_pct)}%</td>
+                      <td className={`num ${p.daily_change_pct != null ? cls(p.daily_change_pct) : 'neu'}`}>
+                        {p.daily_change_pct != null ? `${sign(p.daily_change_pct)}${fmt(p.daily_change_pct)}%` : '—'}
+                      </td>
                     </tr>
                   )
                 })}
@@ -169,11 +175,15 @@ export default function Dashboard() {
                   <th className="num">Precio</th>
                   <th className="num">Var. %</th>
                   <th className="num">Objetivo compra</th>
+                  <th style={{ textAlign: 'center' }}>Alerta</th>
                 </tr>
               </thead>
               <tbody>
                 {favorites.map(f => {
                   const pct = f.daily_change_pct != null ? Number(f.daily_change_pct) : null
+                  const isBuyAlert = f.target_buy_price != null
+                    && f.last_price != null
+                    && Number(f.last_price) <= Number(f.target_buy_price)
                   return (
                     <tr key={f.security_id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/securities/${f.security_id}`)}>
                       <td>
@@ -193,6 +203,9 @@ export default function Dashboard() {
                         {f.target_buy_price
                           ? `${fmt(f.target_buy_price)} ${f.currency === 'USD' ? '$' : '€'}`
                           : '—'}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {isBuyAlert && <span className="alert-buy">¡Comprar!</span>}
                       </td>
                     </tr>
                   )
