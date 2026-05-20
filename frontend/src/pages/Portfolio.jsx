@@ -243,7 +243,9 @@ export default function Portfolio() {
                       })}
                     </Pie>
                     <ReTooltip
-                      contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.82rem' }}
+                      contentStyle={{ background: '#1e1b2e', border: '1px solid #4f46e5', borderRadius: 6, fontSize: '0.82rem', color: '#f1f5f9' }}
+                      labelStyle={{ color: '#f1f5f9', fontWeight: 600 }}
+                      itemStyle={{ color: '#c4b5fd' }}
                       formatter={(value, name) => [
                         `${fmt(value)} € (${totalValue > 0 ? fmt(value / totalValue * 100) : '0'}%)`,
                         name,
@@ -268,17 +270,24 @@ export default function Portfolio() {
                     pct: Number(p.unrealized_pnl_pct),
                     value: Number(p.unrealized_pnl_pct),
                   }))}
-                margin={{ top: 16, right: 20, left: 8, bottom: 4 }}
+                margin={{ top: 16, right: 20, left: 8, bottom: 64 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11, textAnchor: 'end' }}
+                  angle={-35}
+                  interval={0}
+                />
                 <YAxis
                   tickFormatter={v => `${v}%`}
                   tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
                   width={50}
                 />
                 <ReTooltip
-                  contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.82rem' }}
+                  contentStyle={{ background: '#1e1b2e', border: '1px solid #4f46e5', borderRadius: 6, fontSize: '0.82rem', color: '#f1f5f9' }}
+                  labelStyle={{ color: '#f1f5f9', fontWeight: 600 }}
+                  itemStyle={{ color: '#c4b5fd' }}
                   formatter={v => [`${sign(v)}${fmt(v)}%`, 'B/P']}
                 />
                 <Bar dataKey="pct" shape={<Bar3D />} isAnimationActive={true} />
