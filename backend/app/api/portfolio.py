@@ -195,13 +195,17 @@ def get_portfolio_history(
     ).all()
     repo = PortfolioRepository(db)
 
-    open_pos: list[tuple[Security, Decimal]] = []
+    open_pos: list[tuple[Security, Decimal, str]] = []
     for pos in positions:
         txs  = repo.transactions_for_position(pos.id)
         divs = repo.dividends_for_position(pos.id)
         result = compute_position(txs, divs)
         if not result.is_closed:
-            open_pos.append((pos.security, result.current_shares))
+            first_buy = min(
+                (tx.date.isoformat() for tx in txs if tx.type == "buy"),
+                default=None,
+            )
+            open_pos.append((pos.security, result.current_shares, first_buy))
 
     if not open_pos:
         return []
@@ -211,13 +215,12 @@ def get_portfolio_history(
 
     date_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
-    for sec, shares in open_pos:
+    for sec, shares, first_buy in open_pos:
         rate = current_rate if sec.currency == "USD" else Decimal("1")
-        rows = db.scalars(
-            select(PriceHistory)
-            .where(PriceHistory.security_id == sec.id)
-            .order_by(PriceHistory.date)
-        ).all()
+        query = select(PriceHistory).where(PriceHistory.security_id == sec.id)
+        if first_buy:
+            query = query.where(PriceHistory.date >= first_buy)
+        rows = db.scalars(query.order_by(PriceHistory.date)).all()
         for row in rows:
             date_totals[row.date] += shares * row.close / rate
 
