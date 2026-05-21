@@ -28,8 +28,8 @@ def download_tax_report(
     user: User = Depends(get_current_user),
 ):
     import tempfile, os
-    report_input = build_tax_report_input(db, user.id, year)
-    report = build_tax_report(report_input, year)
+    sales, dividends = build_tax_report_input(db, user.id)
+    report = build_tax_report(year, sales, dividends)
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         tmp_path = tmp.name
     try:
@@ -53,7 +53,7 @@ def preview_tax_report(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    report_input = build_tax_report_input(db, user.id, year)
-    report = build_tax_report(report_input, year)
+    sales, dividends = build_tax_report_input(db, user.id)
+    report = build_tax_report(year, sales, dividends)
     html = render_tax_report_html(report)
     return Response(content=html, media_type="text/html")
