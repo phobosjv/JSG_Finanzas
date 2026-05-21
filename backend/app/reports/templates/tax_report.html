@@ -156,6 +156,14 @@
     font-style: italic;
     padding: 8pt 0;
   }
+
+  /* ---- Salto de página antes de cada sección (excepto la primera) ---- */
+  @media print {
+    h2 ~ h2 {
+      break-before: page;
+      page-break-before: always;
+    }
+  }
 </style>
 </head>
 <body>
