@@ -115,6 +115,7 @@ export default function Portfolio() {
   const [positions, setPositions]   = useState(null)
   const [closed, setClosed]         = useState([])
   const [history, setHistory]       = useState([])
+  const [histYears, setHistYears]   = useState(2)
   const [error, setError]           = useState(null)
   const navigate = useNavigate()
 
@@ -297,9 +298,36 @@ export default function Portfolio() {
       {/* Gráfico de líneas: evolución del valor de cartera */}
       {history.length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <h2>Evolución del valor de cartera</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <h2 style={{ margin: 0 }}>Evolución del valor de cartera</h2>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[1, 2, 5].map(y => (
+                <button
+                  key={y}
+                  onClick={() => setHistYears(y)}
+                  style={{
+                    padding: '3px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: histYears === y ? 700 : 400,
+                    borderRadius: 4,
+                    border: '1px solid var(--border)',
+                    background: histYears === y ? 'var(--primary, #6366f1)' : 'transparent',
+                    color: histYears === y ? '#fff' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    lineHeight: 1.4,
+                  }}
+                >{y}A</button>
+              ))}
+            </div>
+          </div>
+          {(() => {
+            const cutoff = new Date()
+            cutoff.setFullYear(cutoff.getFullYear() - histYears)
+            const cutStr = cutoff.toISOString().slice(0, 10)
+            const filtered = history.filter(p => p.date >= cutStr)
+            return (
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={history} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+            <AreaChart data={filtered} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
               <defs>
                 <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.35} />
@@ -334,6 +362,8 @@ export default function Portfolio() {
               />
             </AreaChart>
           </ResponsiveContainer>
+            )
+          })()}
         </div>
       )}
 
