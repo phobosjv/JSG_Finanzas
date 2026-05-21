@@ -27,7 +27,7 @@ export default function Login() {
   return (
     <div className="login-page">
       <form className="login-box card" onSubmit={submit}>
-        <h1 className="login-title">Finanzas</h1>
+        <h1 className="login-title">FJS Finanzas</h1>
         <p className="login-sub">Seguimiento de cartera de inversión</p>
 
         {error && <div className="state-error" style={{ padding: '8px', marginBottom: 12 }}>{error}</div>}
