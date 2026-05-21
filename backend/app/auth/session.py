@@ -26,7 +26,8 @@ Seguridad de la cookie
 -----------------------
 - httponly=True  : JavaScript no puede leer la cookie (protege XSS).
 - samesite=lax   : Protege CSRF en la mayoria de flujos.
-- secure=True    : Solo HTTPS. En desarrollo (debug=True) se omite.
+- secure         : Controlado por settings.cookie_secure (false por defecto;
+                   activar solo si se despliega con HTTPS).
 """
 
 from __future__ import annotations
@@ -53,7 +54,7 @@ def create_session_cookie(response: Response, user_id: int) -> None:
         value=token,
         httponly=True,
         samesite="lax",
-        secure=not settings.debug,
+        secure=settings.cookie_secure,
         max_age=max_age,
     )
 

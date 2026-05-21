@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # en un dominio distinto; en ese caso pasar ALLOWED_ORIGINS=["https://tu-dominio.com"].
     allowed_origins: list[str] = ["http://localhost:5173"]
 
+    # Marca la cookie de sesion como Secure (solo HTTPS).
+    # Poner a false en intranets o despliegues HTTP.
+    cookie_secure: bool = False
+
     # Debug: activa reload de uvicorn y logs detallados
     debug: bool = False
 
