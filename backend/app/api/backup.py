@@ -11,7 +11,7 @@ POST /backup/import  — carga un JSON previamente exportado. Es idempotente:
 from __future__ import annotations
 
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
@@ -161,23 +161,40 @@ async def import_backup(
         }
 
         for tx_data in pos_data.get("transactions", []):
-            key = (
-                str(tx_data["date"]),
-                tx_data["type"],
-                str(Decimal(str(tx_data["shares"]))),
-                str(Decimal(str(tx_data["price"]))),
-            )
+            try:
+                tx_shares = Decimal(str(tx_data["shares"]))
+                tx_price  = Decimal(str(tx_data["price"]))
+                tx_fee    = Decimal(str(tx_data.get("fee", "0")))
+                tx_rate   = Decimal(str(tx_data.get("exchange_rate", "1")))
+                if tx_shares <= 0:
+                    raise ValueError("shares debe ser > 0")
+                if tx_price < 0:
+                    raise ValueError("price no puede ser negativo")
+                if tx_fee < 0:
+                    raise ValueError("fee no puede ser negativo")
+                if tx_rate <= 0:
+                    raise ValueError("exchange_rate debe ser > 0")
+                if tx_data["type"] not in ("buy", "sell"):
+                    raise ValueError("type debe ser 'buy' o 'sell'")
+                if tx_data["currency"] not in ("EUR", "USD"):
+                    raise ValueError("currency debe ser 'EUR' o 'USD'")
+            except (KeyError, TypeError, InvalidOperation, ValueError) as exc:
+                result.errors.append(
+                    f"Transacción omitida en '{ticker}': {exc}"
+                )
+                continue
+            key = (str(tx_data["date"]), tx_data["type"], str(tx_shares), str(tx_price))
             if key in existing_txs:
                 continue
             db.add(TransactionRow(
                 position_id=pos.id,
                 type=tx_data["type"],
                 date=tx_data["date"],
-                shares=Decimal(str(tx_data["shares"])),
-                price=Decimal(str(tx_data["price"])),
-                fee=Decimal(str(tx_data.get("fee", "0"))),
+                shares=tx_shares,
+                price=tx_price,
+                fee=tx_fee,
                 currency=tx_data["currency"],
-                exchange_rate=Decimal(str(tx_data.get("exchange_rate", "1"))),
+                exchange_rate=tx_rate,
             ))
             result.transactions_added += 1
 
@@ -190,21 +207,41 @@ async def import_backup(
         }
 
         for div_data in pos_data.get("dividends", []):
-            key = (
-                str(div_data["date"]),
-                str(Decimal(str(div_data["gross_amount"]))),
-            )
+            try:
+                div_shares = Decimal(str(div_data["shares_at_date"]))
+                div_gps    = Decimal(str(div_data["gross_per_share"]))
+                div_gross  = Decimal(str(div_data["gross_amount"]))
+                div_wht    = Decimal(str(div_data.get("withholding_tax", "0")))
+                div_rate   = Decimal(str(div_data.get("exchange_rate", "1")))
+                if div_shares <= 0:
+                    raise ValueError("shares_at_date debe ser > 0")
+                if div_gps <= 0:
+                    raise ValueError("gross_per_share debe ser > 0")
+                if div_gross <= 0:
+                    raise ValueError("gross_amount debe ser > 0")
+                if div_wht < 0:
+                    raise ValueError("withholding_tax no puede ser negativo")
+                if div_rate <= 0:
+                    raise ValueError("exchange_rate debe ser > 0")
+                if div_data["currency"] not in ("EUR", "USD"):
+                    raise ValueError("currency debe ser 'EUR' o 'USD'")
+            except (KeyError, TypeError, InvalidOperation, ValueError) as exc:
+                result.errors.append(
+                    f"Dividendo omitido en '{ticker}': {exc}"
+                )
+                continue
+            key = (str(div_data["date"]), str(div_gross))
             if key in existing_divs:
                 continue
             db.add(DividendRow(
                 position_id=pos.id,
                 date=div_data["date"],
-                shares_at_date=Decimal(str(div_data["shares_at_date"])),
-                gross_per_share=Decimal(str(div_data["gross_per_share"])),
-                gross_amount=Decimal(str(div_data["gross_amount"])),
-                withholding_tax=Decimal(str(div_data.get("withholding_tax", "0"))),
+                shares_at_date=div_shares,
+                gross_per_share=div_gps,
+                gross_amount=div_gross,
+                withholding_tax=div_wht,
                 currency=div_data["currency"],
-                exchange_rate=Decimal(str(div_data.get("exchange_rate", "1"))),
+                exchange_rate=div_rate,
             ))
             result.dividends_added += 1
 

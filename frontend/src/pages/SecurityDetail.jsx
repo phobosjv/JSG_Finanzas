@@ -125,11 +125,11 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
               <label>Acciones</label>
-              <input type="number" step="any" min="0" {...field('shares')} required />
+              <input type="number" step="any" min="0.000001" {...field('shares')} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>Precio</label>
-              <input type="number" step="any" min="0" {...field('price')} required />
+              <input type="number" step="any" min="0.000001" {...field('price')} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>Comisión</label>
@@ -146,7 +146,7 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>Tipo EUR/USD</label>
-              <input type="number" step="any" {...field('exchange_rate')} />
+              <input type="number" step="any" min="0.000001" {...field('exchange_rate')} />
             </div>
           </div>
           <div className="modal-actions">
@@ -222,17 +222,17 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>Acciones en posesión</label>
-              <input type="number" step="any" min="0" {...field('shares_at_date')} required />
+              <input type="number" step="any" min="0.000001" {...field('shares_at_date')} required />
             </div>
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
               <label>€/acción (bruto)</label>
-              <input type="number" step="any" min="0" {...field('gross_per_share')} required />
+              <input type="number" step="any" min="0.000001" {...field('gross_per_share')} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>Total bruto</label>
-              <input type="number" step="any" min="0" {...field('gross_amount')} required />
+              <input type="number" step="any" min="0.000001" {...field('gross_amount')} required />
             </div>
           </div>
           <div className="card-row">
@@ -245,7 +245,7 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>Tipo EUR/USD</label>
-              <input type="number" step="any" {...field('exchange_rate')} />
+              <input type="number" step="any" min="0.000001" {...field('exchange_rate')} />
             </div>
           </div>
           <div className="modal-actions">

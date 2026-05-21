@@ -31,6 +31,7 @@ from app.repositories.portfolio_repository import PortfolioRepository
 from app.schemas.portfolio import (
     ClosedPositionSummary,
     DividendCreate, DividendOut,
+    NotesUpdate, TargetSellUpdate,
     PositionCreate, PositionOut,
     PositionSummary,
     TransactionCreate, TransactionOut,
@@ -334,12 +335,12 @@ def get_closed_positions(
 @router.patch("/{position_id}/notes", response_model=PositionOut)
 def update_notes(
     position_id: int,
-    body: dict,
+    body: NotesUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     pos = _require_position(db, position_id, user.id)
-    pos.notes = body.get("notes") or None
+    pos.notes = body.notes or None
     db.commit()
     db.refresh(pos)
     return pos
@@ -348,13 +349,12 @@ def update_notes(
 @router.patch("/{position_id}/target-sell", response_model=PositionOut)
 def update_target_sell(
     position_id: int,
-    body: dict,
+    body: TargetSellUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     pos = _require_position(db, position_id, user.id)
-    price = body.get("target_sell_price")
-    pos.target_sell_price = Decimal(str(price)) if price is not None else None
+    pos.target_sell_price = body.target_sell_price
     db.commit()
     db.refresh(pos)
     return pos

@@ -68,7 +68,16 @@ function TargetSellCell({ pos, onUpdate }) {
 
   async function save() {
     setEditing(false)
-    const num = val.trim() === '' ? null : Number(val)
+    const trimmed = val.trim()
+    if (trimmed === '') {
+      try {
+        await api.patch(`/portfolio/${pos.position_id}/target-sell`, { target_sell_price: null })
+        onUpdate(pos.position_id, null)
+      } catch { /* silencioso */ }
+      return
+    }
+    const num = Number(trimmed)
+    if (isNaN(num) || num <= 0) return   // valor inválido: ignorar silenciosamente
     try {
       await api.patch(`/portfolio/${pos.position_id}/target-sell`, { target_sell_price: num })
       onUpdate(pos.position_id, num)

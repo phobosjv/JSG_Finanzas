@@ -22,6 +22,42 @@ class PositionCreate(BaseModel):
     target_sell_price: Decimal | None = None
     notes: str | None = None
 
+    @field_validator("target_sell_price")
+    @classmethod
+    def target_non_negative(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v < 0:
+            raise ValueError("El precio objetivo no puede ser negativo")
+        return v
+
+    @field_validator("notes")
+    @classmethod
+    def notes_max_len(cls, v: str | None) -> str | None:
+        if v is not None and len(v) > 500:
+            raise ValueError("Las notas no pueden superar 500 caracteres")
+        return v
+
+
+class NotesUpdate(BaseModel):
+    notes: str | None = None
+
+    @field_validator("notes")
+    @classmethod
+    def notes_max_len(cls, v: str | None) -> str | None:
+        if v is not None and len(v) > 500:
+            raise ValueError("Las notas no pueden superar 500 caracteres")
+        return v
+
+
+class TargetSellUpdate(BaseModel):
+    target_sell_price: Decimal | None = None
+
+    @field_validator("target_sell_price")
+    @classmethod
+    def non_negative(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v < 0:
+            raise ValueError("El precio objetivo no puede ser negativo")
+        return v
+
 
 class PositionOut(BaseModel):
     id: int
