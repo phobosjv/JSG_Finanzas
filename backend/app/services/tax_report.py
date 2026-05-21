@@ -113,6 +113,17 @@ class SaleLine:
 
 
 @dataclass
+class CommissionLine:
+    """Resumen de comisiones de un valor cuyas acciones se vendieron en el ejercicio."""
+    security_name: str
+    isin: str | None
+    market: Market
+    buy_fee_eur: Decimal    # comisiones de compra de los lotes consumidos (proporcional)
+    sell_fee_eur: Decimal   # comisiones de venta del ejercicio
+    total_fee_eur: Decimal
+
+
+@dataclass
 class DividendLine:
     """Una linea de dividendo del informe."""
     security_name: str
@@ -129,20 +140,26 @@ class TaxReport:
     """Informe completo de un ejercicio. Lo que consume el generador de PDF."""
     year: int
     sale_lines: list[SaleLine] = field(default_factory=list)
+    commission_lines: list[CommissionLine] = field(default_factory=list)
     dividend_lines: list[DividendLine] = field(default_factory=list)
 
     # --- Resumen de ganancias patrimoniales ---
-    total_gains_eur: Decimal = Decimal("0")          # suma de tramos con beneficio
-    total_losses_computable_eur: Decimal = Decimal("0")   # perdidas que SI computan
-    total_losses_disallowed_eur: Decimal = Decimal("0")   # perdidas marcadas, NO computan
-    net_capital_result_eur: Decimal = Decimal("0")   # saldo computable del ejercicio
+    total_gains_eur: Decimal = Decimal("0")
+    total_losses_computable_eur: Decimal = Decimal("0")
+    total_losses_disallowed_eur: Decimal = Decimal("0")
+    net_capital_result_eur: Decimal = Decimal("0")
+
+    # --- Resumen de comisiones ---
+    total_buy_fee_eur: Decimal = Decimal("0")
+    total_sell_fee_eur: Decimal = Decimal("0")
+    total_commission_eur: Decimal = Decimal("0")
 
     # --- Resumen de dividendos ---
     total_dividends_gross_eur: Decimal = Decimal("0")
     total_dividends_withholding_eur: Decimal = Decimal("0")
     total_dividends_net_eur: Decimal = Decimal("0")
 
-    # Avisos para mostrar en el PDF
+    # Avisos para mostrar en el informe
     warnings: list[str] = field(default_factory=list)
 
 
@@ -256,7 +273,33 @@ def build_tax_report(
         report.total_gains_eur + report.total_losses_computable_eur
     )
 
-    # ---- Bloque 2: rendimientos del capital mobiliario (dividendos) ----
+    # ---- Bloque 2: comisiones de operaciones vendidas en el ejercicio ----
+    for sec_sales in sales:
+        sec = sec_sales.security
+        buy_fee = Decimal("0")
+        sell_fee = Decimal("0")
+        for match in sec_sales.matches:
+            if match.sell_date.year != year:
+                continue
+            buy_fee += match.buy_fee_eur
+            sell_fee += match.sell_fee_eur
+
+        if buy_fee + sell_fee > Decimal("0"):
+            report.commission_lines.append(CommissionLine(
+                security_name=sec.name,
+                isin=sec.isin,
+                market=sec.market,
+                buy_fee_eur=buy_fee,
+                sell_fee_eur=sell_fee,
+                total_fee_eur=buy_fee + sell_fee,
+            ))
+            report.total_buy_fee_eur += buy_fee
+            report.total_sell_fee_eur += sell_fee
+            report.total_commission_eur += buy_fee + sell_fee
+
+    report.commission_lines.sort(key=lambda l: l.security_name)
+
+    # ---- Bloque 3: rendimientos del capital mobiliario (dividendos) ----
     for rec in dividends:
         div = rec.dividend
         if div.date.year != year:

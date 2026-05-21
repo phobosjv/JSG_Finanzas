@@ -7,13 +7,15 @@
   Variables que recibe (del objeto TaxReport, ya formateadas a str por el
   generador para controlar el formato de numeros y fechas):
     year, generated_at
-    sale_lines[]      : security_name, isin, market, sell_date, buy_date,
-                        shares, cost_eur, proceeds_eur, gain_eur,
-                        loss_disallowed (bool), disallowed_reason
-    dividend_lines[]  : security_name, isin, market, pay_date,
-                        gross_eur, withholding_eur, net_eur
-    totals            : gains, losses_computable, losses_disallowed,
-                        net_capital, div_gross, div_withholding, div_net
+    sale_lines[]       : security_name, isin, market, sell_date, buy_date,
+                         shares, cost_eur, proceeds_eur, gain_eur,
+                         loss_disallowed (bool), disallowed_reason
+    commission_lines[] : security_name, isin, buy_fee_eur, sell_fee_eur, total_fee_eur
+    dividend_lines[]   : security_name, isin, market, pay_date,
+                         gross_eur, withholding_eur, net_eur
+    totals             : gains, losses_computable, losses_disallowed, net_capital,
+                         commission_buy, commission_sell, commission_total,
+                         div_gross, div_withholding, div_net
     warnings[]
 -->
 <!DOCTYPE html>
@@ -228,8 +230,49 @@
   <p class="empty">No se han registrado ventas de acciones en este ejercicio.</p>
   {% endif %}
 
-  <!-- ============ BLOQUE 2: RENDIMIENTOS DEL CAPITAL MOBILIARIO ============ -->
-  <h2>2. Rendimientos del capital mobiliario (dividendos)</h2>
+  <!-- ============ BLOQUE 2: COMISIONES ============ -->
+  <h2>2. Gastos en comisiones (posiciones vendidas en el ejercicio)</h2>
+
+  {% if commission_lines %}
+  <p style="font-size:8pt; color:#555; margin:0 0 6pt 0;">
+    Comisiones de compra y venta correspondientes a las acciones vendidas en {{ year }}.
+    Las de compra ya están incluidas en el coste de adquisición de la tabla anterior;
+    las de venta, en el importe neto de venta. Esta sección las desglosa para referencia.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th class="left">Valor</th>
+        <th class="left">ISIN</th>
+        <th>Comisiones de compra (€)</th>
+        <th>Comisiones de venta (€)</th>
+        <th>Total comisiones (€)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in commission_lines %}
+      <tr>
+        <td class="left">{{ line.security_name }}</td>
+        <td class="left">{{ line.isin or '—' }}</td>
+        <td>{{ line.buy_fee_eur }}</td>
+        <td>{{ line.sell_fee_eur }}</td>
+        <td>{{ line.total_fee_eur }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="total">
+        <td class="left" colspan="2">TOTAL</td>
+        <td>{{ totals.commission_buy }}</td>
+        <td>{{ totals.commission_sell }}</td>
+        <td>{{ totals.commission_total }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No se registraron comisiones en ventas de este ejercicio.</p>
+  {% endif %}
+
+  <!-- ============ BLOQUE 3: RENDIMIENTOS DEL CAPITAL MOBILIARIO ============ -->
+  <h2>3. Rendimientos del capital mobiliario (dividendos)</h2>
 
   {% if dividend_lines %}
   <table>

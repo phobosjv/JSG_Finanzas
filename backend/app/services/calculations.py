@@ -75,6 +75,7 @@ class Lot:
     shares: Decimal             # acciones que quedan vivas en este lote
     unit_cost_native: Decimal   # coste por acción en divisa nativa (con comisión)
     unit_cost_eur: Decimal      # coste por acción en euros (con comisión)
+    unit_fee_eur: Decimal = Decimal("0")  # comisión de compra por acción en euros
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,9 @@ class SaleMatch:
     # Resultado fiscal de este tramo
     gain_native: Decimal
     gain_eur: Decimal
+    # Comisiones imputables a este tramo (proporcionales a las acciones)
+    buy_fee_eur: Decimal = Decimal("0")
+    sell_fee_eur: Decimal = Decimal("0")
 
 
 @dataclass
@@ -224,6 +228,7 @@ def _apply_buy(tx: Transaction, open_lots: list[Lot]) -> None:
     gross_native = tx.shares * tx.price + tx.fee
     unit_cost_native = gross_native / tx.shares
     unit_cost_eur = to_eur(unit_cost_native, tx.exchange_rate)
+    unit_fee_eur = to_eur(tx.fee, tx.exchange_rate) / tx.shares
 
     open_lots.append(
         Lot(
@@ -231,6 +236,7 @@ def _apply_buy(tx: Transaction, open_lots: list[Lot]) -> None:
             shares=tx.shares,
             unit_cost_native=unit_cost_native,
             unit_cost_eur=unit_cost_eur,
+            unit_fee_eur=unit_fee_eur,
         )
     )
 
@@ -277,6 +283,10 @@ def _apply_sell(
         gain_native = proceeds_native - cost_native
         gain_eur = proceeds_eur - cost_eur
 
+        # Comisiones proporcionales a las acciones de este tramo
+        buy_fee_eur = take * lot.unit_fee_eur
+        sell_fee_eur = to_eur(tx.fee, tx.exchange_rate) * (take / tx.shares)
+
         matches.append(
             SaleMatch(
                 sell_date=tx.date,
@@ -288,6 +298,8 @@ def _apply_sell(
                 proceeds_eur=proceeds_eur,
                 gain_native=gain_native,
                 gain_eur=gain_eur,
+                buy_fee_eur=buy_fee_eur,
+                sell_fee_eur=sell_fee_eur,
             )
         )
 

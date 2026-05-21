@@ -61,6 +61,17 @@ def _build_context(report: TaxReport) -> dict:
         for line in report.sale_lines
     ]
 
+    commission_lines = [
+        {
+            "security_name": line.security_name,
+            "isin":          line.isin,
+            "buy_fee_eur":   _fmt_money(line.buy_fee_eur),
+            "sell_fee_eur":  _fmt_money(line.sell_fee_eur),
+            "total_fee_eur": _fmt_money(line.total_fee_eur),
+        }
+        for line in report.commission_lines
+    ]
+
     dividend_lines = [
         {
             "security_name":   line.security_name,
@@ -78,6 +89,7 @@ def _build_context(report: TaxReport) -> dict:
         "year":                 report.year,
         "generated_at":         datetime.now().strftime("%d/%m/%Y %H:%M"),
         "sale_lines":           sale_lines,
+        "commission_lines":     commission_lines,
         "dividend_lines":       dividend_lines,
         "net_capital_positive": report.net_capital_result_eur >= Decimal("0"),
         "totals": {
@@ -85,6 +97,9 @@ def _build_context(report: TaxReport) -> dict:
             "losses_computable":  _fmt_money(report.total_losses_computable_eur),
             "losses_disallowed":  _fmt_money(report.total_losses_disallowed_eur),
             "net_capital":        _fmt_money(report.net_capital_result_eur),
+            "commission_buy":     _fmt_money(report.total_buy_fee_eur),
+            "commission_sell":    _fmt_money(report.total_sell_fee_eur),
+            "commission_total":   _fmt_money(report.total_commission_eur),
             "div_gross":          _fmt_money(report.total_dividends_gross_eur),
             "div_withholding":    _fmt_money(report.total_dividends_withholding_eur),
             "div_net":            _fmt_money(report.total_dividends_net_eur),
