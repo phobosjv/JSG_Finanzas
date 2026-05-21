@@ -22,7 +22,6 @@ export default function Utilities() {
   // Informe fiscal
   const currentYear = new Date().getFullYear()
   const [taxYear, setTaxYear]       = useState(currentYear - 1)
-  const [taxBusy, setTaxBusy]       = useState(false)
 
   // Cambio de contraseña
   const [pwForm, setPwForm]         = useState({ current: '', newPw: '', confirm: '' })
@@ -89,17 +88,8 @@ export default function Utilities() {
     finally { setRefreshBusy(false) }
   }
 
-  async function downloadTaxReport() {
-    setTaxBusy(true)
-    try {
-      const res = await fetch(`/api/reports/tax/${taxYear}`, { credentials: 'include' })
-      if (!res.ok) { alert(`Error al generar el informe: ${res.status}`); return }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = `informe_fiscal_${taxYear}.pdf`; a.click()
-      URL.revokeObjectURL(url)
-    } finally { setTaxBusy(false) }
+  function openTaxReport() {
+    window.open(`/api/reports/tax/${taxYear}/html`, '_blank')
   }
 
   async function exportBackup() {
@@ -272,8 +262,8 @@ export default function Utilities() {
       <div className="card" style={{ marginTop: 24 }}>
         <h2>Informe fiscal (IRPF)</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
-          Genera un PDF con las operaciones de compra/venta del año seleccionado,
-          el beneficio o pérdida de cada valor y un resumen para la declaración de la renta.
+          Abre el informe del año seleccionado en una pestaña nueva.
+          Usa <strong>Ctrl+P</strong> → "Guardar como PDF" para descargarlo.
         </p>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
@@ -289,10 +279,9 @@ export default function Utilities() {
           </div>
           <button
             className="btn-primary btn-sm"
-            disabled={taxBusy}
-            onClick={downloadTaxReport}
+            onClick={openTaxReport}
           >
-            {taxBusy ? 'Generando…' : '↓ Descargar PDF'}
+            Ver informe fiscal
           </button>
         </div>
       </div>
