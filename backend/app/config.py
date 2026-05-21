@@ -31,7 +31,10 @@ class Settings(BaseSettings):
     secret_key: str  # requerido, sin default
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 dias
 
-    # CORS: origenes permitidos en desarrollo (Vite corre en :5173)
+    # CORS: origenes permitidos.
+    # En produccion Docker el frontend lo sirve el propio FastAPI (mismo origen),
+    # por lo que CORS no es necesario. Solo importa si hay un reverse proxy
+    # en un dominio distinto; en ese caso pasar ALLOWED_ORIGINS=["https://tu-dominio.com"].
     allowed_origins: list[str] = ["http://localhost:5173"]
 
     # Debug: activa reload de uvicorn y logs detallados

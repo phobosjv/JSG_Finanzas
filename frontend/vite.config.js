@@ -8,8 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Finanzas',
-        short_name: 'Finanzas',
+        name: 'FJS Finanzas',
+        short_name: 'FJS Finanzas',
         description: 'Seguimiento de cartera de inversión',
         theme_color: '#1a1a2e',
         background_color: '#1a1a2e',
