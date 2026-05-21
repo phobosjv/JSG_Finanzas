@@ -14,6 +14,7 @@ POST /markets/{security_id}/refresh — fuerza actualización inmediata.
 from __future__ import annotations
 
 import time
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import outerjoin, select
@@ -161,7 +162,6 @@ def get_index_history(
     if cached and now - cached[0] < _HIST_TTL:
         return cached[1]
 
-    from datetime import date, timedelta
     from app.providers.yahoo import YahooProvider
     ticker_symbol, _ = INDEX_TICKERS[market]
     try:
@@ -242,7 +242,6 @@ def refresh_all(
     _user: User = Depends(get_current_user),
 ):
     """Fuerza actualización de histórico y snapshot para todos los valores del catálogo."""
-    from datetime import date
     from app.scheduler.jobs import _update_history_for_security, _update_snapshot_for_security
     secs = db.scalars(select(Security)).all()
     for sec in secs:
@@ -261,7 +260,6 @@ def refresh_security(
     _user: User = Depends(get_current_user),
 ):
     sec = _require_security(db, security_id)
-    from datetime import date
     from app.scheduler.jobs import _update_history_for_security, _update_snapshot_for_security
     _update_history_for_security(db, sec, date.today())
     _update_snapshot_for_security(db, sec)

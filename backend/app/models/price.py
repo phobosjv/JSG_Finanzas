@@ -13,6 +13,7 @@ Los importes monetarios usan el tipo 'Money' para entrar/salir como Decimal.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint, Index
@@ -36,7 +37,7 @@ class PriceHistory(Base):
         ForeignKey("securities.id", ondelete="CASCADE"), nullable=False
     )
     date: Mapped[str] = mapped_column(String, nullable=False)  # 'YYYY-MM-DD'
-    close: Mapped["object"] = mapped_column(Money, nullable=False)
+    close: Mapped[Decimal] = mapped_column(Money, nullable=False)
     volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     security: Mapped["Security"] = relationship(back_populates="price_history")
@@ -52,14 +53,14 @@ class PriceSnapshot(Base):
     security_id: Mapped[int] = mapped_column(
         ForeignKey("securities.id", ondelete="CASCADE"), primary_key=True
     )
-    last_price: Mapped["object | None"] = mapped_column(Money, nullable=True)
-    prev_close: Mapped["object | None"] = mapped_column(Money, nullable=True)
-    daily_change_pct: Mapped["object | None"] = mapped_column(Money, nullable=True)
-    min_1y: Mapped["object | None"] = mapped_column(Money, nullable=True)
-    min_2y: Mapped["object | None"] = mapped_column(Money, nullable=True)
-    min_5y: Mapped["object | None"] = mapped_column(Money, nullable=True)
-    max_1y: Mapped["object | None"] = mapped_column(Money, nullable=True)
-    last_dividend: Mapped["object | None"] = mapped_column(Money, nullable=True)
+    last_price: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    prev_close: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    daily_change_pct: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    min_1y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    min_2y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    min_5y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    max_1y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    last_dividend: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     updated_at: Mapped[str | None] = mapped_column(String, nullable=True)
 
     security: Mapped["Security"] = relationship(back_populates="snapshot")
@@ -73,7 +74,7 @@ class EcbRate(Base):
     __tablename__ = "ecb_rates"
 
     date: Mapped[str] = mapped_column(String, primary_key=True)  # 'YYYY-MM-DD'
-    rate: Mapped["object"] = mapped_column(Money, nullable=False)
+    rate: Mapped[Decimal] = mapped_column(Money, nullable=False)
 
     def __repr__(self) -> str:
         return f"<EcbRate {self.date} rate={self.rate}>"
