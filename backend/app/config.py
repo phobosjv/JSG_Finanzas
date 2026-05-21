@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     # Poner a false en intranets o despliegues HTTP.
     cookie_secure: bool = False
 
+    # Usuario administrador por defecto.
+    # Si ADMIN_DEFAULT_USER está definido y ese usuario no existe en la BD,
+    # se crea automáticamente al arrancar la aplicación.
+    admin_default_user: str = "admin"
+    admin_default_password: str = "admin1234"
+
     # Debug: activa reload de uvicorn y logs detallados
     debug: bool = False
 

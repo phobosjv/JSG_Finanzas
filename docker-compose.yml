@@ -13,6 +13,10 @@ services:
       # Ejemplo: ALLOWED_ORIGINS=["https://tu-dominio.com"]
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-["http://localhost:5173"]}
       - DEBUG=${DEBUG:-false}
+      # Usuario admin creado automáticamente en el primer arranque.
+      # Cambia la contraseña tras el primer login.
+      - ADMIN_DEFAULT_USER=${ADMIN_DEFAULT_USER:-admin}
+      - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin1234}
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/')\""]

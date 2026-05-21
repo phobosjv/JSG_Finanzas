@@ -30,11 +30,35 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.api import admin, auth, backup, favorites, markets, portfolio, reports, securities
+from app.auth.security import hash_password
 from app.config import get_settings
 from app.database import SessionLocal
 from app.scheduler.jobs import daily_update
 
 log = logging.getLogger(__name__)
+
+
+def _ensure_default_admin() -> None:
+    """Crea el usuario admin por defecto si no existe todavía."""
+    from sqlalchemy import select
+    from app.models import User
+
+    settings = get_settings()
+    username = settings.admin_default_user.strip()
+    password = settings.admin_default_password
+    if not username or not password:
+        return
+
+    db = SessionLocal()
+    try:
+        existing = db.scalar(select(User).where(User.username == username))
+        if existing:
+            return
+        db.add(User(username=username, password_hash=hash_password(password), is_admin=True))
+        db.commit()
+        log.info("Usuario admin por defecto creado: %s", username)
+    finally:
+        db.close()
 
 
 def _make_scheduler() -> BackgroundScheduler:
@@ -54,6 +78,7 @@ def _make_scheduler() -> BackgroundScheduler:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _ensure_default_admin()
     scheduler = _make_scheduler()
     scheduler.start()
     log.info("Scheduler iniciado")
