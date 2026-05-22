@@ -24,8 +24,9 @@ import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -92,7 +93,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Finanzas",
         description="Seguimiento de cartera de inversion",
-        version="0.1.0",
+        version="1.0.1",
         lifespan=lifespan,
     )
 
@@ -122,10 +123,30 @@ def create_app() -> FastAPI:
         os.path.join(app_root, "..", "static"),         # Docker: /app/static
         os.path.join(app_root, "..", "..", "frontend", "dist"),  # dev local
     ]
-    for static_dir in candidates:
-        if os.path.isdir(static_dir):
-            app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+    static_dir = None
+    for candidate in candidates:
+        if os.path.isdir(candidate):
+            static_dir = os.path.realpath(candidate)
             break
+
+    if static_dir:
+        assets_dir = os.path.join(static_dir, "assets")
+        if os.path.isdir(assets_dir):
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def serve_spa(full_path: str):
+            # Serve exact static file if it exists (icons, SW, manifest, …)
+            if full_path:
+                candidate_file = os.path.realpath(os.path.join(static_dir, full_path))
+                # Path traversal guard
+                if candidate_file.startswith(static_dir) and os.path.isfile(candidate_file):
+                    return FileResponse(candidate_file)
+            # SPA fallback: let React Router handle the route
+            index = os.path.join(static_dir, "index.html")
+            if os.path.isfile(index):
+                return FileResponse(index)
+            raise HTTPException(status_code=404)
 
     return app
 
