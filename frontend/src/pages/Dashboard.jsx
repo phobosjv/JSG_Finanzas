@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import './Dashboard.css'
 
 function fmt(val, dec = 2) {
   if (val == null) return '—'
@@ -56,7 +57,7 @@ function TopMoversSection({ title, market }) {
   function MoverTable({ items, label }) {
     if (!items.length) return null
     return (
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div>
         <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {label}
         </div>
@@ -79,9 +80,9 @@ function TopMoversSection({ title, market }) {
   return (
     <div className="card" style={{ marginTop: 16 }}>
       <h2 style={{ marginBottom: 16 }}>{title}</h2>
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        <MoverTable items={up}   label="Mayores subidas" />
-        <MoverTable items={down} label="Mayores bajadas"  />
+      <div className="movers-grid">
+        <div className="movers-col"><MoverTable items={up}   label="Mayores subidas" /></div>
+        <div className="movers-col"><MoverTable items={down} label="Mayores bajadas"  /></div>
       </div>
     </div>
   )
@@ -113,7 +114,7 @@ export default function Dashboard() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1>Hola, {user?.username}</h1>
+        <h1>Hola, {user?.username?.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</h1>
         <button className="btn-ghost btn-sm" onClick={logout}>Salir</button>
       </div>
 

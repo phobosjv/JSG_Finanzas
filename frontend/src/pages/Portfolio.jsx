@@ -227,6 +227,7 @@ export default function Portfolio() {
                       data={positions.map(p => ({
                         name: p.name,
                         value: Number(p.market_value_eur),
+                        security_id: p.security_id,
                       }))}
                       cx="50%"
                       cy="52%"
@@ -235,6 +236,8 @@ export default function Portfolio() {
                       dataKey="value"
                       paddingAngle={3}
                       strokeWidth={0}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(data) => data?.security_id && navigate(`/securities/${data.security_id}`)}
                     >
                       {positions.map((_, i) => {
                         const base = DONUT_COLORS[i % DONUT_COLORS.length]
@@ -275,8 +278,14 @@ export default function Portfolio() {
                     name: p.name,
                     pct: Number(p.unrealized_pnl_pct),
                     value: Number(p.unrealized_pnl_pct),
+                    security_id: p.security_id,
                   }))}
                 margin={{ top: 16, right: 20, left: 8, bottom: 64 }}
+                style={{ cursor: 'pointer' }}
+                onClick={(data) => {
+                  const id = data?.activePayload?.[0]?.payload?.security_id
+                  if (id) navigate(`/securities/${id}`)
+                }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis

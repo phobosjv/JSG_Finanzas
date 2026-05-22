@@ -1,0 +1,16 @@
+.movers-grid {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.movers-col {
+  flex: 1;
+  min-width: 220px;
+}
+
+@media (max-width: 540px) {
+  .movers-col {
+    min-width: 100%;
+  }
+}
