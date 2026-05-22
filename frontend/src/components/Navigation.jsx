@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { version } from '../../package.json'
 import './Navigation.css'
 
 const LINKS = [
@@ -16,7 +17,10 @@ export default function Navigation() {
     <>
       {/* Barra lateral — escritorio */}
       <nav className="sidebar">
-        <div className="sidebar-brand">FJS Finanzas</div>
+        <div className="sidebar-brand">
+          FJS Finanzas
+          <span className="sidebar-version">v{version}</span>
+        </div>
         <div className="sidebar-links">
           {LINKS.map(l => (
             <NavLink key={l.to} to={l.to} end={l.to === '/'} className={({ isActive }) => isActive ? 'active' : ''}>

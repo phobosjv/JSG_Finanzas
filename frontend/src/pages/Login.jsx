@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { version } from '../../package.json'
 import './Login.css'
 
 export default function Login() {
@@ -29,6 +30,7 @@ export default function Login() {
       <form className="login-box card" onSubmit={submit}>
         <h1 className="login-title">FJS Finanzas</h1>
         <p className="login-sub">Seguimiento de cartera de inversión</p>
+        <p className="login-version">v{version}</p>
 
         {error && <div className="state-error" style={{ padding: '8px', marginBottom: 12 }}>{error}</div>}
 

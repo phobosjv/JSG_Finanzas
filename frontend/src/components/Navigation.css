@@ -24,6 +24,14 @@
   margin-bottom: 8px;
 }
 
+.sidebar-version {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 .sidebar-links {
   flex: 1;
   display: flex;
