@@ -19,10 +19,6 @@ export default function Utilities() {
   const [error, setError]           = useState(null)
   const [success, setSuccess]       = useState(null)
 
-  // Informe fiscal
-  const currentYear = new Date().getFullYear()
-  const [taxYear, setTaxYear]       = useState(currentYear - 1)
-
   // Cambio de contraseña
   const [pwForm, setPwForm]         = useState({ current: '', newPw: '', confirm: '' })
   const [pwBusy, setPwBusy]         = useState(false)
@@ -86,10 +82,6 @@ export default function Utilities() {
       setSuccess(res.detail)
     } catch (err) { setError(err.message) }
     finally { setRefreshBusy(false) }
-  }
-
-  function openTaxReport() {
-    window.open(`/api/reports/tax/${taxYear}/html`, '_blank')
   }
 
   async function exportBackup() {
@@ -257,34 +249,6 @@ export default function Utilities() {
           </div>
         </div>
       )}
-
-      {/* Informe fiscal */}
-      <div className="card" style={{ marginTop: 24 }}>
-        <h2>Informe fiscal (IRPF)</h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
-          Abre el informe del año seleccionado en una pestaña nueva.
-          Usa <strong>Ctrl+P</strong> → "Guardar como PDF" para descargarlo.
-        </p>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <select
-              value={taxYear}
-              onChange={e => setTaxYear(Number(e.target.value))}
-              style={{ width: 'auto' }}
-            >
-              {Array.from({ length: 10 }, (_, i) => currentYear - 1 - i).map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            className="btn-primary btn-sm"
-            onClick={openTaxReport}
-          >
-            Ver informe fiscal
-          </button>
-        </div>
-      </div>
 
       {/* Cambiar contraseña */}
       <div className="card" style={{ marginTop: 24 }}>

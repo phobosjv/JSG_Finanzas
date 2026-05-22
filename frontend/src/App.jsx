@@ -6,6 +6,7 @@ import Dashboard      from './pages/Dashboard'
 import Markets        from './pages/Markets'
 import Portfolio      from './pages/Portfolio'
 import SecurityDetail from './pages/SecurityDetail'
+import TaxReport      from './pages/TaxReport'
 import Utilities      from './pages/Utilities'
 import AdminPanel     from './pages/AdminPanel'
 
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/markets"           element={<ProtectedRoute><Markets /></ProtectedRoute>} />
           <Route path="/portfolio"         element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
           <Route path="/securities/:id"    element={<ProtectedRoute><SecurityDetail /></ProtectedRoute>} />
+          <Route path="/tax"               element={<ProtectedRoute><TaxReport /></ProtectedRoute>} />
           <Route path="/utilities"         element={<ProtectedRoute><Utilities /></ProtectedRoute>} />
           <Route path="*"                  element={<Navigate to="/" replace />} />
         </Routes>

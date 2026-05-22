@@ -7,6 +7,7 @@ const LINKS = [
   { to: '/',           label: 'Inicio',     icon: '◈' },
   { to: '/markets',    label: 'Mercados',   icon: '↗' },
   { to: '/portfolio',  label: 'Cartera',    icon: '◉' },
+  { to: '/tax',        label: 'Fiscal',     icon: '§' },
   { to: '/utilities',  label: 'Utilidades', icon: '⚙' },
 ]
 

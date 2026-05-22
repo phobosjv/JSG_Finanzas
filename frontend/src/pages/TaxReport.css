@@ -1,0 +1,140 @@
+.year-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 20px;
+  vertical-align: middle;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.section-hint {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-top: 4px;
+}
+
+/* ── Cards ── */
+.tax-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.tax-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.tax-card-accent {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card-bg));
+}
+
+.tax-card-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.tax-card-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tax-card-value.pos { color: var(--green); }
+.tax-card-value.neg { color: var(--red);   }
+
+.tax-card-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Barra de tramos ── */
+.bracket-wrap {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.bracket-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.bracket-bar {
+  display: flex;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.bracket-segment {
+  height: 100%;
+  border-radius: 4px;
+  transition: opacity 0.15s;
+  min-width: 4px;
+}
+
+.bracket-segment:hover { opacity: 0.8; }
+
+.bracket-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.bracket-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.bracket-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Avisos ── */
+.tax-warnings {
+  background: color-mix(in srgb, #FFC107 12%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, #FFC107 40%, transparent);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.tax-warning-item {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+  padding: 3px 0;
+}
+
+.tax-warning-item + .tax-warning-item {
+  border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  margin-top: 4px;
+  padding-top: 6px;
+}
