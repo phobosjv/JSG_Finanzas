@@ -30,7 +30,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
-from app.api import admin, admin_markets, auth, backup, favorites, markets, portfolio, reports, securities
+from app.api import admin, admin_markets, app_config, auth, backup, favorites, markets, portfolio, reports, securities
 from app.auth.security import hash_password
 from app.config import get_settings
 from app.database import SessionLocal
@@ -120,7 +120,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Finanzas",
         description="Seguimiento de cartera de inversion",
-        version="1.2.0",
+        version="1.3.0",
         lifespan=lifespan,
     )
 
@@ -133,6 +133,7 @@ def create_app() -> FastAPI:
     )
 
     prefix = "/api"
+    app.include_router(app_config.router, prefix=prefix)
     app.include_router(auth.router, prefix=prefix)
     app.include_router(admin.router, prefix=prefix)
     app.include_router(admin_markets.router, prefix=prefix)

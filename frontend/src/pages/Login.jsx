@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAppConfig } from '../context/AppContext'
 import { version } from '../../package.json'
 import './Login.css'
 
 export default function Login() {
   const { login } = useAuth()
+  const { appName } = useAppConfig()
   const navigate = useNavigate()
   const [form, setForm]   = useState({ username: '', password: '' })
   const [error, setError] = useState(null)
@@ -28,7 +30,7 @@ export default function Login() {
   return (
     <div className="login-page">
       <form className="login-box card" onSubmit={submit}>
-        <h1 className="login-title">FJS Finanzas</h1>
+        <h1 className="login-title">{appName}</h1>
         <p className="login-sub">Seguimiento de cartera de inversión</p>
         <p className="login-version">v{version}</p>
 

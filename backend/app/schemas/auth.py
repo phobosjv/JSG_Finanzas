@@ -1,5 +1,5 @@
 """Schemas de autenticacion y administracion de usuarios."""
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, field_validator
 
@@ -28,6 +28,8 @@ class UserAdminOut(BaseModel):
     id: int
     username: str
     is_admin: bool
+    is_enabled: bool
+    expires_at: datetime | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -77,3 +79,22 @@ class SelfChangePasswordRequest(BaseModel):
         if len(v) < 8:
             raise ValueError("Mínimo 8 caracteres")
         return v
+
+
+class UserStatusIn(BaseModel):
+    """Habilitar o deshabilitar un usuario, con anotacion opcional."""
+    enabled: bool
+    annotation: str | None = None
+
+
+class UserExpiryIn(BaseModel):
+    """Poner o borrar la fecha de caducidad de un usuario (solo fecha, sin hora)."""
+    expires_at: date | None
+
+
+class UserStatusLogOut(BaseModel):
+    id: int
+    status: str
+    annotation: str | None
+    created_at: datetime
+    actor_username: str | None

@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAppConfig } from '../context/AppContext'
 import { version } from '../../package.json'
 import './Navigation.css'
 
@@ -13,13 +14,14 @@ const LINKS = [
 
 export default function Navigation() {
   const { user, logout } = useAuth()
+  const { appName, theme, toggleTheme } = useAppConfig()
 
   return (
     <>
       {/* Barra lateral — escritorio */}
       <nav className="sidebar">
         <div className="sidebar-brand">
-          FJS Finanzas
+          {appName}
           <span className="sidebar-version">v{version}</span>
         </div>
         <div className="sidebar-links">
@@ -33,7 +35,17 @@ export default function Navigation() {
         {user && (
           <div className="sidebar-footer">
             <span className="text-muted">{user.username}</span>
-            <button className="btn-ghost btn-sm" onClick={logout}>Salir</button>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button
+                className="btn-ghost btn-sm"
+                onClick={toggleTheme}
+                title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+                style={{ fontSize: '1rem', padding: '4px 8px' }}
+              >
+                {theme === 'dark' ? '☀' : '◑'}
+              </button>
+              <button className="btn-ghost btn-sm" onClick={logout}>Salir</button>
+            </div>
           </div>
         )}
       </nav>

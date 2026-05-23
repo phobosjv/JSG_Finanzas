@@ -13,6 +13,7 @@ DELETE /admin/users/{id}           — elimina un usuario (no puede ser el propi
 from __future__ import annotations
 
 import json
+from datetime import date as date_type, datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -22,8 +23,11 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
 from app.auth.security import hash_password
-from app.models import DividendRow, Favorite, Position, Security, TransactionRow, User
-from app.schemas.auth import ChangePasswordRequest, CreateUserRequest, UserAdminOut
+from app.models import DividendRow, Favorite, Position, Security, TransactionRow, User, UserStatusLog
+from app.schemas.auth import (
+    ChangePasswordRequest, CreateUserRequest, UserAdminOut,
+    UserStatusIn, UserExpiryIn, UserStatusLogOut,
+)
 from app.services.backup import (
     AdminImportResult,
     build_admin_export,
@@ -35,6 +39,26 @@ class ChangeRoleRequest(BaseModel):
     is_admin: bool
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _log_status(
+    db: Session,
+    user_id: int,
+    actor_id: int | None,
+    status_str: str,
+    annotation: str | None = None,
+) -> None:
+    db.add(UserStatusLog(
+        user_id=user_id,
+        actor_id=actor_id,
+        status=status_str,
+        annotation=annotation,
+        created_at=_now(),
+    ))
 
 
 @router.get("/users", response_model=list[UserAdminOut])
@@ -49,7 +73,7 @@ def list_users(
 def create_user(
     body: CreateUserRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     if db.scalar(select(User).where(User.username == body.username)):
         raise HTTPException(
@@ -62,6 +86,8 @@ def create_user(
         is_admin=body.is_admin,
     )
     db.add(user)
+    db.flush()  # obtener user.id antes del commit
+    _log_status(db, user.id, actor_id=admin.id, status_str="registered")
     db.commit()
     db.refresh(user)
     return user
@@ -114,6 +140,73 @@ def delete_user(
     user = _require_user(db, user_id)
     db.delete(user)
     db.commit()
+
+
+@router.patch("/users/{user_id}/status", response_model=UserAdminOut)
+def set_user_status(
+    user_id: int,
+    body: UserStatusIn,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = _require_user(db, user_id)
+    if user.id == admin.id and not body.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No puedes deshabilitar tu propia cuenta",
+        )
+    user.is_enabled = body.enabled
+    _log_status(
+        db, user.id, actor_id=admin.id,
+        status_str="enabled" if body.enabled else "disabled",
+        annotation=body.annotation,
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.patch("/users/{user_id}/expiry", response_model=UserAdminOut)
+def set_user_expiry(
+    user_id: int,
+    body: UserExpiryIn,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    user = _require_user(db, user_id)
+    if body.expires_at is not None:
+        user.expires_at = datetime(
+            body.expires_at.year, body.expires_at.month, body.expires_at.day
+        )
+    else:
+        user.expires_at = None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.get("/users/{user_id}/history", response_model=list[UserStatusLogOut])
+def get_user_history(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    _require_user(db, user_id)
+    logs = db.scalars(
+        select(UserStatusLog)
+        .where(UserStatusLog.user_id == user_id)
+        .order_by(UserStatusLog.created_at.desc())
+    ).all()
+    return [
+        UserStatusLogOut(
+            id=log.id,
+            status=log.status,
+            annotation=log.annotation,
+            created_at=log.created_at,
+            actor_username=log.actor.username if log.actor else None,
+        )
+        for log in logs
+    ]
 
 
 def _require_user(db: Session, user_id: int) -> User:

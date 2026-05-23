@@ -1,7 +1,8 @@
 /* =========================================================
-   Variables de tema — paleta oscura estilo finanzas
+   Variables de tema — paleta oscura (por defecto)
    ========================================================= */
-:root {
+:root,
+[data-theme="dark"] {
   --bg:          #0f0f1a;
   --bg-card:     #1a1a2e;
   --bg-input:    #16213e;
@@ -14,8 +15,30 @@
   --red:         #e74c3c;
   --yellow:      #f39c12;
   --radius:      8px;
-  --nav-h:       56px;        /* altura barra nav móvil */
-  --side-w:      200px;       /* ancho sidebar escritorio */
+  --nav-h:       56px;
+  --side-w:      200px;
+  --font:        system-ui, -apple-system, sans-serif;
+  --mono:        'Courier New', monospace;
+}
+
+/* =========================================================
+   Tema claro
+   ========================================================= */
+[data-theme="light"] {
+  --bg:          #f4f5f7;
+  --bg-card:     #ffffff;
+  --bg-input:    #eef0f4;
+  --border:      #d0d5dd;
+  --text:        #1a1a2e;
+  --text-muted:  #6b7280;
+  --accent:      #2563eb;
+  --accent-dim:  #dbeafe;
+  --green:       #15803d;
+  --red:         #dc2626;
+  --yellow:      #b45309;
+  --radius:      8px;
+  --nav-h:       56px;
+  --side-w:      200px;
   --font:        system-ui, -apple-system, sans-serif;
   --mono:        'Courier New', monospace;
 }

@@ -23,12 +23,14 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_admin
 from app.models import AppConfig, MarketRow, Security, User
 from app.schemas.market_admin import (
-    MarketCreate, MarketOut, MarketUpdate, SnapshotIntervalUpdate,
+    AppNameUpdate, MarketCreate, MarketOut, MarketUpdate, SnapshotIntervalUpdate,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 _CONFIG_INTERVAL_KEY = "snapshot_interval_minutes"
+_CONFIG_APP_NAME_KEY = "app_name"
+_APP_NAME_DEFAULT    = "FJS Finanzas"
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +48,11 @@ def _require_market(db: Session, code: str) -> MarketRow:
 def _get_interval(db: Session) -> int:
     row = db.get(AppConfig, _CONFIG_INTERVAL_KEY)
     return int(row.value) if row else 5
+
+
+def _get_app_name(db: Session) -> str:
+    row = db.get(AppConfig, _CONFIG_APP_NAME_KEY)
+    return row.value if row else _APP_NAME_DEFAULT
 
 
 # ---------------------------------------------------------------------------
@@ -133,8 +140,25 @@ def get_config(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    interval = _get_interval(db)
-    return {"snapshot_interval_minutes": interval}
+    return {
+        "snapshot_interval_minutes": _get_interval(db),
+        "app_name": _get_app_name(db),
+    }
+
+
+@router.patch("/config/app-name")
+def set_app_name(
+    body: AppNameUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    row = db.get(AppConfig, _CONFIG_APP_NAME_KEY)
+    if row is None:
+        db.add(AppConfig(key=_CONFIG_APP_NAME_KEY, value=body.app_name))
+    else:
+        row.value = body.app_name
+    db.commit()
+    return {"app_name": body.app_name}
 
 
 @router.patch("/config/snapshot-interval")

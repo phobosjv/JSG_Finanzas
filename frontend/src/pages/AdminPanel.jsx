@@ -1,11 +1,242 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { useAppConfig } from '../context/AppContext'
 
 function fmt(dt) {
   if (!dt) return '—'
   return new Date(dt).toLocaleDateString('es-ES')
 }
+
+function fmtDatetime(dt) {
+  if (!dt) return '—'
+  return new Date(dt).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+// ---------------------------------------------------------------------------
+//  Badge de estado de usuario
+// ---------------------------------------------------------------------------
+
+function StatusBadge({ enabled }) {
+  return (
+    <span className="badge" style={{
+      background: enabled ? '#1a3a2a' : '#3a1a1a',
+      color: enabled ? 'var(--green)' : 'var(--red)',
+    }}>
+      {enabled ? 'Activo' : 'Inactivo'}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+//  Modal: habilitar / deshabilitar usuario
+// ---------------------------------------------------------------------------
+
+function UserStatusModal({ user, onClose, onDone }) {
+  const enabling = !user.is_enabled
+  const [annotation, setAnnotation] = useState('')
+  const [withExpiry, setWithExpiry] = useState(false)
+  const [expiryDate, setExpiryDate] = useState('')
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    try {
+      await api.patch(`/admin/users/${user.id}/status`, {
+        enabled: enabling,
+        annotation: annotation || null,
+      })
+      // Si se está habilitando y se ha marcado poner fecha de caducidad
+      if (enabling && withExpiry && expiryDate) {
+        await api.patch(`/admin/users/${user.id}/expiry`, { expires_at: expiryDate })
+      }
+      onDone()
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h2>{enabling ? 'Habilitar' : 'Deshabilitar'} — {user.username}</h2>
+        {error && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{error}</div>}
+        <form onSubmit={submit}>
+          <div className="form-group">
+            <label>Anotación (opcional)</label>
+            <input
+              type="text"
+              value={annotation}
+              onChange={e => setAnnotation(e.target.value)}
+              autoFocus
+              placeholder={enabling ? 'Motivo de reactivación…' : 'Motivo de suspensión…'}
+            />
+          </div>
+          {enabling && (
+            <div className="form-group">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <input
+                  type="checkbox"
+                  id="with_expiry"
+                  checked={withExpiry}
+                  onChange={e => setWithExpiry(e.target.checked)}
+                  style={{ width: 'auto', margin: 0 }}
+                />
+                <label htmlFor="with_expiry" style={{ margin: 0 }}>Poner fecha de caducidad</label>
+              </div>
+              {withExpiry && (
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={e => setExpiryDate(e.target.value)}
+                  min={new Date().toISOString().slice(0, 10)}
+                  required={withExpiry}
+                />
+              )}
+            </div>
+          )}
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button
+              type="submit"
+              className={enabling ? 'btn-primary' : 'btn-danger'}
+              disabled={busy}
+            >
+              {busy ? 'Guardando…' : (enabling ? 'Habilitar' : 'Deshabilitar')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+//  Modal: fecha de caducidad
+// ---------------------------------------------------------------------------
+
+function ExpiryModal({ user, onClose, onDone }) {
+  const [expiryDate, setExpiryDate] = useState(
+    user.expires_at ? user.expires_at.slice(0, 10) : ''
+  )
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    try {
+      await api.patch(`/admin/users/${user.id}/expiry`, {
+        expires_at: expiryDate || null,
+      })
+      onDone()
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h2>Caducidad — {user.username}</h2>
+        {error && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{error}</div>}
+        <form onSubmit={submit}>
+          <div className="form-group">
+            <label>Fecha de caducidad (dejar vacío para sin límite)</label>
+            <input
+              type="date"
+              value={expiryDate}
+              onChange={e => setExpiryDate(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+//  Modal: historial de estados
+// ---------------------------------------------------------------------------
+
+const STATUS_LABELS = {
+  registered: { label: 'Alta',         color: 'var(--accent)' },
+  enabled:    { label: 'Habilitado',   color: 'var(--green)' },
+  disabled:   { label: 'Deshabilitado', color: 'var(--red)' },
+  expired:    { label: 'Caducado',     color: 'var(--yellow)' },
+}
+
+function UserHistoryModal({ user, onClose }) {
+  const [history, setHistory] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api.get(`/admin/users/${user.id}/history`)
+      .then(setHistory)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [user.id])
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+        <h2>Historial — {user.username}</h2>
+        {loading ? (
+          <div className="state-loading"><div className="spinner" /></div>
+        ) : history.length === 0 ? (
+          <div className="state-empty">Sin historial registrado.</div>
+        ) : (
+          <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+            {history.map(entry => {
+              const meta = STATUS_LABELS[entry.status] ?? { label: entry.status, color: 'var(--text-muted)' }
+              return (
+                <div key={entry.id} style={{
+                  display: 'flex', gap: 12, padding: '10px 0',
+                  borderBottom: '1px solid var(--border)',
+                }}>
+                  <div style={{
+                    width: 10, height: 10, borderRadius: '50%',
+                    background: meta.color, flexShrink: 0, marginTop: 4,
+                  }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontWeight: 600, color: meta.color }}>{meta.label}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                        {fmtDatetime(entry.created_at)}
+                      </span>
+                    </div>
+                    {entry.actor_username && (
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        por {entry.actor_username}
+                      </div>
+                    )}
+                    {entry.annotation && (
+                      <div style={{ fontSize: '0.85rem', marginTop: 2 }}>{entry.annotation}</div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div className="modal-actions">
+          <button className="btn-ghost" onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+//  Modal: cambiar contraseña de usuario
+// ---------------------------------------------------------------------------
 
 function ChangePasswordModal({ user, onClose, onDone }) {
   const [password, setPassword] = useState('')
@@ -51,6 +282,10 @@ function ChangePasswordModal({ user, onClose, onDone }) {
     </div>
   )
 }
+
+// ---------------------------------------------------------------------------
+//  Modal: crear usuario
+// ---------------------------------------------------------------------------
 
 function CreateUserModal({ onClose, onCreated }) {
   const [form, setForm] = useState({ username: '', password: '', is_admin: false })
@@ -113,21 +348,25 @@ function CreateUserModal({ onClose, onCreated }) {
 }
 
 // ---------------------------------------------------------------------------
-//  Configuración del sistema (intervalo snapshots + refresh-all)
+//  Configuración del sistema
 // ---------------------------------------------------------------------------
 
 function ConfigSection() {
-  const [interval, setInterval]   = useState(null)
-  const [inputVal, setInputVal]   = useState(5)
-  const [busy, setBusy]           = useState(false)
+  const { setAppName } = useAppConfig()
+  const [interval, setInterval]     = useState(null)
+  const [inputVal, setInputVal]     = useState(5)
+  const [appNameVal, setAppNameVal] = useState('')
+  const [busy, setBusy]             = useState(false)
+  const [nameBusy, setNameBusy]     = useState(false)
   const [refreshBusy, setRefreshBusy] = useState(false)
-  const [msg, setMsg]             = useState(null)
-  const [err, setErr]             = useState(null)
+  const [msg, setMsg]               = useState(null)
+  const [err, setErr]               = useState(null)
 
   useEffect(() => {
     api.get('/admin/config').then(d => {
       setInterval(d.snapshot_interval_minutes)
       setInputVal(d.snapshot_interval_minutes)
+      setAppNameVal(d.app_name ?? 'FJS Finanzas')
     }).catch(() => {})
   }, [])
 
@@ -140,6 +379,17 @@ function ConfigSection() {
       setMsg('Intervalo actualizado')
     } catch (e) { setErr(e.message) }
     finally { setBusy(false) }
+  }
+
+  async function saveAppName(e) {
+    e.preventDefault()
+    setNameBusy(true); setMsg(null); setErr(null)
+    try {
+      const d = await api.patch('/admin/config/app-name', { app_name: appNameVal })
+      setAppName(d.app_name)
+      setMsg('Nombre de la aplicación actualizado')
+    } catch (e) { setErr(e.message) }
+    finally { setNameBusy(false) }
   }
 
   async function refreshAll() {
@@ -157,6 +407,24 @@ function ConfigSection() {
       {err && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{err}</div>}
       {msg && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12 }}>{msg}</div>}
 
+      {/* Nombre de la aplicación */}
+      <form onSubmit={saveAppName} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 20 }}>
+        <div className="form-group" style={{ flex: '1 1 200px', marginBottom: 0 }}>
+          <label>Nombre de la aplicación</label>
+          <input
+            type="text"
+            value={appNameVal}
+            onChange={e => setAppNameVal(e.target.value)}
+            maxLength={100}
+            placeholder="FJS Finanzas"
+          />
+        </div>
+        <button type="submit" className="btn-primary btn-sm" disabled={nameBusy || !appNameVal.trim()}>
+          {nameBusy ? 'Guardando…' : 'Aplicar nombre'}
+        </button>
+      </form>
+
+      {/* Intervalo de snapshots */}
       <form onSubmit={saveInterval} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 16 }}>
         <div className="form-group" style={{ flex: '0 0 auto', marginBottom: 0 }}>
           <label>Intervalo actualización precios (min)</label>
@@ -504,14 +772,22 @@ function SecuritiesSection() {
 }
 
 
+// ---------------------------------------------------------------------------
+//  Panel principal
+// ---------------------------------------------------------------------------
+
 export default function AdminPanel() {
   const { user: me, logout } = useAuth()
+  const { appName } = useAppConfig()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [opError, setOpError] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [changingPw, setChangingPw] = useState(null)
+  const [statusModal, setStatusModal] = useState(null)   // usuario para enable/disable
+  const [expiryModal, setExpiryModal] = useState(null)   // usuario para fijar caducidad
+  const [historyModal, setHistoryModal] = useState(null) // usuario para ver historial
 
   const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
 
@@ -612,12 +888,12 @@ export default function AdminPanel() {
   if (error)   return <div className="state-error">{error}</div>
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px' }}>
+    <div style={{ maxWidth: 820, margin: '0 auto', padding: '24px 16px' }}>
       {/* Cabecera */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.4rem' }}>Administración</h1>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{me?.username}</span>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{appName} · {me?.username}</span>
         </div>
         <button className="btn-ghost btn-sm" onClick={logout}>Salir</button>
       </div>
@@ -643,9 +919,10 @@ export default function AdminPanel() {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Usuario</th>
                 <th>Rol</th>
+                <th>Estado</th>
+                <th>Caduca</th>
                 <th>Creado</th>
                 <th></th>
               </tr>
@@ -653,7 +930,6 @@ export default function AdminPanel() {
             <tbody>
               {users.map(u => (
                 <tr key={u.id}>
-                  <td className="num" style={{ color: 'var(--text-muted)' }}>{u.id}</td>
                   <td>
                     <span style={{ fontWeight: u.id === me?.id ? 600 : 400 }}>{u.username}</span>
                     {u.id === me?.id && <span style={{ marginLeft: 6, fontSize: '0.75rem', color: 'var(--text-muted)' }}>(tú)</span>}
@@ -669,17 +945,42 @@ export default function AdminPanel() {
                       {u.is_admin ? 'Admin' : 'Usuario'}
                     </span>
                   </td>
+                  <td><StatusBadge enabled={u.is_enabled} /></td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    {u.expires_at ? fmt(u.expires_at) : '—'}
+                  </td>
                   <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{fmt(u.created_at)}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       <button
                         className="btn-ghost btn-sm"
                         onClick={() => setChangingPw(u)}
                       >
                         Contraseña
                       </button>
+                      <button
+                        className="btn-ghost btn-sm"
+                        onClick={() => setHistoryModal(u)}
+                        title="Ver historial de estados"
+                      >
+                        Historial
+                      </button>
                       {u.id !== me?.id && (
                         <>
+                          <button
+                            className={u.is_enabled ? 'btn-danger btn-sm' : 'btn-primary btn-sm'}
+                            onClick={() => setStatusModal(u)}
+                            title={u.is_enabled ? 'Deshabilitar usuario' : 'Habilitar usuario'}
+                          >
+                            {u.is_enabled ? 'Deshabilitar' : 'Habilitar'}
+                          </button>
+                          <button
+                            className="btn-ghost btn-sm"
+                            onClick={() => setExpiryModal(u)}
+                            title="Fecha de caducidad"
+                          >
+                            Caducidad
+                          </button>
                           <button
                             className="btn-ghost btn-sm"
                             onClick={() => toggleRole(u)}
@@ -780,6 +1081,7 @@ export default function AdminPanel() {
       <MarketsSection />
       <SecuritiesSection />
 
+      {/* Modales */}
       {showCreate && (
         <CreateUserModal
           onClose={() => setShowCreate(false)}
@@ -791,6 +1093,26 @@ export default function AdminPanel() {
           user={changingPw}
           onClose={() => setChangingPw(null)}
           onDone={() => setChangingPw(null)}
+        />
+      )}
+      {statusModal && (
+        <UserStatusModal
+          user={statusModal}
+          onClose={() => setStatusModal(null)}
+          onDone={() => { setStatusModal(null); loadUsers() }}
+        />
+      )}
+      {expiryModal && (
+        <ExpiryModal
+          user={expiryModal}
+          onClose={() => setExpiryModal(null)}
+          onDone={() => { setExpiryModal(null); loadUsers() }}
+        />
+      )}
+      {historyModal && (
+        <UserHistoryModal
+          user={historyModal}
+          onClose={() => setHistoryModal(null)}
         />
       )}
     </div>

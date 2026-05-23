@@ -74,3 +74,17 @@ class SnapshotIntervalUpdate(BaseModel):
         if v < 5 or v > 60:
             raise ValueError("El intervalo debe estar entre 5 y 60 minutos")
         return v
+
+
+class AppNameUpdate(BaseModel):
+    app_name: str
+
+    @field_validator("app_name")
+    @classmethod
+    def name_valid(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("El nombre no puede estar vacío")
+        if len(v) > 100:
+            raise ValueError("El nombre no puede superar 100 caracteres")
+        return v
