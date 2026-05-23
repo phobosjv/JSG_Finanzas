@@ -1,6 +1,8 @@
 """Schemas para la gestión de mercados (admin) y configuración global."""
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, field_validator
 
 
@@ -42,8 +44,15 @@ class MarketCreate(BaseModel):
 class MarketUpdate(BaseModel):
     name: str | None = None
     index_ticker: str | None = None
-    currency: str | None = None
+    currency: Literal["EUR", "USD"] | None = None
     fiscal_window_days: int | None = None
+
+    @field_validator("fiscal_window_days")
+    @classmethod
+    def window_valid(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            raise ValueError("fiscal_window_days debe ser >= 1")
+        return v
 
 
 class MarketOut(BaseModel):

@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
@@ -113,9 +113,9 @@ def delete_market(
     market = _require_market(db, code)
     # Impedir borrado si hay valores asignados a este mercado
     count = db.scalar(
-        select(Security).where(Security.market == code)
+        select(func.count(Security.id)).where(Security.market == code)
     )
-    if count is not None:
+    if count > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"El mercado '{code}' tiene valores asignados; reasígnalos antes de eliminarlo",

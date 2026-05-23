@@ -91,6 +91,22 @@ def test_admin_actualiza_mercado_inexistente(admin_client):
     assert resp.status_code == 404
 
 
+def test_admin_actualiza_mercado_currency_invalida(admin_client, seed_markets):
+    """PATCH con divisa no soportada debe devolver 422."""
+    resp = admin_client.patch("/api/admin/markets/ibex35", json={
+        "currency": "XYZ",
+    })
+    assert resp.status_code == 422
+
+
+def test_admin_actualiza_mercado_fiscal_window_invalido(admin_client, seed_markets):
+    """PATCH con fiscal_window_days <= 0 debe devolver 422."""
+    r0 = admin_client.patch("/api/admin/markets/ibex35", json={"fiscal_window_days": 0})
+    assert r0.status_code == 422
+    r_neg = admin_client.patch("/api/admin/markets/ibex35", json={"fiscal_window_days": -10})
+    assert r_neg.status_code == 422
+
+
 # ---------------------------------------------------------------------------
 #  DELETE /admin/markets/{code}
 # ---------------------------------------------------------------------------

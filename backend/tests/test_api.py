@@ -739,3 +739,77 @@ def test_admin_no_puede_cambiar_su_propio_rol(admin_client, test_admin):
         json={"is_admin": False},
     )
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+#  Integridad FIFO: borrado y edición de transacciones
+# ---------------------------------------------------------------------------
+
+def test_borrar_compra_con_venta_cubierta_da_422(admin_client, seed_markets):
+    """
+    Borrar una compra que es necesaria para cubrir una venta existente debe
+    devolver 422 en lugar de dejar la posición en estado inconsistente.
+
+    Compra 10 acc, venta 10 acc → la compra NO se puede borrar porque la
+    venta se quedaría sin respaldo FIFO.
+    """
+    sec_id = _crear_security(admin_client, ticker="FIBQ.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+
+    buy_id = _buy(admin_client, pos_id, 10, "5.00").json()["id"]
+    _sell(admin_client, pos_id, 10, "6.00")
+
+    resp = admin_client.delete(f"/api/portfolio/{pos_id}/transactions/{buy_id}")
+    assert resp.status_code == 422
+
+
+def test_borrar_compra_sin_ventas_ok(admin_client, seed_markets):
+    """Borrar una compra que no tiene ventas cubiertas sí está permitido."""
+    sec_id = _crear_security(admin_client, ticker="FBNV.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+
+    buy_id = _buy(admin_client, pos_id, 10, "5.00").json()["id"]
+
+    resp = admin_client.delete(f"/api/portfolio/{pos_id}/transactions/{buy_id}")
+    assert resp.status_code == 204
+
+
+def test_editar_compra_a_menos_acciones_invalida_venta_da_422(admin_client, seed_markets):
+    """
+    Editar una compra reduciendo las acciones por debajo de las vendidas
+    debe devolver 422.
+
+    Compra 10 acc, venta 8 acc → editar compra a 5 acc deja 8 ventas sin
+    respaldo → 422.
+    """
+    sec_id = _crear_security(admin_client, ticker="FEDT.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+
+    buy_id = _buy(admin_client, pos_id, 10, "5.00").json()["id"]
+    _sell(admin_client, pos_id, 8, "6.00")
+
+    resp = admin_client.patch(f"/api/portfolio/{pos_id}/transactions/{buy_id}", json={
+        "type": "buy", "date": "2024-01-10",
+        "shares": "5",       # 5 < 8 vendidas → inválido
+        "price": "5.00", "fee": "0",
+        "currency": "EUR", "exchange_rate": "1",
+    })
+    assert resp.status_code == 422
+
+
+def test_editar_compra_a_mas_acciones_ok(admin_client, seed_markets):
+    """Aumentar acciones de una compra siempre es válido."""
+    sec_id = _crear_security(admin_client, ticker="FEUP.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+
+    buy_id = _buy(admin_client, pos_id, 10, "5.00").json()["id"]
+    _sell(admin_client, pos_id, 8, "6.00")
+
+    resp = admin_client.patch(f"/api/portfolio/{pos_id}/transactions/{buy_id}", json={
+        "type": "buy", "date": "2024-01-10",
+        "shares": "20",      # más que antes → siempre válido
+        "price": "5.00", "fee": "0",
+        "currency": "EUR", "exchange_rate": "1",
+    })
+    assert resp.status_code == 200
+    assert float(resp.json()["shares"]) == 20.0

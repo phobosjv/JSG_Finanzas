@@ -84,7 +84,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         unrealized_pnl_eur = v["unrealized_gain_eur"]
         unrealized_pnl_pct = v["unrealized_gain_pct"]
 
-        if snap and snap.prev_close:
+        if snap and snap.prev_close is not None:
             dc = daily_change(shares, current_price, snap.prev_close, current_rate)
             daily_chg_eur = dc["daily_change_eur"]
         else:
@@ -436,39 +436,36 @@ def update_transaction(
     if tx is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
 
-    # Validar que la posición sigue siendo coherente con esta transacción editada.
-    # Se consultan TransactionRow (tienen .id) en lugar de usar el repositorio,
-    # que devuelve Transaction (dataclass puro, sin .id).
-    if body.type == "sell":
-        other_rows = db.scalars(
-            select(TransactionRow).where(
-                TransactionRow.position_id == position_id,
-                TransactionRow.id != tx_id,
-            )
-        ).all()
-        other_txs = [
-            Transaction(
-                type=r.type,
-                date=date_type.fromisoformat(r.date),
-                shares=r.shares,
-                price=r.price,
-                fee=r.fee,
-                exchange_rate=r.exchange_rate,
-            )
-            for r in other_rows
-        ]
-        new_tx = Transaction(
-            type="sell",
-            date=date_type.fromisoformat(body.date),
-            shares=body.shares,
-            price=body.price,
-            fee=body.fee,
-            exchange_rate=body.exchange_rate,
+    # Validar siempre: editar una compra a menos acciones puede dejar ventas sin respaldo.
+    other_rows = db.scalars(
+        select(TransactionRow).where(
+            TransactionRow.position_id == position_id,
+            TransactionRow.id != tx_id,
         )
-        try:
-            compute_position(other_txs + [new_tx], [])
-        except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+    ).all()
+    other_txs = [
+        Transaction(
+            type=r.type,
+            date=date_type.fromisoformat(r.date),
+            shares=r.shares,
+            price=r.price,
+            fee=r.fee,
+            exchange_rate=r.exchange_rate,
+        )
+        for r in other_rows
+    ]
+    new_tx = Transaction(
+        type=body.type,
+        date=date_type.fromisoformat(body.date),
+        shares=body.shares,
+        price=body.price,
+        fee=body.fee,
+        exchange_rate=body.exchange_rate,
+    )
+    try:
+        compute_position(other_txs + [new_tx], [])
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
     for field, value in body.model_dump().items():
         setattr(tx, field, value)
@@ -496,6 +493,33 @@ def delete_transaction(
     )
     if tx is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
+
+    # Validar que eliminar esta transacción no deja las ventas sin respaldo
+    other_rows = db.scalars(
+        select(TransactionRow).where(
+            TransactionRow.position_id == position_id,
+            TransactionRow.id != tx_id,
+        )
+    ).all()
+    other_txs = [
+        Transaction(
+            type=r.type,
+            date=date_type.fromisoformat(r.date),
+            shares=r.shares,
+            price=r.price,
+            fee=r.fee,
+            exchange_rate=r.exchange_rate,
+        )
+        for r in other_rows
+    ]
+    try:
+        compute_position(other_txs, [])
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"No se puede eliminar: {exc}",
+        )
+
     db.delete(tx)
     db.commit()
 
