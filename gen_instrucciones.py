@@ -1,11 +1,11 @@
 """
-Genera instrucciones.pdf para FJS Finanzas v1.2.0.
+Genera instrucciones.pdf para FJS Finanzas.
 Ejecutar desde la raiz del proyecto:
   python gen_instrucciones.py
 """
 from fpdf import FPDF
 
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 TITLE   = f"FJS Finanzas {VERSION} - Manual de usuario"
 
 SECTIONS = [
@@ -33,6 +33,39 @@ SECTIONS = [
         "",
         "El contenedor expone el puerto 8080. La base de datos se almacena en un volumen",
         "persistente (./data/finanzas.db).",
+    ]),
+    ("Novedades en v1.4.1 - Correcciones", [
+        "Seis bugs corregidos con tests de regresion (174 tests en total):",
+        "",
+        "  1. Porcentaje de retorno de cartera incorrecto:",
+        "     El resumen de cartera mostraba un % de rentabilidad erroneo cuando",
+        "     habia ganancias realizadas o dividendos cobrados. Solo contaba la",
+        "     ganancia latente. Ahora refleja el beneficio total / capital invertido.",
+        "",
+        "  2. Importacion de backup USD con tipo de cambio 1 rompia la cartera:",
+        "     Un backup con transacciones en USD y exchange_rate=1 se importaba",
+        "     sin error, pero al cargar la cartera devolvía error 500. Ahora el",
+        "     import rechaza esa combinacion incoherente con mensaje claro.",
+        "",
+        "  3. Importacion de backup permitia precio cero:",
+        "     El endpoint de import aceptaba price=0 en transacciones, mientras",
+        "     que la API normal lo rechaza. Ahora son coherentes.",
+        "",
+        "  4. Deduplicacion incorrecta en importacion de backup:",
+        "     Dos transacciones del mismo dia con identicas acciones y precio",
+        "     pero distinta comision se trataban como duplicadas; la segunda",
+        "     se omitia silenciosamente. La clave de dedup incluye ahora la",
+        "     comision y usa comparacion numerica (no textual) de Decimal.",
+        "",
+        "  5. Acciones vendidas incorrectas en posiciones cerradas con splits:",
+        "     La columna 'Acciones vendidas' mezclaba unidades pre- y post-split",
+        "     cuando habia ventas antes y despues de un split. Ahora el dato es",
+        "     coherente con el calculo FIFO (equivalente post-split).",
+        "",
+        "  6. Deteccion de regla de recompra fiscal (informe IRPF):",
+        "     Si habia dos compras el mismo dia y una era la emparejada por FIFO",
+        "     con una venta con perdida, la otra compra del mismo dia no activaba",
+        "     la regla de recompra aunque estuviera dentro del plazo. Corregido.",
     ]),
     ("Novedades en v1.4.0", [
         "Splits y contrasplits de valores (gestion admin):",
@@ -263,7 +296,7 @@ def build_pdf(path: str) -> None:
     pdf.ln(10)
     pdf.set_font("Helvetica", "", 16)
     pdf.set_text_color(80, 80, 80)
-    pdf.cell(0, 8, f"Manual de usuario - Version {VERSION}", align="C")
+    pdf.cell(0, 8, f"Manual de usuario  -  Version {VERSION}", align="C")
     pdf.ln(6)
     pdf.set_font("Helvetica", "", 11)
     pdf.set_text_color(120, 120, 120)
