@@ -1,7 +1,10 @@
 import { useRef, useState } from 'react'
 import { api } from '../api/client'
+import { useAppConfig } from '../context/AppContext'
 
 export default function Utilities() {
+  const { theme, toggleTheme } = useAppConfig()
+
   // Cambio de contraseña
   const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
   const [pwBusy, setPwBusy] = useState(false)
@@ -105,6 +108,19 @@ export default function Utilities() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Tema */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>Apariencia</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            Tema actual: <strong style={{ color: 'var(--text)' }}>{theme === 'dark' ? 'Oscuro' : 'Claro'}</strong>
+          </span>
+          <button className="btn-ghost btn-sm" onClick={toggleTheme}>
+            {theme === 'dark' ? '☀ Cambiar a claro' : '◑ Cambiar a oscuro'}
+          </button>
+        </div>
       </div>
 
       {/* Backup */}

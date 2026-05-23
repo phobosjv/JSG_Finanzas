@@ -23,7 +23,7 @@ Conversión de divisa:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Literal
@@ -48,6 +48,24 @@ class Transaction:
     price: Decimal          # precio por acción, divisa nativa
     fee: Decimal            # comisión, divisa nativa
     exchange_rate: Decimal  # EUR/USD del BCE; 1 si la operación es en EUR
+
+
+@dataclass(frozen=True)
+class Split:
+    """
+    Evento de split o contrasplit (evento corporativo global, gestionado por admin).
+
+    ratio_num:ratio_den = acciones nuevas por cada 'ratio_den' acciones antiguas.
+      Split 2:1   → ratio_num=2, ratio_den=1  (dobla acciones, divide precio)
+      Contrasplit 1:2 → ratio_num=1, ratio_den=2  (divide acciones, dobla precio)
+
+    ex_date: fecha efectiva del split. Las transacciones con fecha < ex_date
+    se normalizan multiplicando shares × (ratio_num/ratio_den) y dividiendo
+    price por ese mismo factor, dejando el coste total invariante.
+    """
+    ex_date: date
+    ratio_num: int   # acciones nuevas
+    ratio_den: int   # acciones antiguas
 
 
 @dataclass(frozen=True)
@@ -146,9 +164,45 @@ def to_eur(amount_native: Decimal, exchange_rate: Decimal) -> Decimal:
 #  Núcleo: recorrido FIFO de las transacciones
 # --------------------------------------------------------------------------
 
+def _normalize_splits(
+    transactions: list[Transaction],
+    splits: list[Split],
+) -> list[Transaction]:
+    """
+    Normaliza todas las transacciones a cantidades equivalentes post-split.
+
+    Para cada transacción aplica, en orden cronológico, todos los splits cuya
+    ex_date es posterior a la fecha de la transacción. Esto hace que todos los
+    lotes del FIFO sean comparables entre sí y con las cotizaciones actuales.
+
+    Invariante: coste total por operación = shares × price + fee se conserva,
+    porque shares × factor × (price / factor) = shares × price. Las comisiones
+    son importes fijos (no por acción) y no se ajustan.
+    """
+    if not splits:
+        return transactions
+    splits_sorted = sorted(splits, key=lambda s: s.ex_date)
+    result: list[Transaction] = []
+    for txn in transactions:
+        adj_shares = txn.shares
+        adj_price = txn.price
+        for split in splits_sorted:
+            if split.ex_date > txn.date:
+                factor = Decimal(split.ratio_num) / Decimal(split.ratio_den)
+                adj_shares = adj_shares * factor
+                adj_price = adj_price / factor
+        result.append(
+            replace(txn, shares=adj_shares, price=adj_price)
+            if adj_shares != txn.shares
+            else txn
+        )
+    return result
+
+
 def compute_position(
     transactions: list[Transaction],
     dividends: list[Dividend],
+    splits: list[Split] | None = None,
 ) -> PositionResult:
     """
     Reconstruye el estado completo de una posición a partir de sus
@@ -160,7 +214,14 @@ def compute_position(
     Devuelve un PositionResult con acciones vivas, coste, resultado
     realizado, dividendos netos, lotes abiertos y los emparejamientos
     venta-compra que alimentan el informe fiscal.
+
+    'splits' es la lista de eventos de split/contrasplit del valor (cargada
+    por el repositorio). Si se proporciona, las transacciones se normalizan
+    a cantidades post-split antes de aplicar FIFO.
     """
+    if splits:
+        transactions = _normalize_splits(transactions, splits)
+
     # Ordenar por fecha es imprescindible para que FIFO sea correcto.
     # Ante misma fecha, las compras van antes que las ventas: no se puede
     # vender una acción que se compra el mismo día si aún no está en cola.

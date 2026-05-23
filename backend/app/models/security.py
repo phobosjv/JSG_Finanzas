@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, String, Text, func
+from sqlalchemy import CheckConstraint, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -23,6 +23,7 @@ from app.models.base import Base
 if TYPE_CHECKING:
     from app.models.price import PriceHistory, PriceSnapshot
     from app.models.portfolio import Position, Favorite
+    from app.models.security import SecuritySplit
 
 CURRENCIES = ("EUR", "USD")
 
@@ -61,6 +62,45 @@ class Security(Base):
     )
     positions: Mapped[list["Position"]] = relationship(back_populates="security")
     favorites: Mapped[list["Favorite"]] = relationship(back_populates="security")
+    splits: Mapped[list["SecuritySplit"]] = relationship(
+        back_populates="security", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Security id={self.id} ticker={self.yahoo_ticker!r} market={self.market}>"
+
+
+class SecuritySplit(Base):
+    """
+    Evento de split o contrasplit global. Gestionado por el admin; afecta
+    automáticamente a todos los usuarios que posean el valor.
+
+    ratio_num:ratio_den  →  acciones nuevas por cada 'ratio_den' acciones antiguas.
+    Ejemplos: split 2:1 → ratio_num=2, ratio_den=1
+              contrasplit 1:2 → ratio_num=1, ratio_den=2
+    """
+    __tablename__ = "security_splits"
+    __table_args__ = (
+        CheckConstraint("ratio_num >= 1", name="ck_split_ratio_num_positive"),
+        CheckConstraint("ratio_den >= 1", name="ck_split_ratio_den_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    security_id: Mapped[int] = mapped_column(
+        ForeignKey("securities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    ex_date: Mapped[str] = mapped_column(String, nullable=False)  # 'YYYY-MM-DD'
+    ratio_num: Mapped[int] = mapped_column(nullable=False)   # acciones nuevas
+    ratio_den: Mapped[int] = mapped_column(nullable=False)   # acciones antiguas
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.datetime("now")
+    )
+
+    security: Mapped["Security"] = relationship(back_populates="splits")
+
+    def __repr__(self) -> str:
+        return (
+            f"<SecuritySplit id={self.id} sec={self.security_id} "
+            f"{self.ex_date} {self.ratio_num}:{self.ratio_den}>"
+        )

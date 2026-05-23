@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from collections import defaultdict
 
-from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, Security, TransactionRow, User
+from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, Security, SecuritySplit, TransactionRow, User
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.schemas.portfolio import (
     ClosedPositionSummary,
@@ -51,9 +51,10 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
     Devuelve None si la posición está cerrada.
     """
     sec: Security = pos.security
-    txs  = repo.transactions_for_position(pos.id)
-    divs = repo.dividends_for_position(pos.id)
-    result = compute_position(txs, divs)
+    txs    = repo.transactions_for_position(pos.id)
+    divs   = repo.dividends_for_position(pos.id)
+    splits = repo.splits_for_security(sec.id)
+    result = compute_position(txs, divs, splits)
 
     if result.is_closed:
         return None
@@ -232,6 +233,22 @@ def get_portfolio_history(
         if not price_rows:
             continue
 
+        # Normalizar acciones de cada transacción a equivalente post-todos-los-splits.
+        # Los precios históricos de Yahoo Finance son split-adjusted, así que las
+        # acciones también deben estarlo para que value = shares × price sea correcto.
+        split_rows = db.scalars(
+            select(SecuritySplit)
+            .where(SecuritySplit.security_id == sec.id)
+            .order_by(SecuritySplit.ex_date)
+        ).all()
+
+        def _adj_shares(tx_date_str: str, raw: Decimal) -> Decimal:
+            result = raw
+            for sp in split_rows:
+                if sp.ex_date > tx_date_str:
+                    result *= Decimal(sp.ratio_num) / Decimal(sp.ratio_den)
+            return result
+
         # Barrido paralelo: acumula shares según las transacciones vigentes en cada fecha
         running_shares = Decimal("0")
         tx_idx = 0
@@ -240,7 +257,8 @@ def get_portfolio_history(
         for price_row in price_rows:
             while tx_idx < n_tx and tx_rows[tx_idx].date <= price_row.date:
                 tx = tx_rows[tx_idx]
-                running_shares += tx.shares if tx.type == "buy" else -tx.shares
+                adj = _adj_shares(tx.date, tx.shares)
+                running_shares += adj if tx.type == "buy" else -adj
                 tx_idx += 1
 
             if running_shares > Decimal("0"):
@@ -295,11 +313,12 @@ def get_closed_positions(
 
     for pos in positions:
         sec: Security = pos.security
-        txs  = repo.transactions_for_position(pos.id)
-        divs = repo.dividends_for_position(pos.id)
+        txs    = repo.transactions_for_position(pos.id)
+        divs   = repo.dividends_for_position(pos.id)
         if not txs:
             continue
-        computed = compute_position(txs, divs)
+        splits = repo.splits_for_security(sec.id)
+        computed = compute_position(txs, divs, splits)
         if not computed.is_closed:
             continue
 
@@ -390,11 +409,12 @@ def add_transaction(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    _require_position(db, position_id, user.id)
+    pos = _require_position(db, position_id, user.id)
 
     if body.type == "sell":
         repo = PortfolioRepository(db)
         existing_txs = repo.transactions_for_position(position_id)
+        splits = repo.splits_for_security(pos.security_id)
         new_tx = Transaction(
             type="sell",
             date=date_type.fromisoformat(body.date),
@@ -404,7 +424,7 @@ def add_transaction(
             exchange_rate=body.exchange_rate,
         )
         try:
-            compute_position(existing_txs + [new_tx], [])
+            compute_position(existing_txs + [new_tx], [], splits)
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
@@ -426,7 +446,7 @@ def update_transaction(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    _require_position(db, position_id, user.id)
+    pos = _require_position(db, position_id, user.id)
     tx = db.scalar(
         select(TransactionRow).where(
             TransactionRow.id == tx_id,
@@ -437,6 +457,8 @@ def update_transaction(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
 
     # Validar siempre: editar una compra a menos acciones puede dejar ventas sin respaldo.
+    repo = PortfolioRepository(db)
+    splits = repo.splits_for_security(pos.security_id)
     other_rows = db.scalars(
         select(TransactionRow).where(
             TransactionRow.position_id == position_id,
@@ -463,7 +485,7 @@ def update_transaction(
         exchange_rate=body.exchange_rate,
     )
     try:
-        compute_position(other_txs + [new_tx], [])
+        compute_position(other_txs + [new_tx], [], splits)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
@@ -484,7 +506,7 @@ def delete_transaction(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    _require_position(db, position_id, user.id)
+    pos = _require_position(db, position_id, user.id)
     tx = db.scalar(
         select(TransactionRow).where(
             TransactionRow.id == tx_id,
@@ -495,6 +517,8 @@ def delete_transaction(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
 
     # Validar que eliminar esta transacción no deja las ventas sin respaldo
+    repo = PortfolioRepository(db)
+    splits = repo.splits_for_security(pos.security_id)
     other_rows = db.scalars(
         select(TransactionRow).where(
             TransactionRow.position_id == position_id,
@@ -513,7 +537,7 @@ def delete_transaction(
         for r in other_rows
     ]
     try:
-        compute_position(other_txs, [])
+        compute_position(other_txs, [], splits)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

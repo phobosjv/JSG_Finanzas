@@ -43,11 +43,12 @@ def build_tax_report_input(
 
     sales: list[SecuritySales] = []
     for pos in repo.positions_of_user(user_id):
-        txs = repo.transactions_for_position(pos.id)
-        divs = repo.dividends_for_position(pos.id)
+        txs    = repo.transactions_for_position(pos.id)
+        divs   = repo.dividends_for_position(pos.id)
+        splits = repo.splits_for_security(pos.security_id)
 
         # FIFO: produce los SaleMatch (emparejamientos venta-compra).
-        position_result = compute_position(txs, divs)
+        position_result = compute_position(txs, divs, splits)
 
         sales.append(
             SecuritySales(

@@ -30,9 +30,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import (
-    DividendRow, MarketRow, Position, Security, TransactionRow,
+    DividendRow, MarketRow, Position, Security, SecuritySplit, TransactionRow,
 )
-from app.services.calculations import Transaction, Dividend
+from app.services.calculations import Dividend, Split, Transaction
 from app.services.tax_report import (
     SecurityRef, SecuritySales, DividendRecord,
 )
@@ -159,6 +159,20 @@ class PortfolioRepository:
             )
         ).all()
         return [_to_dividend(r) for r in rows]
+
+    def splits_for_security(self, security_id: int) -> list[Split]:
+        """Todos los splits de un valor, como objetos Split puros."""
+        rows = self._db.scalars(
+            select(SecuritySplit).where(SecuritySplit.security_id == security_id)
+        ).all()
+        return [
+            Split(
+                ex_date=date.fromisoformat(row.ex_date),
+                ratio_num=row.ratio_num,
+                ratio_den=row.ratio_den,
+            )
+            for row in rows
+        ]
 
     # ---- Para tax_report.build_tax_report --------------------------------
 

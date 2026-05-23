@@ -1,6 +1,7 @@
-"""Schemas para la gestión de mercados (admin) y configuración global."""
+"""Schemas para la gestión de mercados (admin), splits y configuración global."""
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, field_validator
@@ -88,3 +89,32 @@ class AppNameUpdate(BaseModel):
         if len(v) > 100:
             raise ValueError("El nombre no puede superar 100 caracteres")
         return v
+
+
+# ---------------------------------------------------------------------------
+#  Splits / contrasplits
+# ---------------------------------------------------------------------------
+
+class SplitIn(BaseModel):
+    ex_date: date
+    ratio_num: int
+    ratio_den: int
+    notes: str | None = None
+
+    @field_validator("ratio_num", "ratio_den")
+    @classmethod
+    def positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("Debe ser >= 1")
+        return v
+
+
+class SplitOut(BaseModel):
+    id: int
+    security_id: int
+    ex_date: str
+    ratio_num: int
+    ratio_den: int
+    notes: str | None
+
+    model_config = {"from_attributes": True}

@@ -8,7 +8,7 @@ Alembic o los tests llamen a create_all / drop_all.
 
 from app.models.base import Base, Money
 from app.models.user import User, UserStatusLog
-from app.models.security import Security
+from app.models.security import Security, SecuritySplit
 from app.models.market import MarketRow
 from app.models.config import AppConfig
 from app.models.price import EcbRate, PriceHistory, PriceSnapshot
@@ -20,6 +20,7 @@ __all__ = [
     "User",
     "UserStatusLog",
     "Security",
+    "SecuritySplit",
     "MarketRow",
     "AppConfig",
     "EcbRate",

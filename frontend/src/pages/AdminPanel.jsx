@@ -348,6 +348,158 @@ function CreateUserModal({ onClose, onCreated }) {
 }
 
 // ---------------------------------------------------------------------------
+//  Modal: splits / contrasplits de un valor
+// ---------------------------------------------------------------------------
+
+function SplitsModal({ security, onClose }) {
+  const [splits, setSplits]   = useState([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm]       = useState({ ex_date: '', ratio_num: 2, ratio_den: 1, notes: '' })
+  const [busy, setBusy]       = useState(false)
+  const [err, setErr]         = useState(null)
+
+  async function load() {
+    setLoading(true)
+    try { setSplits(await api.get(`/admin/securities/${security.id}/splits`)) }
+    catch (e) { setErr(e.message) }
+    finally { setLoading(false) }
+  }
+  useEffect(() => { load() }, [security.id])
+
+  async function submit(e) {
+    e.preventDefault()
+    if (!form.ex_date) { setErr('La fecha es obligatoria'); return }
+    if (Number(form.ratio_num) < 1 || Number(form.ratio_den) < 1) {
+      setErr('Los ratios deben ser >= 1'); return
+    }
+    setBusy(true); setErr(null)
+    try {
+      await api.post(`/admin/securities/${security.id}/splits`, {
+        ex_date: form.ex_date,
+        ratio_num: Number(form.ratio_num),
+        ratio_den: Number(form.ratio_den),
+        notes: form.notes || null,
+      })
+      setForm({ ex_date: '', ratio_num: 2, ratio_den: 1, notes: '' })
+      await load()
+    } catch (e) { setErr(e.message) }
+    finally { setBusy(false) }
+  }
+
+  async function del(id) {
+    if (!confirm('¿Eliminar este split?')) return
+    setErr(null)
+    try { await api.delete(`/admin/splits/${id}`); await load() }
+    catch (e) { setErr(e.message) }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+        <h2>Splits — {security.yahoo_ticker}</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16 }}>
+          Los splits normalizan automáticamente las transacciones anteriores a la fecha efectiva
+          para todos los usuarios que posean este valor.
+        </p>
+
+        {err && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{err}</div>}
+
+        {/* Formulario de nuevo split */}
+        <form onSubmit={submit} style={{ marginBottom: 20 }}>
+          <div className="card-row" style={{ alignItems: 'flex-end', gap: 8 }}>
+            <div className="form-group" style={{ flex: '0 0 130px', marginBottom: 0 }}>
+              <label>Fecha efectiva</label>
+              <input
+                type="date"
+                value={form.ex_date}
+                onChange={e => setForm(f => ({ ...f, ex_date: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ flex: '0 0 70px', marginBottom: 0 }}>
+              <label>Nuevas</label>
+              <input
+                type="number" min={1} style={{ width: '100%' }}
+                value={form.ratio_num}
+                onChange={e => setForm(f => ({ ...f, ratio_num: e.target.value }))}
+                required
+              />
+            </div>
+            <span style={{ alignSelf: 'center', color: 'var(--text-muted)', fontSize: '1.2rem', paddingBottom: 4 }}>:</span>
+            <div className="form-group" style={{ flex: '0 0 70px', marginBottom: 0 }}>
+              <label>Antiguas</label>
+              <input
+                type="number" min={1} style={{ width: '100%' }}
+                value={form.ratio_den}
+                onChange={e => setForm(f => ({ ...f, ratio_den: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <label>Notas</label>
+              <input
+                type="text"
+                value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Opcional"
+              />
+            </div>
+            <button type="submit" className="btn-primary btn-sm" disabled={busy} style={{ marginBottom: 0 }}>
+              {busy ? '…' : '+ Añadir'}
+            </button>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
+            Ejemplo: split 2:1 → Nuevas=2, Antiguas=1 · Contrasplit 1:2 → Nuevas=1, Antiguas=2
+          </div>
+        </form>
+
+        {/* Lista de splits */}
+        {loading ? (
+          <div className="state-loading"><div className="spinner" /></div>
+        ) : splits.length === 0 ? (
+          <div className="state-empty">No hay splits registrados para este valor.</div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha efectiva</th>
+                  <th>Ratio</th>
+                  <th>Notas</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {splits.map(s => (
+                  <tr key={s.id}>
+                    <td>{s.ex_date}</td>
+                    <td className="num">
+                      <strong>{s.ratio_num}</strong>:{s.ratio_den}
+                      <span style={{ marginLeft: 6, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                        ({s.ratio_num > s.ratio_den ? 'split' : 'contrasplit'})
+                      </span>
+                    </td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{s.notes ?? '—'}</td>
+                    <td>
+                      <button className="btn-danger btn-sm" onClick={() => del(s.id)}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="modal-actions" style={{ marginTop: 16 }}>
+          <button className="btn-ghost" onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
 //  Configuración del sistema
 // ---------------------------------------------------------------------------
 
@@ -615,14 +767,15 @@ const EMPTY_SEC = { name: '', isin: '', yahoo_ticker: '', google_ticker: '', mar
 const CURRENCIES = ['EUR', 'USD']
 
 function SecuritiesSection() {
-  const [markets, setMarkets]   = useState([])
-  const [securities, setSecs]   = useState([])
-  const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing]   = useState(null)
-  const [form, setForm]         = useState(EMPTY_SEC)
-  const [busy, setBusy]         = useState(false)
-  const [err, setErr]           = useState(null)
-  const [msg, setMsg]           = useState(null)
+  const [markets, setMarkets]     = useState([])
+  const [securities, setSecs]     = useState([])
+  const [showForm, setShowForm]   = useState(false)
+  const [editing, setEditing]     = useState(null)
+  const [form, setForm]           = useState(EMPTY_SEC)
+  const [busy, setBusy]           = useState(false)
+  const [err, setErr]             = useState(null)
+  const [msg, setMsg]             = useState(null)
+  const [splitsFor, setSplitsFor] = useState(null)   // security para SplitsModal
 
   async function load() {
     const [mks, secs] = await Promise.all([api.get('/markets/list'), api.get('/securities')])
@@ -757,6 +910,9 @@ function SecuritiesSection() {
                   <td>{s.currency}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                      <button className="btn-ghost btn-sm" onClick={() => setSplitsFor(s)} title="Gestionar splits">
+                        ÷ Splits
+                      </button>
                       <button className="btn-ghost btn-sm" onClick={() => startEdit(s)}>✎</button>
                       <button className="btn-danger btn-sm" onClick={() => del(s.id, s.yahoo_ticker)}>✕</button>
                     </div>
@@ -766,6 +922,13 @@ function SecuritiesSection() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {splitsFor && (
+        <SplitsModal
+          security={splitsFor}
+          onClose={() => setSplitsFor(null)}
+        />
       )}
     </div>
   )
