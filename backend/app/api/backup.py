@@ -152,9 +152,12 @@ async def import_backup(
             db.add(pos)
             db.flush()  # obtiene pos.id sin commit
 
-        # Transacciones existentes como set de (date, type, shares, price)
+        # Transacciones existentes: la clave incluye fecha, tipo, acciones,
+        # precio Y comisión. Se usan objetos Decimal (no str) para que dos
+        # Decimal iguales pero con distinta representación (p. ej. "10" vs
+        # "10.0") se reconozcan como duplicados correctamente.
         existing_txs = {
-            (str(tx.date), tx.type, str(tx.shares), str(tx.price))
+            (tx.date, tx.type, tx.shares, tx.price, tx.fee)
             for tx in db.scalars(
                 select(TransactionRow).where(TransactionRow.position_id == pos.id)
             ).all()
@@ -168,8 +171,8 @@ async def import_backup(
                 tx_rate   = Decimal(str(tx_data.get("exchange_rate", "1")))
                 if tx_shares <= 0:
                     raise ValueError("shares debe ser > 0")
-                if tx_price < 0:
-                    raise ValueError("price no puede ser negativo")
+                if tx_price <= 0:
+                    raise ValueError("price debe ser > 0")
                 if tx_fee < 0:
                     raise ValueError("fee no puede ser negativo")
                 if tx_rate <= 0:
@@ -178,12 +181,21 @@ async def import_backup(
                     raise ValueError("type debe ser 'buy' o 'sell'")
                 if tx_data["currency"] not in ("EUR", "USD"):
                     raise ValueError("currency debe ser 'EUR' o 'USD'")
+                # Coherencia divisa/cambio: USD con rate=1 es incoherente y
+                # romperá la carga de la cartera (el repositorio lo rechaza).
+                if tx_data["currency"] == "USD" and tx_rate == Decimal("1"):
+                    raise ValueError(
+                        "currency='USD' con exchange_rate=1 es incoherente: "
+                        "el tipo EUR/USD del BCE nunca es exactamente 1."
+                    )
+                if tx_data["currency"] == "EUR" and tx_rate != Decimal("1"):
+                    raise ValueError("currency='EUR' exige exchange_rate=1")
             except (KeyError, TypeError, InvalidOperation, ValueError) as exc:
                 result.errors.append(
                     f"Transacción omitida en '{ticker}': {exc}"
                 )
                 continue
-            key = (str(tx_data["date"]), tx_data["type"], str(tx_shares), str(tx_price))
+            key = (tx_data["date"], tx_data["type"], tx_shares, tx_price, tx_fee)
             if key in existing_txs:
                 continue
             db.add(TransactionRow(
@@ -198,9 +210,9 @@ async def import_backup(
             ))
             result.transactions_added += 1
 
-        # Dividendos existentes como set de (date, gross_amount)
+        # Dividendos existentes: clave con fecha y bruto total (Decimal).
         existing_divs = {
-            (str(div.date), str(div.gross_amount))
+            (div.date, div.gross_amount)
             for div in db.scalars(
                 select(DividendRow).where(DividendRow.position_id == pos.id)
             ).all()
@@ -230,7 +242,7 @@ async def import_backup(
                     f"Dividendo omitido en '{ticker}': {exc}"
                 )
                 continue
-            key = (str(div_data["date"]), str(div_gross))
+            key = (div_data["date"], div_gross)
             if key in existing_divs:
                 continue
             db.add(DividendRow(

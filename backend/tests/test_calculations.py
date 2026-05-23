@@ -285,7 +285,10 @@ def test_agregado_cartera():
     assert approx_eq(a["market_value_eur"], "3100")
     assert approx_eq(a["difference_eur"], "100")
     assert approx_eq(a["total_gain_eur"], "250")
-    assert approx_eq(a["avg_return_pct"], "3.333333", tol="0.0001")
+    # El % refleja el beneficio TOTAL (latente + realizado + dividendos) / invertido.
+    # total_gain = realizado(100) + latente(100) + dividendos(50) = 250
+    # avg_return_pct = 250/3000*100 = 8.333...%
+    assert approx_eq(a["avg_return_pct"], "8.333333", tol="0.0001")
 
 
 # --------------------------------------------------------------------------

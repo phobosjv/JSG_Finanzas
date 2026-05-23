@@ -187,9 +187,14 @@ def _is_loss_disallowed(
     window = security.recapture_window
     sell = match.sell_date
 
+    # La compra emparejada con esta venta no cuenta como "recompra".
+    # Si hay varias compras en la misma fecha (match.buy_date), solo se excluye
+    # UNA de ellas (la primera encontrada, que representa el lote consumido por
+    # el FIFO). Las demás sí deben comprobarse como posibles recompras.
+    matched_buy_excluded = False
     for buy in all_buys:
-        # La compra emparejada con esta venta no cuenta como "recompra".
-        if buy.date == match.buy_date:
+        if not matched_buy_excluded and buy.date == match.buy_date:
+            matched_buy_excluded = True
             continue
         # Recompra dentro de la ventana [venta - plazo, venta + plazo]
         if (sell - window) <= buy.date <= (sell + window):

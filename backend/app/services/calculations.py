@@ -483,9 +483,11 @@ def aggregate_portfolio(
 
     total_gain = realized + unrealized + dividends
 
-    # Para el % agregado se usa como base el capital invertido en lo VIVO.
+    # Para el % agregado se usa el beneficio TOTAL (realizado + latente +
+    # dividendos) dividido entre el capital invertido. Esto es coherente con
+    # el total_gain_eur que se devuelve en el mismo dict y con la docstring.
     avg_pct = (
-        (unrealized / invested * Decimal("100"))
+        (total_gain / invested * Decimal("100"))
         if invested > Decimal("0")
         else Decimal("0")
     )

@@ -322,9 +322,11 @@ def get_closed_positions(
         if not computed.is_closed:
             continue
 
-        shares_sold = sum(
-            (tx.shares for tx in txs if tx.type == "sell"), Decimal("0")
-        )
+        # shares_sold se obtiene de computed.sale_matches (ya normalizadas a
+        # equivalente post-split por _normalize_splits) en lugar de las
+        # transacciones crudas. Así la cifra es coherente con el precio medio
+        # y el coste que también vienen del cálculo FIFO normalizado.
+        shares_sold  = sum((m.shares       for m in computed.sale_matches), Decimal("0"))
         cost_eur     = sum((m.cost_eur     for m in computed.sale_matches), Decimal("0"))
         proceeds_eur = sum((m.proceeds_eur for m in computed.sale_matches), Decimal("0"))
 
