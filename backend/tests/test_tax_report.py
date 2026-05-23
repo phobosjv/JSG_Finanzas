@@ -26,8 +26,8 @@ def sm(sell_d, buy_d, shares, cost, proceeds):
 def buy(d): return Transaction("buy", d, D("1"), D("1"), D("0"), D("1"))
 
 
-IBEX = SecurityRef(1, "Iberdrola", "ES0144580Y14", "ibex35")
-NDX = SecurityRef(2, "Apple", "US0378331005", "nasdaq")
+IBEX = SecurityRef(1, "Iberdrola", "ES0144580Y14", "ibex35", fiscal_window_days=60)
+NDX  = SecurityRef(2, "Apple",    "US0378331005", "nasdaq",  fiscal_window_days=365)
 
 
 def test_solo_filtra_el_ano_pedido():

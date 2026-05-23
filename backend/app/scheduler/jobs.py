@@ -28,7 +28,7 @@ Registro en APScheduler (se hace en main.py):
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -158,7 +158,7 @@ def _update_snapshot_for_security(db: Session, sec: Security) -> None:
             min_2y=stats.min_2y,
             min_5y=stats.min_5y,
             last_dividend=quote.last_dividend,
-            updated_at=date.today().isoformat(),
+            updated_at=datetime.now().isoformat(timespec="seconds"),
         )
         .on_conflict_do_update(
             index_elements=["security_id"],
@@ -212,3 +212,14 @@ def update_ecb_rates(db: Session) -> None:
 
     db.commit()
     log.info("Tipos BCE: %d nuevas entradas desde %s", len(rates), from_date)
+
+
+# ---------------------------------------------------------------------------
+#  4. Snapshots en vivo (job periódico cada N minutos, configurable por admin)
+# ---------------------------------------------------------------------------
+
+def update_snapshots_live(db: Session) -> None:
+    """Actualiza solo snapshots (sin histórico). Llamado cada N min durante el día."""
+    log.info("Actualizacion live de snapshots")
+    update_snapshots(db)
+    log.info("Snapshots live completados")

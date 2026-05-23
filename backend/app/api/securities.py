@@ -1,11 +1,14 @@
 """
 api/securities.py
 =================
-CRUD del catalogo de valores (Utilidades).
+CRUD del catalogo de valores. Lectura para todos los usuarios autenticados;
+escritura (POST/PATCH/DELETE) solo para administradores.
 
 GET    /securities        — lista todos los valores.
-POST   /securities        — da de alta un valor nuevo.
-DELETE /securities/{id}   — elimina un valor (falla si tiene posiciones: RESTRICT).
+GET    /securities/{id}   — devuelve un valor.
+POST   /securities        — da de alta un valor nuevo (admin).
+PATCH  /securities/{id}   — actualiza un valor (admin).
+DELETE /securities/{id}   — elimina un valor (admin; falla si tiene posiciones: RESTRICT).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,11 +16,19 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
-from app.models import Security, User
+from app.api.deps import get_current_user, get_db, require_admin
+from app.models import MarketRow, Security, User
 from app.schemas.security import SecurityCreate, SecurityOut
 
 router = APIRouter(prefix="/securities", tags=["securities"])
+
+
+def _validate_market(db: Session, code: str) -> None:
+    if db.get(MarketRow, code) is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"El mercado '{code}' no existe en el catálogo de mercados",
+        )
 
 
 @router.get("", response_model=list[SecurityOut])
@@ -32,8 +43,9 @@ def list_securities(
 def create_security(
     body: SecurityCreate,
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    _admin: User = Depends(require_admin),
 ):
+    _validate_market(db, body.market)
     sec = Security(**body.model_dump())
     db.add(sec)
     try:
@@ -65,8 +77,9 @@ def update_security(
     security_id: int,
     body: SecurityCreate,
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    _admin: User = Depends(require_admin),
 ):
+    _validate_market(db, body.market)
     sec = db.get(Security, security_id)
     if sec is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
@@ -88,7 +101,7 @@ def update_security(
 def delete_security(
     security_id: int,
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    _admin: User = Depends(require_admin),
 ):
     sec = db.get(Security, security_id)
     if sec is None:

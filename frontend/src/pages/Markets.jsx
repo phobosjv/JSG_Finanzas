@@ -4,12 +4,14 @@ import SecurityTable from '../components/SecurityTable'
 import SecurityCard from '../components/SecurityCard'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
-const TABS = [
-  { key: 'ibex35',   label: 'IBEX 35' },
-  { key: 'continuo', label: 'Mercado Continuo' },
-  { key: 'nasdaq',   label: 'Nasdaq' },
-  { key: 'favoritos', label: '★ Favoritos' },
-]
+const FAV_TAB = { key: 'favoritos', label: '★ Favoritos' }
+
+function fmtDateTime(dt) {
+  if (!dt) return null
+  const d = new Date(dt)
+  if (isNaN(d)) return null
+  return d.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
+}
 
 function fmt(val, dec = 2) {
   if (val == null) return '—'
@@ -81,11 +83,25 @@ function IndexHeader({ market }) {
 }
 
 export default function Markets() {
-  const [activeTab, setActiveTab] = useState('ibex35')
+  const [tabs, setTabs]             = useState([])
+  const [activeTab, setActiveTab]   = useState(null)
   const [securities, setSecurities] = useState([])
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
   const isMobile = useMediaQuery('(max-width: 767px)')
+
+  // Load dynamic market tabs on mount
+  useEffect(() => {
+    api.get('/markets/list').then(mks => {
+      const t = mks.map(m => ({ key: m.code, label: m.name }))
+      t.push(FAV_TAB)
+      setTabs(t)
+      if (!activeTab) setActiveTab(t[0]?.key ?? 'favoritos')
+    }).catch(() => {
+      setTabs([FAV_TAB])
+      if (!activeTab) setActiveTab('favoritos')
+    })
+  }, [])
 
   async function loadTab(tab) {
     setLoading(true); setError(null)
@@ -99,11 +115,19 @@ export default function Markets() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { loadTab(activeTab) }, [activeTab])
+  useEffect(() => {
+    if (activeTab) loadTab(activeTab)
+  }, [activeTab])
 
   function handleTabChange(tab) {
     setActiveTab(tab)
   }
+
+  // Most recent updated_at among displayed securities
+  const lastUpdated = securities.reduce((best, s) => {
+    if (!s.updated_at) return best
+    return !best || s.updated_at > best ? s.updated_at : best
+  }, null)
 
   async function handleToggleFav(secId, isFav) {
     try {
@@ -138,9 +162,9 @@ export default function Markets() {
     <div>
       <h1>Mercados</h1>
 
-      {/* Pestañas */}
+      {/* Pestañas dinámicas */}
       <div className="tabs">
-        {TABS.map(t => (
+        {tabs.map(t => (
           <button
             key={t.key}
             className={`tab-btn ${activeTab === t.key ? 'active' : ''}`}
@@ -154,7 +178,14 @@ export default function Markets() {
       </div>
 
       {/* Cabecera del índice */}
-      <IndexHeader market={activeTab} />
+      {activeTab && <IndexHeader market={activeTab} />}
+
+      {/* Última actualización */}
+      {lastUpdated && (
+        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8, textAlign: 'right' }}>
+          Precios actualizados: {fmtDateTime(lastUpdated)}
+        </div>
+      )}
 
       {/* Contenido */}
       {error ? (
@@ -165,7 +196,7 @@ export default function Markets() {
         <div className="state-empty">
           {activeTab === 'favoritos'
             ? 'Aún no has marcado ningún valor como favorito. Pulsa ☆ en cualquier mercado.'
-            : 'No hay valores en este mercado. Añádelos en Utilidades.'}
+            : 'No hay valores en este mercado. El administrador puede añadirlos en el panel de administración.'}
         </div>
       ) : isMobile ? (
         securities.map(s => (

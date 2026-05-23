@@ -21,7 +21,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from app.models import Base, User
+from app.models import Base, MarketRow, User
 from app.auth.security import hash_password
 
 
@@ -102,3 +102,47 @@ def auth_client(client, test_user):
     })
     assert resp.status_code == 200, resp.text
     return client
+
+
+@pytest.fixture()
+def test_admin(engine) -> User:
+    """Usuario administrador de prueba insertado directamente en la BD."""
+    with Session(engine) as session:
+        user = User(
+            username="adminuser",
+            password_hash=hash_password("adminpass123"),
+            is_admin=True,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+
+
+@pytest.fixture()
+def admin_client(client, test_admin):
+    """TestClient con sesión de admin ya iniciada."""
+    resp = client.post("/api/auth/login", json={
+        "username": "adminuser",
+        "password": "adminpass123",
+    })
+    assert resp.status_code == 200, resp.text
+    return client
+
+
+@pytest.fixture()
+def seed_markets(engine):
+    """Inserta los tres mercados por defecto en la BD de prueba."""
+    from datetime import datetime
+    with Session(engine) as session:
+        for code, name, ticker, currency, days in [
+            ("ibex35",   "IBEX 35",           "^IBEX",  "EUR", 60),
+            ("continuo", "Mercado Continuo",   "^SMSI",  "EUR", 60),
+            ("nasdaq",   "Nasdaq Composite",   "^IXIC",  "USD", 365),
+        ]:
+            session.merge(MarketRow(
+                code=code, name=name, index_ticker=ticker,
+                currency=currency, fiscal_window_days=days,
+                created_at=datetime.now().isoformat(timespec="seconds"),
+            ))
+        session.commit()

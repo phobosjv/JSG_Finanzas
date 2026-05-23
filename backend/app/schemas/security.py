@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, field_validator
 
-Market = Literal["ibex35", "continuo", "nasdaq"]
+# 'currency' sigue siendo EUR|USD: el motor de cálculo solo soporta BCE EUR/USD.
 Currency = Literal["EUR", "USD"]
 
 
@@ -14,7 +14,7 @@ class SecurityCreate(BaseModel):
     isin: str | None = None
     yahoo_ticker: str
     google_ticker: str | None = None
-    market: Market
+    market: str          # validado en la API contra la tabla markets
     currency: Currency
 
     @field_validator("name")

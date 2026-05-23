@@ -30,7 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import (
-    DividendRow, Position, Security, TransactionRow,
+    DividendRow, MarketRow, Position, Security, TransactionRow,
 )
 from app.services.calculations import Transaction, Dividend
 from app.services.tax_report import (
@@ -107,17 +107,14 @@ def _to_dividend(row: DividendRow) -> Dividend:
     )
 
 
-def _to_security_ref(sec: Security) -> SecurityRef:
-    """
-    Security (fila SQLite) -> tax_report.SecurityRef.
-    'market' pasa intacto: los valores del CHECK de la tabla coinciden con
-    el Literal Market de tax_report.py.
-    """
+def _to_security_ref(sec: Security, fiscal_window_days: int = 60) -> SecurityRef:
+    """Security (fila SQLite) -> tax_report.SecurityRef."""
     return SecurityRef(
         security_id=sec.id,
         name=sec.name,
         isin=sec.isin,
         market=sec.market,
+        fiscal_window_days=fiscal_window_days,
     )
 
 
@@ -195,7 +192,9 @@ class PortfolioRepository:
         sec = self._db.get(Security, security_id)
         if sec is None:
             raise ValueError(f"No existe el valor con id={security_id}.")
-        return _to_security_ref(sec)
+        market_row = self._db.get(MarketRow, sec.market)
+        fiscal_window_days = market_row.fiscal_window_days if market_row else 60
+        return _to_security_ref(sec, fiscal_window_days)
 
     def dividend_records(self, user_id: int) -> list[DividendRecord]:
         """
@@ -215,9 +214,11 @@ class PortfolioRepository:
 
         records: list[DividendRecord] = []
         for div_row, sec in rows:
+            market_row = self._db.get(MarketRow, sec.market)
+            fiscal_window_days = market_row.fiscal_window_days if market_row else 60
             records.append(
                 DividendRecord(
-                    security=_to_security_ref(sec),
+                    security=_to_security_ref(sec, fiscal_window_days),
                     dividend=_to_dividend(div_row),
                 )
             )
@@ -246,7 +247,7 @@ class PortfolioRepository:
 
         result: list[SecuritySales] = []
         for pos in positions:
-            sec_ref = self.security_ref(pos.security_id)
+            sec_ref = self.security_ref(pos.security_id)  # ya incluye fiscal_window_days
             all_buys = self.all_buys_for_security(user_id, pos.security_id)
             result.append(
                 SecuritySales(

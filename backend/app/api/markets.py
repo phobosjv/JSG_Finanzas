@@ -3,12 +3,14 @@ api/markets.py
 ==============
 Datos de mercado: historico de precios, snapshots y vistas combinadas.
 
+GET /markets/list                   — lista de mercados (para pestañas dinámicas).
 GET /markets/overview               — securities + snapshot + favorito (un call por pestaña).
-GET /markets/index-quote            — cotización del índice de mercado (^IBEX, ^SMSI, ^IXIC).
+GET /markets/index-quote            — cotización del índice de mercado.
 GET /markets/index-history          — histórico del índice para el sparkline de cabecera.
 GET /markets/{security_id}/history  — histórico de cierres de un valor.
 GET /markets/{security_id}/snapshot — snapshot con indicadores.
 POST /markets/{security_id}/refresh — fuerza actualización inmediata.
+POST /markets/refresh-all           — fuerza actualización de todos (solo admin).
 """
 
 from __future__ import annotations
@@ -20,23 +22,25 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import outerjoin, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
-from app.models import Favorite, PriceHistory, PriceSnapshot, Security, User
+from app.api.deps import get_current_user, get_db, require_admin
+from app.models import Favorite, MarketRow, PriceHistory, PriceSnapshot, Security, User
 from app.schemas.market import (
     IndexQuote, PriceHistoryPoint, SecurityOverview, SnapshotOut,
 )
+from app.schemas.market_admin import MarketOut
 
 router = APIRouter(prefix="/markets", tags=["markets"])
-
-INDEX_TICKERS: dict[str, tuple[str, str]] = {
-    "ibex35":  ("^IBEX",  "IBEX 35"),
-    "continuo": ("^SMSI", "Mercado Continuo"),
-    "nasdaq":  ("^IXIC",  "Nasdaq Composite"),
-}
 _INDEX_QUOTE_CACHE: dict[str, tuple[float, IndexQuote]] = {}
 _INDEX_HIST_CACHE:  dict[str, tuple[float, list]]       = {}
 _QUOTE_TTL = 900   # 15 min
 _HIST_TTL  = 3600  # 1 hora
+
+
+def _get_market_or_404(db: Session, code: str) -> MarketRow:
+    m = db.get(MarketRow, code)
+    if m is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mercado desconocido")
+    return m
 
 
 # ---------------------------------------------------------------------------
@@ -93,8 +97,21 @@ def _load_securities_with_snapshots(
             last_dividend=snap.last_dividend if snap else None,
             is_favorite=is_fav,
             target_buy_price=favs.get(sec.id),
+            updated_at=snap.updated_at if snap else None,
         ))
     return result
+
+
+# ---------------------------------------------------------------------------
+#  Lista de mercados (para que el frontend construya pestañas dinámicas)
+# ---------------------------------------------------------------------------
+
+@router.get("/list", response_model=list[MarketOut])
+def list_markets(
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    return db.scalars(select(MarketRow).order_by(MarketRow.code)).all()
 
 
 # ---------------------------------------------------------------------------
@@ -123,23 +140,24 @@ def get_overview(
 @router.get("/index-quote", response_model=IndexQuote | None)
 def get_index_quote(
     market: str = Query(...),
+    db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    if market not in INDEX_TICKERS:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mercado desconocido")
+    market_row = _get_market_or_404(db, market)
+    if not market_row.index_ticker:
+        return None
 
     now = time.time()
     cached = _INDEX_QUOTE_CACHE.get(market)
     if cached and now - cached[0] < _QUOTE_TTL:
         return cached[1]
 
-    ticker_symbol, name = INDEX_TICKERS[market]
     try:
         from app.providers.yahoo import YahooProvider
-        quote = YahooProvider().fetch_live_quote(ticker_symbol)
+        quote = YahooProvider().fetch_live_quote(market_row.index_ticker)
         data = IndexQuote(
-            name=name,
-            ticker=ticker_symbol,
+            name=market_row.name,
+            ticker=market_row.index_ticker,
             last_price=quote.last_price,
             daily_change_pct=quote.daily_change_pct,
         )
@@ -152,10 +170,12 @@ def get_index_quote(
 @router.get("/index-history")
 def get_index_history(
     market: str = Query(...),
+    db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    if market not in INDEX_TICKERS:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mercado desconocido")
+    market_row = _get_market_or_404(db, market)
+    if not market_row.index_ticker:
+        return []
 
     now = time.time()
     cached = _INDEX_HIST_CACHE.get(market)
@@ -163,10 +183,9 @@ def get_index_history(
         return cached[1]
 
     from app.providers.yahoo import YahooProvider
-    ticker_symbol, _ = INDEX_TICKERS[market]
     try:
         bars = YahooProvider().fetch_history(
-            ticker_symbol,
+            market_row.index_ticker,
             date.today() - timedelta(days=365),
             date.today(),
         )
@@ -239,9 +258,9 @@ def get_snapshot(
 @router.post("/refresh-all", status_code=status.HTTP_202_ACCEPTED)
 def refresh_all(
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    _admin: User = Depends(require_admin),
 ):
-    """Fuerza actualización de histórico y snapshot para todos los valores del catálogo."""
+    """Fuerza actualización de histórico y snapshot para todos los valores del catálogo (solo admin)."""
     from app.scheduler.jobs import _update_history_for_security, _update_snapshot_for_security
     secs = db.scalars(select(Security)).all()
     for sec in secs:

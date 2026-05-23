@@ -260,7 +260,6 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
   )
 }
 
-const MARKETS    = ['ibex35', 'continuo', 'nasdaq']
 const CURRENCIES = ['EUR', 'USD']
 
 function EditSecurityModal({ security, onClose, onSaved }) {
@@ -272,8 +271,13 @@ function EditSecurityModal({ security, onClose, onSaved }) {
     market:        security.market,
     currency:      security.currency,
   })
+  const [markets, setMarkets] = useState([])
   const [busy, setBusy]   = useState(false)
   const [error, setError] = useState(null)
+
+  useEffect(() => {
+    api.get('/markets/list').then(mks => setMarkets(mks)).catch(() => {})
+  }, [])
 
   function field(name) {
     return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
@@ -324,7 +328,7 @@ function EditSecurityModal({ security, onClose, onSaved }) {
             <div className="form-group" style={{ flex: 1 }}>
               <label>Mercado *</label>
               <select {...field('market')}>
-                {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
+                {markets.map(m => <option key={m.code} value={m.code}>{m.name}</option>)}
               </select>
             </div>
             <div className="form-group" style={{ flex: 1 }}>

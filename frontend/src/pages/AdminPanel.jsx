@@ -112,6 +112,398 @@ function CreateUserModal({ onClose, onCreated }) {
   )
 }
 
+// ---------------------------------------------------------------------------
+//  Configuración del sistema (intervalo snapshots + refresh-all)
+// ---------------------------------------------------------------------------
+
+function ConfigSection() {
+  const [interval, setInterval]   = useState(null)
+  const [inputVal, setInputVal]   = useState(5)
+  const [busy, setBusy]           = useState(false)
+  const [refreshBusy, setRefreshBusy] = useState(false)
+  const [msg, setMsg]             = useState(null)
+  const [err, setErr]             = useState(null)
+
+  useEffect(() => {
+    api.get('/admin/config').then(d => {
+      setInterval(d.snapshot_interval_minutes)
+      setInputVal(d.snapshot_interval_minutes)
+    }).catch(() => {})
+  }, [])
+
+  async function saveInterval(e) {
+    e.preventDefault()
+    setBusy(true); setMsg(null); setErr(null)
+    try {
+      const d = await api.patch('/admin/config/snapshot-interval', { minutes: Number(inputVal) })
+      setInterval(d.snapshot_interval_minutes)
+      setMsg('Intervalo actualizado')
+    } catch (e) { setErr(e.message) }
+    finally { setBusy(false) }
+  }
+
+  async function refreshAll() {
+    setRefreshBusy(true); setMsg(null); setErr(null)
+    try {
+      const d = await api.post('/markets/refresh-all')
+      setMsg(d.detail)
+    } catch (e) { setErr(e.message) }
+    finally { setRefreshBusy(false) }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 24 }}>
+      <h2>Configuración del sistema</h2>
+      {err && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{err}</div>}
+      {msg && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12 }}>{msg}</div>}
+
+      <form onSubmit={saveInterval} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 16 }}>
+        <div className="form-group" style={{ flex: '0 0 auto', marginBottom: 0 }}>
+          <label>Intervalo actualización precios (min)</label>
+          <input
+            type="number" min={5} max={60}
+            value={inputVal}
+            onChange={e => setInputVal(e.target.value)}
+            style={{ width: 80 }}
+          />
+        </div>
+        <button type="submit" className="btn-primary btn-sm" disabled={busy || interval === null}>
+          {busy ? 'Guardando…' : 'Guardar'}
+        </button>
+        {interval !== null && (
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', alignSelf: 'center' }}>
+            Actual: {interval} min
+          </span>
+        )}
+      </form>
+
+      <button className="btn-ghost btn-sm" disabled={refreshBusy} onClick={refreshAll}>
+        {refreshBusy ? 'Actualizando…' : '↺ Actualizar todos los valores ahora'}
+      </button>
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
+//  Gestión de mercados (catálogo dinámico)
+// ---------------------------------------------------------------------------
+
+const EMPTY_MARKET = { code: '', name: '', index_ticker: '', currency: 'EUR', fiscal_window_days: 60 }
+
+function MarketsSection() {
+  const [markets, setMarkets]   = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing]   = useState(null)
+  const [form, setForm]         = useState(EMPTY_MARKET)
+  const [busy, setBusy]         = useState(false)
+  const [err, setErr]           = useState(null)
+  const [msg, setMsg]           = useState(null)
+
+  async function load() { setMarkets(await api.get('/admin/markets')) }
+  useEffect(() => { load() }, [])
+
+  function field(name) {
+    return {
+      value: form[name],
+      onChange: e => setForm(f => ({ ...f, [name]: e.target.value })),
+    }
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true); setErr(null); setMsg(null)
+    try {
+      const body = { ...form, fiscal_window_days: Number(form.fiscal_window_days) }
+      if (!body.index_ticker) delete body.index_ticker
+      if (editing) {
+        await api.patch(`/admin/markets/${editing.code}`, {
+          name: body.name,
+          index_ticker: body.index_ticker,
+          currency: body.currency,
+          fiscal_window_days: body.fiscal_window_days,
+        })
+        setMsg('Mercado actualizado')
+      } else {
+        await api.post('/admin/markets', body)
+        setMsg('Mercado creado')
+      }
+      setShowForm(false); setEditing(null); setForm(EMPTY_MARKET)
+      await load()
+    } catch (e) { setErr(e.message) }
+    finally { setBusy(false) }
+  }
+
+  async function del(code) {
+    if (!confirm(`¿Eliminar el mercado "${code}"?`)) return
+    setErr(null); setMsg(null)
+    try {
+      await api.delete(`/admin/markets/${code}`)
+      await load()
+    } catch (e) { setErr(e.message) }
+  }
+
+  function startEdit(m) {
+    setEditing(m)
+    setForm({ code: m.code, name: m.name, index_ticker: m.index_ticker ?? '', currency: m.currency, fiscal_window_days: m.fiscal_window_days })
+    setShowForm(true)
+    setErr(null); setMsg(null)
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ margin: 0 }}>Mercados</h2>
+        <button className="btn-primary btn-sm" onClick={() => {
+          setEditing(null); setForm(EMPTY_MARKET); setShowForm(s => !s); setErr(null); setMsg(null)
+        }}>
+          {showForm && !editing ? 'Cancelar' : '+ Nuevo mercado'}
+        </button>
+      </div>
+
+      {err && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{err}</div>}
+      {msg && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12 }}>{msg}</div>}
+
+      {showForm && (
+        <div className="card" style={{ marginBottom: 16, background: 'var(--bg-input)' }}>
+          <h3 style={{ marginTop: 0 }}>{editing ? 'Editar mercado' : 'Nuevo mercado'}</h3>
+          <form onSubmit={submit}>
+            <div className="card-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Código *</label>
+                <input type="text" {...field('code')} required disabled={!!editing} placeholder="ibex35" />
+              </div>
+              <div className="form-group" style={{ flex: 2 }}>
+                <label>Nombre *</label>
+                <input type="text" {...field('name')} required />
+              </div>
+            </div>
+            <div className="card-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Ticker índice</label>
+                <input type="text" {...field('index_ticker')} placeholder="^IBEX" />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Divisa</label>
+                <select {...field('currency')}>
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Ventana fiscal (días)</label>
+                <input type="number" min={1} {...field('fiscal_window_days')} style={{ width: 80 }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn-ghost btn-sm" onClick={() => { setShowForm(false); setEditing(null) }}>Cancelar</button>
+              <button type="submit" className="btn-primary btn-sm" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Nombre</th>
+              <th>Ticker índice</th>
+              <th>Divisa</th>
+              <th>Ventana fiscal</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {markets.map(m => (
+              <tr key={m.code}>
+                <td><code style={{ fontSize: '0.85rem' }}>{m.code}</code></td>
+                <td>{m.name}</td>
+                <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{m.index_ticker ?? '—'}</td>
+                <td>{m.currency}</td>
+                <td className="num">{m.fiscal_window_days}d</td>
+                <td>
+                  <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                    <button className="btn-ghost btn-sm" onClick={() => startEdit(m)}>✎</button>
+                    <button className="btn-danger btn-sm" onClick={() => del(m.code)}>✕</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
+//  Catálogo de valores (securities CRUD)
+// ---------------------------------------------------------------------------
+
+const EMPTY_SEC = { name: '', isin: '', yahoo_ticker: '', google_ticker: '', market: '', currency: 'EUR' }
+const CURRENCIES = ['EUR', 'USD']
+
+function SecuritiesSection() {
+  const [markets, setMarkets]   = useState([])
+  const [securities, setSecs]   = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing]   = useState(null)
+  const [form, setForm]         = useState(EMPTY_SEC)
+  const [busy, setBusy]         = useState(false)
+  const [err, setErr]           = useState(null)
+  const [msg, setMsg]           = useState(null)
+
+  async function load() {
+    const [mks, secs] = await Promise.all([api.get('/markets/list'), api.get('/securities')])
+    setMarkets(mks)
+    setSecs(secs)
+    if (!form.market && mks.length) setForm(f => ({ ...f, market: mks[0].code }))
+  }
+  useEffect(() => { load() }, [])
+
+  function field(name) {
+    return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true); setErr(null); setMsg(null)
+    try {
+      const body = { ...form }
+      if (!body.isin) delete body.isin
+      if (!body.google_ticker) delete body.google_ticker
+      if (editing) {
+        await api.patch(`/securities/${editing.id}`, body)
+        setMsg('Valor actualizado')
+      } else {
+        await api.post('/securities', body)
+        setMsg('Valor añadido')
+      }
+      setShowForm(false); setEditing(null)
+      setForm(f => ({ ...EMPTY_SEC, market: markets[0]?.code ?? '' }))
+      await load()
+    } catch (e) { setErr(e.message) }
+    finally { setBusy(false) }
+  }
+
+  async function del(id, ticker) {
+    if (!confirm(`¿Eliminar ${ticker}?`)) return
+    setErr(null); setMsg(null)
+    try { await api.delete(`/securities/${id}`); await load() }
+    catch (e) { setErr(e.message) }
+  }
+
+  function startEdit(s) {
+    setEditing(s)
+    setForm({ name: s.name, isin: s.isin ?? '', yahoo_ticker: s.yahoo_ticker, google_ticker: s.google_ticker ?? '', market: s.market, currency: s.currency })
+    setShowForm(true); setErr(null); setMsg(null)
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ margin: 0 }}>Catálogo de valores</h2>
+        <button className="btn-primary btn-sm" onClick={() => {
+          setEditing(null)
+          setForm({ ...EMPTY_SEC, market: markets[0]?.code ?? '' })
+          setShowForm(s => !s); setErr(null); setMsg(null)
+        }}>
+          {showForm && !editing ? 'Cancelar' : '+ Nuevo valor'}
+        </button>
+      </div>
+
+      {err && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{err}</div>}
+      {msg && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12 }}>{msg}</div>}
+
+      {showForm && (
+        <div className="card" style={{ marginBottom: 16, background: 'var(--bg-input)' }}>
+          <h3 style={{ marginTop: 0 }}>{editing ? 'Editar valor' : 'Nuevo valor'}</h3>
+          <form onSubmit={submit}>
+            <div className="card-row">
+              <div className="form-group" style={{ flex: 2 }}>
+                <label>Nombre *</label>
+                <input type="text" {...field('name')} required />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>ISIN</label>
+                <input type="text" {...field('isin')} placeholder="ES0144580Y14" />
+              </div>
+            </div>
+            <div className="card-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Yahoo Ticker *</label>
+                <input type="text" {...field('yahoo_ticker')} required placeholder="SAN.MC" />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Google Ticker</label>
+                <input type="text" {...field('google_ticker')} />
+              </div>
+            </div>
+            <div className="card-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Mercado *</label>
+                <select {...field('market')}>
+                  {markets.map(m => <option key={m.code} value={m.code}>{m.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Divisa *</label>
+                <select {...field('currency')}>
+                  {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn-ghost btn-sm" onClick={() => { setShowForm(false); setEditing(null) }}>Cancelar</button>
+              <button type="submit" className="btn-primary btn-sm" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {securities.length === 0 ? (
+        <div className="state-empty">No hay valores en el catálogo.</div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Nombre</th>
+                <th>ISIN</th>
+                <th>Mercado</th>
+                <th>Divisa</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {securities.map(s => (
+                <tr key={s.id}>
+                  <td className="ticker">{s.yahoo_ticker}</td>
+                  <td>{s.name}</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{s.isin ?? '—'}</td>
+                  <td><span className="badge badge-market">{s.market}</span></td>
+                  <td>{s.currency}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                      <button className="btn-ghost btn-sm" onClick={() => startEdit(s)}>✎</button>
+                      <button className="btn-danger btn-sm" onClick={() => del(s.id, s.yahoo_ticker)}>✕</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 export default function AdminPanel() {
   const { user: me, logout } = useAuth()
   const [users, setUsers] = useState([])
@@ -383,6 +775,10 @@ export default function AdminPanel() {
           />
         </div>
       </div>
+
+      <ConfigSection />
+      <MarketsSection />
+      <SecuritiesSection />
 
       {showCreate && (
         <CreateUserModal

@@ -1,14 +1,13 @@
 """
 models/security.py
 ==================
-Tabla 'securities'. Catalogo de valores que el usuario da de alta en
-Utilidades. Replica crear-tablas.sql, incluyendo los CHECK de 'market' y
-'currency' como CheckConstraint a nivel de tabla.
+Tabla 'securities'. Catálogo global de valores gestionado por administradores.
 
-Nota sobre 'market': los valores permitidos ('ibex35','continuo','nasdaq')
-coinciden exactamente con el Literal 'Market' de tax_report.py. Esa
-correspondencia es la que permite al repositorio construir SecurityRef
-sin traducir nada.
+'market' es un string libre validado contra la tabla 'markets' en la capa de
+API (no con CheckConstraint, ya que los mercados son ahora dinámicos).
+'currency' sigue siendo EUR o USD: el motor de cálculo solo maneja
+conversiones BCE EUR/USD; para nuevos mercados con otras divisas el admin
+elige la divisa de cotización más próxima.
 """
 
 from __future__ import annotations
@@ -25,17 +24,15 @@ if TYPE_CHECKING:
     from app.models.price import PriceHistory, PriceSnapshot
     from app.models.portfolio import Position, Favorite
 
-# Conjuntos validos, declarados una sola vez para reusarlos en validacion.
-MARKETS = ("ibex35", "continuo", "nasdaq")
 CURRENCIES = ("EUR", "USD")
 
 
 class Security(Base):
     __tablename__ = "securities"
     __table_args__ = (
-        CheckConstraint(
-            "market IN ('ibex35','continuo','nasdaq')", name="ck_securities_market"
-        ),
+        # El CheckConstraint de 'market' se eliminó en la migración a3f9c1d2e5b4
+        # (mercados ahora son dinámicos). Se mantiene el de 'currency' porque el
+        # motor de cálculo solo soporta conversiones EUR/USD vía BCE.
         CheckConstraint(
             "currency IN ('EUR','USD')", name="ck_securities_currency"
         ),

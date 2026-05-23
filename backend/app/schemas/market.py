@@ -46,6 +46,7 @@ class SecurityOverview(BaseModel):
     last_dividend: Decimal | None
     is_favorite: bool
     target_buy_price: Decimal | None
+    updated_at: str | None = None
 
 
 class IndexQuote(BaseModel):

@@ -82,8 +82,8 @@ def test_securities_lista_vacia(auth_client):
     assert resp.json() == []
 
 
-def test_crear_security(auth_client):
-    resp = auth_client.post("/api/securities", json={
+def test_crear_security(admin_client, seed_markets):
+    resp = admin_client.post("/api/securities", json={
         "name": "Banco Santander",
         "yahoo_ticker": "SAN.MC",
         "market": "ibex35",
@@ -96,47 +96,56 @@ def test_crear_security(auth_client):
     assert "id" in data
 
 
-def test_crear_security_ticker_duplicado(auth_client):
+def test_crear_security_ticker_duplicado(admin_client, seed_markets):
     body = {"name": "Santander", "yahoo_ticker": "SAN.MC", "market": "ibex35", "currency": "EUR"}
-    auth_client.post("/api/securities", json=body)
-    resp = auth_client.post("/api/securities", json=body)
+    admin_client.post("/api/securities", json=body)
+    resp = admin_client.post("/api/securities", json=body)
     assert resp.status_code == 409
 
 
-def test_crear_security_market_invalido(auth_client):
-    resp = auth_client.post("/api/securities", json={
+def test_crear_security_market_invalido(admin_client, seed_markets):
+    resp = admin_client.post("/api/securities", json={
         "name": "Test",
         "yahoo_ticker": "TEST",
-        "market": "nyse",       # no permitido
+        "market": "nyse",       # no existe en la tabla de mercados
         "currency": "USD",
     })
     assert resp.status_code == 422
 
 
-def test_listar_securities(auth_client):
-    auth_client.post("/api/securities", json={
+def test_crear_security_requiere_admin(auth_client, seed_markets):
+    """Un usuario normal recibe 403 al intentar crear un security."""
+    resp = auth_client.post("/api/securities", json={
+        "name": "Santander", "yahoo_ticker": "SAN.MC",
+        "market": "ibex35", "currency": "EUR",
+    })
+    assert resp.status_code == 403
+
+
+def test_listar_securities(admin_client, seed_markets):
+    admin_client.post("/api/securities", json={
         "name": "Apple", "yahoo_ticker": "AAPL", "market": "nasdaq", "currency": "USD",
     })
-    resp = auth_client.get("/api/securities")
+    resp = admin_client.get("/api/securities")
     assert resp.status_code == 200
     assert len(resp.json()) == 1
 
 
-def test_borrar_security_sin_posiciones(auth_client):
-    r = auth_client.post("/api/securities", json={
+def test_borrar_security_sin_posiciones(admin_client, seed_markets):
+    r = admin_client.post("/api/securities", json={
         "name": "Temporal", "yahoo_ticker": "TMP", "market": "ibex35", "currency": "EUR",
     })
     sec_id = r.json()["id"]
-    resp = auth_client.delete(f"/api/securities/{sec_id}")
+    resp = admin_client.delete(f"/api/securities/{sec_id}")
     assert resp.status_code == 204
 
 
-def test_obtener_security_por_id(auth_client):
-    r = auth_client.post("/api/securities", json={
+def test_obtener_security_por_id(admin_client, seed_markets):
+    r = admin_client.post("/api/securities", json={
         "name": "Inditex", "yahoo_ticker": "ITX.MC", "market": "ibex35", "currency": "EUR",
     })
     sec_id = r.json()["id"]
-    resp = auth_client.get(f"/api/securities/{sec_id}")
+    resp = admin_client.get(f"/api/securities/{sec_id}")
     assert resp.status_code == 200
     assert resp.json()["yahoo_ticker"] == "ITX.MC"
 
@@ -146,8 +155,8 @@ def test_obtener_security_inexistente(auth_client):
     assert resp.status_code == 404
 
 
-def test_borrar_security_inexistente(auth_client):
-    resp = auth_client.delete("/api/securities/9999")
+def test_borrar_security_inexistente(admin_client):
+    resp = admin_client.delete("/api/securities/9999")
     assert resp.status_code == 404
 
 
@@ -155,8 +164,8 @@ def test_borrar_security_inexistente(auth_client):
 #  Portfolio: posiciones y transacciones
 # ---------------------------------------------------------------------------
 
-def _crear_security(auth_client, ticker="SAN.MC"):
-    r = auth_client.post("/api/securities", json={
+def _crear_security(client, ticker="SAN.MC"):
+    r = client.post("/api/securities", json={
         "name": "Test security",
         "yahoo_ticker": ticker,
         "market": "ibex35",
@@ -171,20 +180,20 @@ def test_portfolio_vacio(auth_client):
     assert resp.json() == []
 
 
-def test_crear_posicion(auth_client):
-    sec_id = _crear_security(auth_client)
-    resp = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id})
+def test_crear_posicion(admin_client, seed_markets):
+    sec_id = _crear_security(admin_client)
+    resp = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id})
     assert resp.status_code == 201
     data = resp.json()
     assert data["security_id"] == sec_id
 
 
-def test_crear_posicion_idempotente(auth_client):
+def test_crear_posicion_idempotente(admin_client, seed_markets):
     """Crear la misma posición dos veces devuelve la existente sin error."""
-    sec_id = _crear_security(auth_client)
+    sec_id = _crear_security(admin_client)
     body = {"security_id": sec_id}
-    r1 = auth_client.post("/api/portfolio/positions", json=body)
-    r2 = auth_client.post("/api/portfolio/positions", json=body)
+    r1 = admin_client.post("/api/portfolio/positions", json=body)
+    r2 = admin_client.post("/api/portfolio/positions", json=body)
     assert r1.status_code == 201
     assert r2.status_code == 201
     assert r1.json()["id"] == r2.json()["id"]
@@ -195,12 +204,12 @@ def test_crear_posicion_security_inexistente(auth_client):
     assert resp.status_code == 404
 
 
-def test_anadir_transaccion(auth_client):
-    sec_id = _crear_security(auth_client)
-    pos = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()
+def test_anadir_transaccion(admin_client, seed_markets):
+    sec_id = _crear_security(admin_client)
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()
     pos_id = pos["id"]
 
-    resp = auth_client.post(f"/api/portfolio/{pos_id}/transactions", json={
+    resp = admin_client.post(f"/api/portfolio/{pos_id}/transactions", json={
         "type": "buy",
         "date": "2024-01-10",
         "shares": "10",
@@ -215,12 +224,12 @@ def test_anadir_transaccion(auth_client):
     assert float(tx["shares"]) == 10.0
 
 
-def test_transaccion_currency_incoherente(auth_client):
+def test_transaccion_currency_incoherente(admin_client, seed_markets):
     """EUR con exchange_rate != 1 debe fallar con 422."""
-    sec_id = _crear_security(auth_client)
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    sec_id = _crear_security(admin_client)
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
 
-    resp = auth_client.post(f"/api/portfolio/{pos_id}/transactions", json={
+    resp = admin_client.post(f"/api/portfolio/{pos_id}/transactions", json={
         "type": "buy", "date": "2024-01-10",
         "shares": "10", "price": "15.00", "fee": "0",
         "currency": "EUR",
@@ -229,26 +238,26 @@ def test_transaccion_currency_incoherente(auth_client):
     assert resp.status_code == 422
 
 
-def test_listar_y_borrar_transaccion(auth_client):
-    sec_id = _crear_security(auth_client)
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
-    tx_id = auth_client.post(f"/api/portfolio/{pos_id}/transactions", json={
+def test_listar_y_borrar_transaccion(admin_client, seed_markets):
+    sec_id = _crear_security(admin_client)
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    tx_id = admin_client.post(f"/api/portfolio/{pos_id}/transactions", json={
         "type": "buy", "date": "2024-01-10",
         "shares": "5", "price": "20.00", "fee": "0",
         "currency": "EUR", "exchange_rate": "1",
     }).json()["id"]
 
     # Listar
-    resp = auth_client.get(f"/api/portfolio/{pos_id}/transactions")
+    resp = admin_client.get(f"/api/portfolio/{pos_id}/transactions")
     assert resp.status_code == 200
     assert len(resp.json()) == 1
 
     # Borrar
-    del_resp = auth_client.delete(f"/api/portfolio/{pos_id}/transactions/{tx_id}")
+    del_resp = admin_client.delete(f"/api/portfolio/{pos_id}/transactions/{tx_id}")
     assert del_resp.status_code == 204
 
     # Verificar que ya no está
-    resp2 = auth_client.get(f"/api/portfolio/{pos_id}/transactions")
+    resp2 = admin_client.get(f"/api/portfolio/{pos_id}/transactions")
     assert resp2.json() == []
 
 
@@ -256,26 +265,26 @@ def test_listar_y_borrar_transaccion(auth_client):
 #  Favoritos
 # ---------------------------------------------------------------------------
 
-def test_favoritos_flujo_completo(auth_client):
-    sec_id = _crear_security(auth_client, ticker="IBE.MC")
+def test_favoritos_flujo_completo(admin_client, seed_markets):
+    sec_id = _crear_security(admin_client, ticker="IBE.MC")
 
     # Añadir
-    r = auth_client.post(f"/api/favorites/{sec_id}")
+    r = admin_client.post(f"/api/favorites/{sec_id}")
     assert r.status_code == 201
 
     # Listar
-    favs = auth_client.get("/api/favorites").json()
+    favs = admin_client.get("/api/favorites").json()
     assert any(f["security_id"] == sec_id for f in favs)
 
     # Precio objetivo
-    patch = auth_client.patch(f"/api/favorites/{sec_id}", json={"target_buy_price": "9.50"})
+    patch = admin_client.patch(f"/api/favorites/{sec_id}", json={"target_buy_price": "9.50"})
     assert patch.status_code == 200
     assert float(patch.json()["target_buy_price"]) == 9.50
 
     # Quitar
-    del_resp = auth_client.delete(f"/api/favorites/{sec_id}")
+    del_resp = admin_client.delete(f"/api/favorites/{sec_id}")
     assert del_resp.status_code == 204
-    favs2 = auth_client.get("/api/favorites").json()
+    favs2 = admin_client.get("/api/favorites").json()
     assert not any(f["security_id"] == sec_id for f in favs2)
 
 
@@ -283,12 +292,12 @@ def test_favoritos_flujo_completo(auth_client):
 #  Dividendos
 # ---------------------------------------------------------------------------
 
-def test_dividendos_flujo_completo(auth_client):
-    sec_id = _crear_security(auth_client, ticker="REE.MC")
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+def test_dividendos_flujo_completo(admin_client, seed_markets):
+    sec_id = _crear_security(admin_client, ticker="REE.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
 
     # Añadir dividendo
-    resp = auth_client.post(f"/api/portfolio/{pos_id}/dividends", json={
+    resp = admin_client.post(f"/api/portfolio/{pos_id}/dividends", json={
         "date": "2024-06-01",
         "shares_at_date": "100",
         "gross_per_share": "0.50",
@@ -304,21 +313,21 @@ def test_dividendos_flujo_completo(auth_client):
     div_id = div["id"]
 
     # Listar
-    lista = auth_client.get(f"/api/portfolio/{pos_id}/dividends").json()
+    lista = admin_client.get(f"/api/portfolio/{pos_id}/dividends").json()
     assert len(lista) == 1
     assert lista[0]["id"] == div_id
 
     # Borrar
-    del_resp = auth_client.delete(f"/api/portfolio/{pos_id}/dividends/{div_id}")
+    del_resp = admin_client.delete(f"/api/portfolio/{pos_id}/dividends/{div_id}")
     assert del_resp.status_code == 204
-    assert auth_client.get(f"/api/portfolio/{pos_id}/dividends").json() == []
+    assert admin_client.get(f"/api/portfolio/{pos_id}/dividends").json() == []
 
 
-def test_dividendo_currency_incoherente(auth_client):
+def test_dividendo_currency_incoherente(admin_client, seed_markets):
     """USD con exchange_rate=1 debe fallar."""
-    sec_id = _crear_security(auth_client)
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
-    resp = auth_client.post(f"/api/portfolio/{pos_id}/dividends", json={
+    sec_id = _crear_security(admin_client)
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    resp = admin_client.post(f"/api/portfolio/{pos_id}/dividends", json={
         "date": "2024-06-01",
         "shares_at_date": "10",
         "gross_per_share": "1.00",
@@ -348,13 +357,13 @@ def _sell(auth_client, pos_id, shares, price, fee="0"):
     })
 
 
-def test_venta_excede_acciones_da_422(auth_client):
+def test_venta_excede_acciones_da_422(admin_client, seed_markets):
     """Vender más acciones de las que hay en cartera debe retornar 422."""
-    sec_id = _crear_security(auth_client, ticker="OVER.MC")
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
-    _buy(auth_client, pos_id, 5, "10.00")   # 5 acciones en cartera
+    sec_id = _crear_security(admin_client, ticker="OVER.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 5, "10.00")   # 5 acciones en cartera
 
-    resp = auth_client.post(f"/api/portfolio/{pos_id}/transactions", json={
+    resp = admin_client.post(f"/api/portfolio/{pos_id}/transactions", json={
         "type": "sell", "date": "2024-06-01",
         "shares": "10",           # más de las 5 disponibles
         "price": "12.00", "fee": "0",
@@ -363,19 +372,19 @@ def test_venta_excede_acciones_da_422(auth_client):
     assert resp.status_code == 422
 
 
-def test_portfolio_closed_aparece_tras_venta_total(auth_client):
+def test_portfolio_closed_aparece_tras_venta_total(admin_client, seed_markets):
     # Compra 5 acc × 10.00 € y venta total: posición queda cerrada
-    sec_id = _crear_security(auth_client, ticker="CLOSED.MC")
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
-    _buy(auth_client, pos_id, 5, "10.00")
-    _sell(auth_client, pos_id, 5, "12.00")
+    sec_id = _crear_security(admin_client, ticker="CLOSED.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 5, "10.00")
+    _sell(admin_client, pos_id, 5, "12.00")
 
     # No aparece en posiciones abiertas
-    abiertas = auth_client.get("/api/portfolio").json()
+    abiertas = admin_client.get("/api/portfolio").json()
     assert not any(p["position_id"] == pos_id for p in abiertas)
 
     # Sí aparece en cerradas con beneficio = 10 €
-    cerradas = auth_client.get("/api/portfolio/closed").json()
+    cerradas = admin_client.get("/api/portfolio/closed").json()
     c = next((p for p in cerradas if p["position_id"] == pos_id), None)
     assert c is not None
     # coste = 50 €, ingresos = 60 €, beneficio realizado = 10 €
@@ -384,35 +393,35 @@ def test_portfolio_closed_aparece_tras_venta_total(auth_client):
     assert float(c["realized_pnl_eur"]) == 10.0
 
 
-def test_portfolio_abierto_no_incluye_cerradas(auth_client):
+def test_portfolio_abierto_no_incluye_cerradas(admin_client, seed_markets):
     """Una posición con acciones en cartera no debe aparecer en /closed."""
-    sec_id = _crear_security(auth_client, ticker="OPEN.MC")
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
-    _buy(auth_client, pos_id, 10, "5.00")
+    sec_id = _crear_security(admin_client, ticker="OPEN.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 10, "5.00")
     # No venta → posición abierta
-    cerradas = auth_client.get("/api/portfolio/closed").json()
+    cerradas = admin_client.get("/api/portfolio/closed").json()
     assert not any(p["position_id"] == pos_id for p in cerradas)
 
 
-def test_target_sell_patch(auth_client):
+def test_target_sell_patch(admin_client, seed_markets):
     # Compra para que la posición aparezca en /portfolio
-    sec_id = _crear_security(auth_client, ticker="TGT.MC")
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
-    _buy(auth_client, pos_id, 10, "5.00")
+    sec_id = _crear_security(admin_client, ticker="TGT.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 10, "5.00")
 
     # Establecer precio objetivo
-    r = auth_client.patch(f"/api/portfolio/{pos_id}/target-sell",
+    r = admin_client.patch(f"/api/portfolio/{pos_id}/target-sell",
                           json={"target_sell_price": "7.50"})
     assert r.status_code == 200
     assert float(r.json()["target_sell_price"]) == 7.5
 
     # Aparece en el summary de /portfolio
-    posiciones = auth_client.get("/api/portfolio").json()
+    posiciones = admin_client.get("/api/portfolio").json()
     p = next(x for x in posiciones if x["position_id"] == pos_id)
     assert float(p["target_sell_price"]) == 7.5
 
     # Borrarlo (None)
-    r2 = auth_client.patch(f"/api/portfolio/{pos_id}/target-sell",
+    r2 = admin_client.patch(f"/api/portfolio/{pos_id}/target-sell",
                            json={"target_sell_price": None})
     assert r2.status_code == 200
     assert r2.json()["target_sell_price"] is None
@@ -429,9 +438,9 @@ def test_markets_overview_vacio(auth_client):
     assert resp.json() == []
 
 
-def test_markets_overview_devuelve_valor(auth_client):
-    sec_id = _crear_security(auth_client, ticker="SAN.MC")
-    resp = auth_client.get("/api/markets/overview?market=ibex35")
+def test_markets_overview_devuelve_valor(admin_client, seed_markets):
+    sec_id = _crear_security(admin_client, ticker="SAN.MC")
+    resp = admin_client.get("/api/markets/overview?market=ibex35")
     assert resp.status_code == 200
     items = resp.json()
     assert len(items) == 1
@@ -444,40 +453,40 @@ def test_markets_overview_devuelve_valor(auth_client):
     assert item["daily_change_pct"] is None
 
 
-def test_markets_overview_favorito(auth_client):
-    sec_id = _crear_security(auth_client, ticker="IBE.MC")
-    auth_client.post(f"/api/favorites/{sec_id}")
-    resp = auth_client.get("/api/markets/overview?market=ibex35")
+def test_markets_overview_favorito(admin_client, seed_markets):
+    sec_id = _crear_security(admin_client, ticker="IBE.MC")
+    admin_client.post(f"/api/favorites/{sec_id}")
+    resp = admin_client.get("/api/markets/overview?market=ibex35")
     item = next(x for x in resp.json() if x["id"] == sec_id)
     assert item["is_favorite"] is True
 
 
-def test_markets_overview_favorites_only(auth_client):
-    san_id = _crear_security(auth_client, ticker="SAN.MC")
-    ibe_id = _crear_security(auth_client, ticker="IBE.MC")
-    auth_client.post(f"/api/favorites/{ibe_id}")
+def test_markets_overview_favorites_only(admin_client, seed_markets):
+    san_id = _crear_security(admin_client, ticker="SAN.MC")
+    ibe_id = _crear_security(admin_client, ticker="IBE.MC")
+    admin_client.post(f"/api/favorites/{ibe_id}")
 
-    resp = auth_client.get("/api/markets/overview?favorites_only=true")
+    resp = admin_client.get("/api/markets/overview?favorites_only=true")
     ids = [x["id"] for x in resp.json()]
     assert ibe_id in ids
     assert san_id not in ids
 
 
-def test_markets_top_movers_sin_snapshots(auth_client):
+def test_markets_top_movers_sin_snapshots(admin_client, seed_markets):
     """Sin snapshots no hay valores con daily_change_pct → lista vacía."""
-    _crear_security(auth_client, ticker="SAN.MC")
-    resp = auth_client.get("/api/markets/top-movers?market=ibex35&direction=up")
+    _crear_security(admin_client, ticker="SAN.MC")
+    resp = admin_client.get("/api/markets/top-movers?market=ibex35&direction=up")
     assert resp.status_code == 200
     assert resp.json() == []
 
 
-def test_markets_top_movers_con_snapshot(auth_client, engine):
+def test_markets_top_movers_con_snapshot(admin_client, seed_markets, engine):
     """Con snapshots, top-movers ordena correctamente."""
     from sqlalchemy.orm import Session
     from app.models import PriceSnapshot
 
-    san_id = _crear_security(auth_client, ticker="SAN.MC")
-    ibe_id = _crear_security(auth_client, ticker="IBE.MC")
+    san_id = _crear_security(admin_client, ticker="SAN.MC")
+    ibe_id = _crear_security(admin_client, ticker="IBE.MC")
 
     # Insertar snapshots directamente en la BD de test
     with Session(engine) as s:
@@ -486,24 +495,24 @@ def test_markets_top_movers_con_snapshot(auth_client, engine):
         s.commit()
 
     # Mayores subidas: SAN primero (2.5 > -1.0)
-    up = auth_client.get("/api/markets/top-movers?market=ibex35&direction=up&n=5").json()
+    up = admin_client.get("/api/markets/top-movers?market=ibex35&direction=up&n=5").json()
     assert up[0]["yahoo_ticker"] == "SAN.MC"
     assert up[1]["yahoo_ticker"] == "IBE.MC"
 
     # Mayores bajadas: IBE primero (-1.0 < 2.5)
-    down = auth_client.get("/api/markets/top-movers?market=ibex35&direction=down&n=5").json()
+    down = admin_client.get("/api/markets/top-movers?market=ibex35&direction=down&n=5").json()
     assert down[0]["yahoo_ticker"] == "IBE.MC"
     assert down[1]["yahoo_ticker"] == "SAN.MC"
 
 
-def test_markets_top_movers_n_limita_resultados(auth_client, engine):
+def test_markets_top_movers_n_limita_resultados(admin_client, seed_markets, engine):
     """El parámetro n limita la cantidad de resultados."""
     from sqlalchemy.orm import Session
     from app.models import PriceSnapshot
 
     ids = []
-    for i, ticker in enumerate(["A.MC", "B.MC", "C.MC"]):
-        r = auth_client.post("/api/securities", json={
+    for ticker in ["A.MC", "B.MC", "C.MC"]:
+        r = admin_client.post("/api/securities", json={
             "name": ticker, "yahoo_ticker": ticker, "market": "ibex35", "currency": "EUR",
         })
         ids.append(r.json()["id"])
@@ -513,7 +522,7 @@ def test_markets_top_movers_n_limita_resultados(auth_client, engine):
             s.add(PriceSnapshot(security_id=sec_id, last_price=10.0, daily_change_pct=pct))
         s.commit()
 
-    resp = auth_client.get("/api/markets/top-movers?market=ibex35&direction=up&n=2")
+    resp = admin_client.get("/api/markets/top-movers?market=ibex35&direction=up&n=2")
     assert resp.status_code == 200
     assert len(resp.json()) == 2
 
@@ -531,12 +540,12 @@ def test_backup_export_vacio(auth_client):
     assert data["positions"] == []
 
 
-def test_backup_export_con_datos(auth_client):
-    sec_id = _crear_security(auth_client, ticker="SAN.MC")
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
-    _buy(auth_client, pos_id, 10, "5.00")
+def test_backup_export_con_datos(admin_client, seed_markets):
+    sec_id = _crear_security(admin_client, ticker="SAN.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 10, "5.00")
 
-    resp = auth_client.get("/api/backup/export")
+    resp = admin_client.get("/api/backup/export")
     assert resp.status_code == 200
     data = resp.json()
     assert len(data["positions"]) == 1
@@ -545,23 +554,23 @@ def test_backup_export_con_datos(auth_client):
     assert len(pos["transactions"]) == 1
 
 
-def test_backup_import_idempotente(auth_client):
+def test_backup_import_idempotente(admin_client, seed_markets):
     """Importar el mismo backup dos veces no duplica transacciones."""
-    sec_id = _crear_security(auth_client, ticker="SAN.MC")
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
-    _buy(auth_client, pos_id, 10, "5.00")
+    sec_id = _crear_security(admin_client, ticker="SAN.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 10, "5.00")
 
     # Exportar
-    backup = auth_client.get("/api/backup/export").json()
+    backup = admin_client.get("/api/backup/export").json()
 
     # Importar dos veces
-    r1 = auth_client.post("/api/backup/import", json=backup)
+    r1 = admin_client.post("/api/backup/import", json=backup)
     assert r1.status_code == 200
-    r2 = auth_client.post("/api/backup/import", json=backup)
+    r2 = admin_client.post("/api/backup/import", json=backup)
     assert r2.status_code == 200
 
     # Solo hay 1 transacción (sin duplicados)
-    txs = auth_client.get(f"/api/portfolio/{pos_id}/transactions").json()
+    txs = admin_client.get(f"/api/portfolio/{pos_id}/transactions").json()
     assert len(txs) == 1
 
 
@@ -589,7 +598,7 @@ def test_backup_import_security_inexistente(auth_client):
 #  Tipo de cambio USD — integración
 # ---------------------------------------------------------------------------
 
-def test_portfolio_usd_aplica_tipo_cambio_bce(auth_client, engine):
+def test_portfolio_usd_aplica_tipo_cambio_bce(admin_client, seed_markets, engine):
     """
     Un valor en USD usa el tipo BCE más reciente para calcular market_value_eur.
 
@@ -602,7 +611,7 @@ def test_portfolio_usd_aplica_tipo_cambio_bce(auth_client, engine):
     from sqlalchemy.orm import Session
     from app.models import EcbRate, PriceSnapshot
 
-    r = auth_client.post("/api/securities", json={
+    r = admin_client.post("/api/securities", json={
         "name": "Apple Inc.", "yahoo_ticker": "AAPL",
         "market": "nasdaq", "currency": "USD",
     })
@@ -620,10 +629,10 @@ def test_portfolio_usd_aplica_tipo_cambio_bce(auth_client, engine):
         ))
         db.commit()
 
-    pos_id = auth_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
-    _buy(auth_client, pos_id, 10, "10.00")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 10, "10.00")
 
-    resp = auth_client.get("/api/portfolio")
+    resp = admin_client.get("/api/portfolio")
     assert resp.status_code == 200
     pos = resp.json()[0]
 
@@ -634,35 +643,6 @@ def test_portfolio_usd_aplica_tipo_cambio_bce(auth_client, engine):
 # ---------------------------------------------------------------------------
 #  Admin — gestión de usuarios
 # ---------------------------------------------------------------------------
-
-@pytest.fixture()
-def admin_user(engine) -> "User":
-    """Usuario administrador insertado directamente en la BD."""
-    from sqlalchemy.orm import Session
-    from app.models import User
-    from app.auth.security import hash_password
-    with Session(engine) as session:
-        user = User(
-            username="adminuser",
-            password_hash=hash_password("adminpass123"),
-            is_admin=True,
-        )
-        session.add(user)
-        session.commit()
-        session.refresh(user)
-        return user
-
-
-@pytest.fixture()
-def admin_client(client, admin_user):
-    """TestClient con sesión de admin ya iniciada."""
-    resp = client.post("/api/auth/login", json={
-        "username": "adminuser",
-        "password": "adminpass123",
-    })
-    assert resp.status_code == 200, resp.text
-    return client
-
 
 def test_admin_me_incluye_is_admin(admin_client):
     """El endpoint /me devuelve is_admin=True para el admin."""
@@ -730,9 +710,9 @@ def test_admin_cambia_password(admin_client, test_user, client):
     assert login.status_code == 200
 
 
-def test_admin_no_puede_borrarse_a_si_mismo(admin_client, admin_user):
+def test_admin_no_puede_borrarse_a_si_mismo(admin_client, test_admin):
     """El admin no puede eliminar su propia cuenta."""
-    resp = admin_client.delete(f"/api/admin/users/{admin_user.id}")
+    resp = admin_client.delete(f"/api/admin/users/{test_admin.id}")
     assert resp.status_code == 400
 
 
@@ -752,10 +732,10 @@ def test_admin_cambia_rol_a_admin(admin_client, test_user):
     assert resp.json()["is_admin"] is True
 
 
-def test_admin_no_puede_cambiar_su_propio_rol(admin_client, admin_user):
+def test_admin_no_puede_cambiar_su_propio_rol(admin_client, test_admin):
     """El admin no puede cambiar su propio rol."""
     resp = admin_client.patch(
-        f"/api/admin/users/{admin_user.id}/role",
+        f"/api/admin/users/{test_admin.id}/role",
         json={"is_admin": False},
     )
     assert resp.status_code == 400

@@ -30,11 +30,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
-from app.api import admin, auth, backup, favorites, markets, portfolio, reports, securities
+from app.api import admin, admin_markets, auth, backup, favorites, markets, portfolio, reports, securities
 from app.auth.security import hash_password
 from app.config import get_settings
 from app.database import SessionLocal
-from app.scheduler.jobs import daily_update
+from app.scheduler.jobs import daily_update, update_snapshots_live
 
 log = logging.getLogger(__name__)
 
@@ -62,18 +62,44 @@ def _ensure_default_admin() -> None:
         db.close()
 
 
+def _get_snapshot_interval() -> int:
+    """Lee el intervalo de snapshots en vivo desde app_config. Fallback 5 min."""
+    from app.models import AppConfig
+    try:
+        db = SessionLocal()
+        try:
+            row = db.get(AppConfig, "snapshot_interval_minutes")
+            return int(row.value) if row else 5
+        finally:
+            db.close()
+    except Exception:
+        return 5
+
+
 def _make_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler()
 
-    def _job():
+    def _daily_job():
         db = SessionLocal()
         try:
             daily_update(db)
         finally:
             db.close()
 
-    # Cada noche a las 06:30 (hora del servidor)
-    scheduler.add_job(_job, "cron", hour=6, minute=30, id="daily_update")
+    def _live_job():
+        db = SessionLocal()
+        try:
+            update_snapshots_live(db)
+        finally:
+            db.close()
+
+    # Job nocturno (historia + snapshots + BCE)
+    scheduler.add_job(_daily_job, "cron", hour=6, minute=30, id="daily_update")
+
+    # Job periódico de snapshots en vivo (intervalo configurable por admin)
+    interval = _get_snapshot_interval()
+    scheduler.add_job(_live_job, "interval", minutes=interval, id="snapshot_live")
+
     return scheduler
 
 
@@ -82,6 +108,7 @@ async def lifespan(app: FastAPI):
     _ensure_default_admin()
     scheduler = _make_scheduler()
     scheduler.start()
+    app.state.scheduler = scheduler   # expuesto para reschedule_job desde admin
     log.info("Scheduler iniciado")
     yield
     scheduler.shutdown(wait=False)
@@ -93,7 +120,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Finanzas",
         description="Seguimiento de cartera de inversion",
-        version="1.1.0",
+        version="1.2.0",
         lifespan=lifespan,
     )
 
@@ -108,6 +135,7 @@ def create_app() -> FastAPI:
     prefix = "/api"
     app.include_router(auth.router, prefix=prefix)
     app.include_router(admin.router, prefix=prefix)
+    app.include_router(admin_markets.router, prefix=prefix)
     app.include_router(securities.router, prefix=prefix)
     app.include_router(markets.router, prefix=prefix)
     app.include_router(favorites.router, prefix=prefix)

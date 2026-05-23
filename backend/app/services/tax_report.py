@@ -36,7 +36,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Literal
 
 from app.services.calculations import SaleMatch, Transaction, Dividend, to_eur
 
@@ -45,10 +44,8 @@ from app.services.calculations import SaleMatch, Transaction, Dividend, to_eur
 #  Tipos de entrada enriquecidos
 # --------------------------------------------------------------------------
 # El informe necesita saber, de cada SaleMatch, a que valor pertenece y en
-# que mercado cotiza (para aplicar 2 meses o 1 ano). Esa informacion no esta
-# en el SaleMatch, asi que la capa que llama debe envolverlo.
-
-Market = Literal["ibex35", "continuo", "nasdaq"]
+# que mercado cotiza (para aplicar la regla de recompra). Esa informacion
+# no esta en el SaleMatch, asi que la capa que llama debe envolverlo.
 
 
 @dataclass(frozen=True)
@@ -57,17 +54,17 @@ class SecurityRef:
     security_id: int
     name: str
     isin: str | None
-    market: Market
+    market: str
+    fiscal_window_days: int = 60  # tomado de markets.fiscal_window_days
 
     @property
     def recapture_window(self) -> timedelta:
         """
         Plazo de la regla de recompra segun el mercado del valor.
-        Nasdaq cotiza fuera del EEE -> un ano. IBEX y Continuo -> dos meses.
+        El valor viene de MarketRow.fiscal_window_days: 60 dias (UE/EEE)
+        o 365 dias (fuera del EEE, p.ej. Nasdaq).
         """
-        if self.market == "nasdaq":
-            return timedelta(days=365)
-        return timedelta(days=60)
+        return timedelta(days=self.fiscal_window_days)
 
 
 @dataclass(frozen=True)
@@ -100,7 +97,7 @@ class SaleLine:
     """Una linea del informe: una venta emparejada con una compra (FIFO)."""
     security_name: str
     isin: str | None
-    market: Market
+    market: str
     sell_date: date
     buy_date: date
     shares: Decimal
@@ -117,7 +114,7 @@ class CommissionLine:
     """Resumen de comisiones de un valor cuyas acciones se vendieron en el ejercicio."""
     security_name: str
     isin: str | None
-    market: Market
+    market: str
     buy_fee_eur: Decimal    # comisiones de compra de los lotes consumidos (proporcional)
     sell_fee_eur: Decimal   # comisiones de venta del ejercicio
     total_fee_eur: Decimal
@@ -128,7 +125,7 @@ class DividendLine:
     """Una linea de dividendo del informe."""
     security_name: str
     isin: str | None
-    market: Market
+    market: str
     pay_date: date
     gross_eur: Decimal
     withholding_eur: Decimal    # retencion en origen
