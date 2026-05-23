@@ -28,7 +28,7 @@ Registro en APScheduler (se hace en main.py):
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -158,7 +158,7 @@ def _update_snapshot_for_security(db: Session, sec: Security) -> None:
             min_2y=stats.min_2y,
             min_5y=stats.min_5y,
             last_dividend=quote.last_dividend,
-            updated_at=datetime.now().isoformat(timespec="seconds"),
+            updated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         )
         .on_conflict_do_update(
             index_elements=["security_id"],
@@ -171,7 +171,7 @@ def _update_snapshot_for_security(db: Session, sec: Security) -> None:
                 "min_2y": stats.min_2y,
                 "min_5y": stats.min_5y,
                 "last_dividend": quote.last_dividend,
-                "updated_at": date.today().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             },
         )
     )
