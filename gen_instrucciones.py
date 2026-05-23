@@ -5,7 +5,7 @@ Ejecutar desde la raiz del proyecto:
 """
 from fpdf import FPDF
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 TITLE   = f"FJS Finanzas {VERSION} - Manual de usuario"
 
 SECTIONS = [
@@ -33,6 +33,54 @@ SECTIONS = [
         "",
         "El contenedor expone el puerto 8080. La base de datos se almacena en un volumen",
         "persistente (./data/finanzas.db).",
+    ]),
+    ("Novedades en v1.3.0", [
+        "Control de suscripciones de usuarios (rol administrador):",
+        "  - Habilitar o deshabilitar un usuario sin eliminar sus datos.",
+        "    Al deshabilitar se puede añadir una anotacion (motivo).",
+        "  - Si un usuario deshabilitado intenta hacer login, recibe el mensaje",
+        "    'Contactar con el administrador'.",
+        "  - Fecha de caducidad opcional por usuario: llegada la fecha, el usuario",
+        "    se deshabilita automaticamente en el siguiente intento de login.",
+        "  - Al volver a habilitar un usuario, se puede opcionalmente asignar",
+        "    una nueva fecha de caducidad.",
+        "  - Historial de estados por usuario: registro cronologico de altas,",
+        "    habilitaciones, deshabilitaciones y caducidades, con fecha, hora",
+        "    y nombre del administrador que realizo la accion.",
+        "",
+        "Nombre personalizable de la aplicacion:",
+        "  - El administrador puede cambiar el nombre de la aplicacion desde",
+        "    el Panel de Administracion (seccion Configuracion del sistema).",
+        "  - El nombre nuevo aparece en la barra de titulo del navegador,",
+        "    en la cabecera del menu lateral y en la pagina de login.",
+        "  - El valor por defecto es 'FJS Finanzas'.",
+        "",
+        "Tema claro / oscuro (usuarios normales):",
+        "  - Boton de alternancia en el pie del menu lateral.",
+        "  - La preferencia se guarda en el navegador (localStorage).",
+        "  - El tema oscuro es el valor por defecto.",
+    ]),
+    ("Novedades en v1.2.2", [
+        "Correcciones de bugs:",
+        "  - Marca de tiempo de actualizacion de precios ahora se muestra en la zona",
+        "    horaria local del usuario (antes se mostraba siempre en UTC).",
+        "  - Corregida validacion incompleta en edicion de transacciones: editar una",
+        "    compra a menos acciones de las que cubren una venta ya registrada ahora",
+        "    devuelve error 422 en lugar de corromper silenciosamente el FIFO.",
+        "  - Borrar una compra que tiene ventas asociadas ahora devuelve 422.",
+        "  - Correcto conteo de securities al intentar borrar un mercado con valores.",
+        "  - PATCH de mercado ahora valida la divisa (solo EUR/USD) y que",
+        "    fiscal_window_days sea >= 1.",
+        "",
+        "Nuevos tests de validacion (129 tests en total):",
+        "  - Borrar compra con ventas cubiertas -> 422.",
+        "  - Editar compra a menos acciones de las que cubren una venta -> 422.",
+        "  - PATCH mercado con divisa invalida -> 422.",
+        "  - PATCH mercado con ventana fiscal <= 0 -> 422.",
+    ]),
+    ("Novedades en v1.2.1", [
+        "  - La marca de tiempo 'Precios actualizados' visible en el Explorador de",
+        "    Mercados se adapta automaticamente a la zona horaria del usuario.",
     ]),
     ("Novedades en v1.2.0", [
         "Panel de Administracion ampliado:",
@@ -64,6 +112,12 @@ SECTIONS = [
         "",
         "1. Gestion de usuarios:",
         "   Crear, cambiar contrasena, cambiar rol y eliminar usuarios.",
+        "   - Columna 'Estado': Activo (verde) o Inactivo (rojo).",
+        "   - Columna 'Caduca': fecha de caducidad o '-' si no tiene.",
+        "   - Boton 'Habilitar/Deshabilitar': cambia el estado con anotacion opcional.",
+        "     Al habilitar se puede poner opcionalmente una fecha de caducidad.",
+        "   - Boton 'Caducidad': establece o borra la fecha de caducidad.",
+        "   - Boton 'Historial': muestra la linea de tiempo de cambios de estado.",
         "",
         "2. Catalogo de valores:",
         "   Alta, edicion y borrado de valores. Para cada valor: nombre, ISIN,",
@@ -75,8 +129,9 @@ SECTIONS = [
         "   nombre, ticker del indice de referencia, divisa y dias de ventana fiscal.",
         "",
         "4. Configuracion:",
-        "   Intervalo de refresco de snapshots (5-60 minutos).",
-        "   Boton 'Actualizar precios (todos)': fuerza el refresco inmediato.",
+        "   - Nombre de la aplicacion: personalizable (por defecto 'FJS Finanzas').",
+        "   - Intervalo de refresco de snapshots (5-60 minutos).",
+        "   - Boton 'Actualizar precios (todos)': fuerza el refresco inmediato.",
     ]),
     ("Explorador de Mercados", [
         "Pestanas dinamicas: una por cada mercado definido en la BD, mas 'Favoritos'.",
