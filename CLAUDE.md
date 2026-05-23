@@ -37,17 +37,31 @@ con login por contraseña. Inspiración funcional: snowball-analytics.
 
 ## Modelo de datos (SQLite)
 
-Tablas: `users`, `securities`, `price_history`, `price_snapshots`,
-`ecb_rates`, `favorites`, `positions`, `transactions`, `dividends`.
+Tablas: `users`, `user_status_log`, `securities`, `security_splits`,
+`markets`, `price_history`, `price_snapshots`, `ecb_rates`, `favorites`,
+`positions`, `transactions`, `dividends`, `app_config`.
 
 - `transactions` y `dividends` llevan `currency` ('EUR'|'USD') y
   `exchange_rate` (tipo EUR/USD del BCE en la fecha de la operación; 1 para
   EUR). El BCE publica EUR/USD como "USD por 1 EUR" → `euros = dólares / rate`.
 - FKs con intención: `positions.security_id` es `ON DELETE RESTRICT` (no se
   borra un valor con histórico); el resto es `CASCADE`.
+- `security_splits.security_id` es `ON DELETE CASCADE`: al borrar un valor
+  desaparecen sus splits.
+- `user_status_log.actor_id` es `ON DELETE SET NULL` (el historial sobrevive
+  aunque se borre el admin que realizó la acción).
 - SQLite NO aplica claves foráneas si no se activa `PRAGMA foreign_keys=ON`
   en cada conexión.
 - Esquema de referencia: `crear-tablas.sql`.
+
+## Migraciones Alembic
+
+Chain de revisiones (orden cronológico):
+1. `d61c248a5dfa` — initial_schema
+2. `9b1c2b84199f` — add_is_admin_to_users
+3. `a3f9c1d2e5b4` — v1.2.0 dynamic markets
+4. `c7f9e2b4d8a1` — v1.3.0 user subscriptions + app_config.app_name
+5. `b2d1a3c4e5f6` — v1.4.0 security_splits
 
 ## Estructura del proyecto
 
@@ -64,6 +78,8 @@ Tablas: `users`, `securities`, `price_history`, `price_snapshots`,
   de cálculo.
 - El **repositorio** traduce `TransactionRow` → `calculations.Transaction`.
   Es el puente entre la BD y la lógica.
+- `SecuritySplit` (modelo SQLAlchemy) vs `Split` (dataclass de calculations.py):
+  misma distinción. El repositorio convierte `SecuritySplit` → `Split`.
 
 ## Tipo `Money` (models/base.py)
 
@@ -77,6 +93,25 @@ Tablas: `users`, `securities`, `price_history`, `price_snapshots`,
   es numéricamente exacto y la aritmética `Decimal` correcta; solo se pierde
   la escala textual. No afecta al cálculo ni a la presentación.
 
+## Splits / contrasplits (v1.4.0)
+
+Los splits son eventos corporativos globales gestionados por el admin:
+- Tabla `security_splits`: `security_id`, `ex_date` (YYYY-MM-DD),
+  `ratio_num` (acciones nuevas), `ratio_den` (acciones antiguas), `notes`.
+- `calculations._normalize_splits()` normaliza todas las transacciones
+  anteriores a `ex_date` multiplicando shares×factor y dividiendo price/factor.
+  El coste total por lote se conserva (invariante matemático).
+- `PortfolioRepository.splits_for_security(security_id)` carga los splits y
+  los pasa a `compute_position`. Todos los call-sites lo hacen: portfolio
+  abierto, cerrado, validaciones CRUD, tax_report_input, historial de cartera.
+- El gráfico de evolución de cartera (`/portfolio/history`) también normaliza
+  el running_shares para que sea consistente con los precios split-adjusted
+  que devuelve Yahoo Finance.
+- **Limitación conocida**: splits con ratios que producen decimales periódicos
+  (ej. 3:2 aplicado dos veces) pueden dejar un error de centésimas en el
+  coste total. Numéricamente irrelevante para presentación, pero los tests
+  usan `abs(valor - esperado) < 0.01` en lugar de igualdad exacta.
+
 ## Capas y separación de responsabilidades
 
 - `repositories/` — I/O puro: lee filas de SQLite y las traduce a objetos
@@ -89,92 +124,103 @@ Tablas: `users`, `securities`, `price_history`, `price_snapshots`,
 
 ---
 
-## Estado actual (mayo 2026)
+## Estado actual (mayo 2026) — v1.4.0
 
 ### Implementado y funcional
 
 - **Auth**: login por cookie firmada (itsdangerous), hash bcrypt.
-- **Modelos**: 9 tablas SQLAlchemy, migraciones Alembic.
+  Bloqueado si `is_enabled=False` o `expires_at` pasado (→ 403 con
+  mensaje "Contactar con el administrador").
+- **Modelos**: 13 tablas SQLAlchemy, 5 migraciones Alembic.
 - **Providers**: yfinance (histórico + snapshot), BCE (tipos EUR/USD).
-- **Scheduler**: job nocturno (06:30) que actualiza histórico, snapshots e indicadores.
-- **Services**: FIFO, informe fiscal IRPF, PDF WeasyPrint, indicadores de rango, backup.
-- **API**: auth, admin, securities, markets, portfolio, favorites, reports, backup.
-- **Frontend**: Login, Dashboard, Markets, Portfolio, SecurityDetail, Utilities, AdminPanel.
-- **Sistema de roles**: `is_admin` en User; admin gestiona usuarios desde AdminPanel; usuarios normales no ven el panel de admin.
+- **Scheduler**: job nocturno (06:30) que actualiza histórico, snapshots e
+  indicadores; job periódico de snapshots (intervalo configurable por admin,
+  5-60 min, por defecto 5 min).
+- **Services**: FIFO con normalización de splits, informe fiscal IRPF,
+  PDF WeasyPrint, indicadores de rango, backup.
+- **API**: auth, admin (usuarios + suscripciones + historial), admin_markets,
+  admin_splits, app_config (público), securities, markets, portfolio,
+  favorites, reports, backup.
+- **Frontend**: Login, Dashboard, Markets, Portfolio, SecurityDetail,
+  Utilities (con selector de tema), AdminPanel (usuarios, mercados, valores,
+  splits, configuración).
+- **Sistema de roles**: `is_admin` en User; admin → AdminPanel; usuario normal
+  → app completa.
+- **Control de suscripciones** (v1.3.0): enable/disable, fecha de caducidad,
+  historial cronológico de cambios de estado.
+- **Nombre de la app personalizable** (v1.3.0): campo en `app_config`,
+  aparece en login, cabecera y título del navegador.
+- **Tema claro/oscuro** (v1.3.0): toggle en pie del menú lateral y en
+  Utilidades; preferencia en `localStorage`.
+- **Splits/contrasplits** (v1.4.0): gestión admin por valor, efecto global
+  en todos los usuarios.
 - **PWA + Docker** configurados.
-- **Tests**: 103 en verde.
+- **Tests**: 161 en verde (pytest).
+
+### Routers y prefijos API
+
+| Módulo            | Prefix          | Autenticación |
+|-------------------|-----------------|---------------|
+| app_config        | /api/config     | ninguna       |
+| auth              | /api/auth       | ninguna/user  |
+| admin             | /api/admin      | require_admin |
+| admin_markets     | /api/admin      | require_admin |
+| admin_splits      | /api/admin      | require_admin |
+| securities        | /api/securities | user/admin    |
+| markets           | /api/markets    | user          |
+| portfolio         | /api/portfolio  | user          |
+| favorites         | /api/favorites  | user          |
+| reports           | /api/reports    | user          |
+| backup            | /api/backup     | user          |
 
 ### Gaps identificados (instrucciones originales vs lo construido)
 
-Los siguientes puntos están en las instrucciones originales del usuario pero
-**no están implementados** o están incompletos. Deben abordarse por orden
-de prioridad. No eliminar esta lista hasta que cada punto esté completado.
+Todos los puntos originales están implementados:
 
-#### A — Dashboard (al hacer login)
-- [x] **A1** Top 5 valores que más suben y más bajan del IBEX ese día.
-- [x] **A2** Top 5 valores que más suben y más bajan del Nasdaq ese día.
-  - Implementado: `GET /markets/top-movers?market=ibex35&n=5&direction=up|down`
-    lee `price_snapshots` y ordena por `daily_change_pct`. Dashboard muestra
-    dos secciones (IBEX y Nasdaq) con las tablas de mayores subidas/bajadas.
+#### A — Dashboard
+- [x] A1/A2 Top movers IBEX y Nasdaq
 
-#### B — Explorador de Mercados (`Markets.jsx`)
-- [x] **B1** Cuatro pestañas: IBEX 35 / Mercado Continuo / Nasdaq / Favoritos.
-  La pestaña Favoritos muestra icono papelera en lugar de estrella.
-- [x] **B2** `IndexHeader` con nombre, precio, variación % y `Sparkline` SVG
-  del último año. Caché 15 min (cotización) y 1 h (histórico) en memoria.
-- [x] **B3** Columnas: ISIN, Google Ticker, Mín 1a/2a/5a, Máx 1a, Dividendo.
-- [x] **B4** Badge naranja `MinBadge`: "Mín 5a" > "Mín 2a" > "Mín 1a" cuando
-  `last_price ≤ mínimo`. Sin parpadeo.
-- [x] **B5** `TargetCell` editable en línea (solo favoritos); `PATCH /favorites/{id}`;
-  columna "% hasta objetivo"; indicador `¡Comprar!` verde parpadeante.
+#### B — Explorador de Mercados
+- [x] B1 Pestañas dinámicas + Favoritos
+- [x] B2 IndexHeader con sparkline
+- [x] B3 Columnas extendidas
+- [x] B4 MinBadge naranja
+- [x] B5 TargetCell editable en línea
 
-#### C — Cartera (`Portfolio.jsx` + API)
-- [x] **C1** 7 tarjetas de resumen: Invertido, Valor actual, Diferencia (€+%),
-  B/P latente, Dividendos, Var. hoy, Beneficio realizado.
-- [x] **C2** 16 columnas en tabla de posiciones abiertas con todos los campos
-  solicitados; `TargetSellCell` editable; alerta `¡Vender!` parpadeante.
-- [x] **C3** Tabla de posiciones cerradas (endpoint `GET /portfolio/closed`).
+#### C — Cartera
+- [x] C1 7 tarjetas de resumen
+- [x] C2 16 columnas con alertas
+- [x] C3 Tabla de posiciones cerradas
 
-#### D — Explorador individual de valor (`SecurityDetail.jsx`)
-- [x] **D1** ISIN y Google Ticker en cabecera.
-- [x] **D2** Tarjetas: Invertido, B/P latente (con %), Dividendos neto, Beneficio total.
-- [x] **D3** Tablas separadas: Compras y Ventas.
-- [x] **D4** Columna "Total op." en ambas tablas.
-- [x] **D5** `AddDivModal` para añadir dividendos desde la pantalla de detalle.
+#### D — SecurityDetail
+- [x] D1-D5 Todos los campos y tablas
 
-#### E — Utilidades (`Utilities.jsx`)
-- [x] **E1** Card "Informe fiscal (IRPF)" con selector de año y botón
-  "Descargar PDF" → `GET /api/reports/tax/{year}`.
-- [x] **E2** Backup/import JSON implementado.
-
-#### F — Backend / API
-- [x] **F1** Endpoint `GET /markets/top-movers` — implementado con `direction=up|down`, `n` configurable.
-- [x] **F2** `PositionSummary` extendido con todos los campos de C2.
-- [x] **F3** Endpoint `GET /portfolio/closed` implementado.
-- [x] **F4** `price_snapshots` incluye `min_1y`, `min_2y`, `min_5y`, `max_1y`. El
-  modelo, el scheduler (`compute_ranges`) y los schemas ya lo cubren.
-- [x] **F5** `POST /portfolio/{position_id}/dividends` ya existe; botón añadido en SecurityDetail (AddDivModal).
+#### E — Utilidades
+- [x] E1 Informe fiscal IRPF con PDF
+- [x] E2 Backup/import JSON
 
 ---
 
-## Sistema de roles (añadido post-spec)
+## Sistema de roles
 
 - Columna `is_admin BOOLEAN NOT NULL DEFAULT 0` en `users`.
 - Router `api/admin.py` con dependencia `require_admin` (403 si no es admin):
-  - `GET /admin/users` — lista usuarios
-  - `POST /admin/users` — crea usuario (con is_admin opcional)
+  - `GET  /admin/users` — lista usuarios
+  - `POST /admin/users` — crea usuario
   - `PATCH /admin/users/{id}/password` — cambia contraseña
   - `PATCH /admin/users/{id}/role` — cambia rol (no sobre uno mismo)
+  - `PATCH /admin/users/{id}/status` — habilita/deshabilita (con anotación)
+  - `PATCH /admin/users/{id}/expiry` — fecha de caducidad
+  - `GET  /admin/users/{id}/history` — historial de estados
   - `DELETE /admin/users/{id}` — elimina usuario (no sobre uno mismo)
-- `UserOut` incluye `is_admin`; el frontend bifurca en `App.jsx`:
-  admin → `AdminPanel.jsx` (solo gestión de usuarios), normal → app completa.
 - Crear primer admin: `python -m app.scripts.create_user <user> <pass> --admin`
+- Al arrancar, `_ensure_default_admin()` crea admin por defecto si
+  `ADMIN_DEFAULT_USER` / `ADMIN_DEFAULT_PASSWORD` están en `.env`.
 
-## Tipo de cambio USD (corrección post-spec)
+## Tipo de cambio USD
 
-`_build_position_summary` consultaba `current_rate = Decimal("1")` para todos los
-valores. Ahora, si `sec.currency == "USD"`, busca el registro más reciente de
-`ecb_rates` y usa ese tipo. Si no hay tipo BCE disponible, fallback a 1.
+Si `sec.currency == "USD"`, `_build_position_summary` busca el registro
+más reciente de `ecb_rates` y usa ese tipo. Fallback a 1 si no hay datos BCE.
 
 ---
 
@@ -193,6 +239,9 @@ cd backend && .\venv\Scripts\alembic revision --autogenerate -m "mensaje"
 
 # Crear usuario / admin
 cd backend && .\venv\Scripts\python -m app.scripts.create_user <username> <password> [--admin]
+
+# Generar manual PDF
+python gen_instrucciones.py
 
 # Docker
 docker compose up --build

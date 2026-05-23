@@ -5,7 +5,7 @@ Ejecutar desde la raiz del proyecto:
 """
 from fpdf import FPDF
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 TITLE   = f"FJS Finanzas {VERSION} - Manual de usuario"
 
 SECTIONS = [
@@ -33,6 +33,25 @@ SECTIONS = [
         "",
         "El contenedor expone el puerto 8080. La base de datos se almacena en un volumen",
         "persistente (./data/finanzas.db).",
+    ]),
+    ("Novedades en v1.4.0", [
+        "Splits y contrasplits de valores (gestion admin):",
+        "  - El administrador registra los eventos de split desde el Panel de",
+        "    Administracion (seccion Catalogo de valores > boton 'Splits').",
+        "  - Un split es global: se registra una vez y afecta automaticamente",
+        "    a todos los usuarios que posean ese valor.",
+        "  - El motor FIFO normaliza todas las transacciones anteriores a la",
+        "    fecha efectiva del split antes de calcular posiciones y ganancias.",
+        "    Invariante: el coste total de cada lote no cambia.",
+        "  - Splits consecutivos se aplican en orden cronologico.",
+        "  - El informe fiscal IRPF y el grafico de evolucion de cartera",
+        "    tambien utilizan los datos normalizados.",
+        "",
+        "Pantalla de gestion de splits (AdminPanel > Splits):",
+        "  - Fecha efectiva (ex-date), ratio Nuevas:Antiguas y nota opcional.",
+        "  - Ejemplos: split 2:1 -> Nuevas=2, Antiguas=1;",
+        "              contrasplit 1:2 -> Nuevas=1, Antiguas=2.",
+        "  - Los splits se pueden borrar; los cambios son inmediatos.",
     ]),
     ("Novedades en v1.3.0", [
         "Control de suscripciones de usuarios (rol administrador):",
@@ -123,6 +142,7 @@ SECTIONS = [
         "   Alta, edicion y borrado de valores. Para cada valor: nombre, ISIN,",
         "   Yahoo Ticker, Google Ticker, mercado y divisa.",
         "   No es posible borrar un valor con posiciones asociadas.",
+        "   - Boton 'Splits': gestiona los eventos de split/contrasplit del valor.",
         "",
         "3. Mercados:",
         "   Alta, edicion y borrado de mercados. Campos: codigo (clave unica),",
