@@ -5,6 +5,42 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.5.2] — 2026-05-25
+
+### Corregido
+
+- **`sort_order` perdido en export/import de catálogo**: la exportación del
+  catálogo de mercados (`GET /admin/catalog/export`) no incluía el campo
+  `sort_order`, con lo que un ciclo export→import dejaba todos los mercados
+  con `sort_order=0`, borrando el orden visual configurado por el admin.
+  Añadido el campo al JSON de exportación y al schema `CatalogMarketIn`.
+  2 tests de regresión.
+- **Texto del plazo de recompra incorrecto en el informe fiscal**: el aviso
+  de la regla de recompra en el informe IRPF usaba `market == "nasdaq"` para
+  decidir el texto, en lugar del valor real `fiscal_window_days`. Mercados con
+  código distinto de "nasdaq" pero con ventana de 365 días decían "dos meses"
+  (incorrecto); mercados crypto (`fiscal_window_days=1`) también decían "dos
+  meses". Ahora el texto se deriva del campo: ≥365 días → "un año",
+  ≥30 días → "N meses", <30 días → "N días".
+  2 tests de regresión.
+- **Regla de recompra no detectaba consumo parcial de lote**: si el FIFO
+  consumía solo una parte de un lote de compra dentro del plazo (p.ej. compra
+  10 acc, venta 5 con pérdida), las acciones restantes del mismo lote no se
+  detectaban como "recompra" y la pérdida se marcaba erróneamente como
+  computable. Corregido normalizando `all_buys` con splits y comparando
+  `buy.shares` vs `match.shares` para detectar el sobrante.
+  `_normalize_splits` renombrada a `normalize_splits` (función pública).
+  2 tests de regresión.
+- **`HTTP_422_UNPROCESSABLE_ENTITY` deprecado**: `delete_position` usaba el
+  código de estado deprecado generando `DeprecationWarning` de Starlette en
+  los tests. Cambiado a `HTTP_422_UNPROCESSABLE_CONTENT`.
+
+### Infraestructura
+
+- 196 tests en verde (subida desde 190 en v1.5.1).
+
+---
+
 ## [1.5.1] — 2026-05-24
 
 ### Añadido
