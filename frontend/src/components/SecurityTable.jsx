@@ -1,6 +1,20 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
+import { useAppConfig } from '../context/AppContext'
+
+/**
+ * Formateador de precio adaptativo.
+ * Activos como Bitcoin muestran 2 dec; micro-caps de crypto usan más.
+ */
+function fmtPrice(val) {
+  if (val == null) return '—'
+  const n = Number(val)
+  let dec = 2
+  if (n !== 0 && Math.abs(n) < 0.01) dec = 6
+  else if (Math.abs(n) < 1)          dec = 4
+  return n.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+}
 
 function fmt(val, dec = 2) {
   if (val == null) return '—'
@@ -8,6 +22,23 @@ function fmt(val, dec = 2) {
     minimumFractionDigits: dec,
     maximumFractionDigits: dec,
   })
+}
+
+/** Deriva el tipo de activo desde el código de mercado. */
+function assetTypeKey(marketCode) {
+  const c = (marketCode ?? '').toLowerCase()
+  if (c.includes('etf'))    return 'etf'
+  if (c.includes('crypto')) return 'crypto'
+  return 'stock'
+}
+
+/** Badge de tipo de activo (ETF / Crypto / Acción). */
+function AssetBadge({ market, t }) {
+  const type = assetTypeKey(market)
+  const key  = `badge.${type}`
+  return (
+    <span className={`badge-asset ${type}`}>{t(key)}</span>
+  )
 }
 
 /** Badge naranja cuando el precio actual está en mínimo histórico. */
@@ -23,7 +54,7 @@ function MinBadge({ price, min1y, min2y, min5y }) {
 }
 
 /** Celda con precio objetivo editable en línea (solo para favoritos). */
-function TargetCell({ sec, onUpdate }) {
+function TargetCell({ sec, onUpdate, t }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(
     sec.target_buy_price != null ? String(sec.target_buy_price) : ''
@@ -37,7 +68,7 @@ function TargetCell({ sec, onUpdate }) {
     try {
       await api.patch(`/favorites/${sec.id}`, { target_buy_price: num })
       onUpdate(sec.id, num)
-    } catch { /* silencioso — el valor no cambia */ }
+    } catch { /* silencioso */ }
   }
 
   if (editing) {
@@ -69,8 +100,8 @@ function TargetCell({ sec, onUpdate }) {
       onClick={e => { e.stopPropagation(); setEditing(true) }}
     >
       {hasTarget
-        ? fmt(sec.target_buy_price)
-        : <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>— editar</span>}
+        ? fmtPrice(sec.target_buy_price)
+        : <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{t('common.edit')}</span>}
     </td>
   )
 }
@@ -86,25 +117,31 @@ function TargetCell({ sec, onUpdate }) {
  */
 export default function SecurityTable({ securities, favoritesTab = false, onToggleFav, onTargetUpdate }) {
   const navigate = useNavigate()
+  const { t } = useAppConfig()
+
+  // Columnas condicionales: solo se muestran si algún valor del set las tiene
+  const hasIsin     = securities.some(s => s.isin != null && s.isin !== '')
+  const hasGoogle   = securities.some(s => s.google_ticker != null && s.google_ticker !== '')
+  const hasDividend = securities.some(s => s.last_dividend != null)
 
   return (
     <div className="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Valor</th>
-            <th>ISIN</th>
-            <th>Google</th>
-            <th className="num">Precio</th>
-            <th className="num">Var. día</th>
-            <th className="num">Mín 1a</th>
-            <th className="num">Mín 2a</th>
-            <th className="num">Mín 5a</th>
-            <th>Alerta</th>
-            <th className="num">Dividendo</th>
-            <th className="num">Obj. Compra</th>
-            <th className="num">% Obj.</th>
-            <th style={{ textAlign: 'center' }}>Acción</th>
+            <th>{t('markets.col_name')}</th>
+            {hasIsin   && <th>{t('markets.col_isin')}</th>}
+            {hasGoogle && <th>{t('markets.col_google')}</th>}
+            <th className="num">{t('markets.col_price')}</th>
+            <th className="num">{t('markets.col_change')}</th>
+            <th className="num">{t('markets.col_min1y')}</th>
+            <th className="num">{t('markets.col_min2y')}</th>
+            <th className="num">{t('markets.col_min5y')}</th>
+            <th>{t('markets.col_alert')}</th>
+            {hasDividend && <th className="num">{t('markets.col_dividend')}</th>}
+            <th className="num">{t('markets.col_target')}</th>
+            <th className="num">{t('markets.col_target_pct')}</th>
+            <th style={{ textAlign: 'center' }}>{t('markets.col_action')}</th>
           </tr>
         </thead>
         <tbody>
@@ -127,25 +164,32 @@ export default function SecurityTable({ securities, favoritesTab = false, onTogg
                 style={{ cursor: 'pointer' }}
                 onClick={() => navigate(`/securities/${sec.id}`)}
               >
-                {/* Valor */}
+                {/* Valor + badge tipo activo */}
                 <td>
-                  <div className="ticker">{sec.yahoo_ticker}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+                    <span className="ticker">{sec.yahoo_ticker}</span>
+                    <AssetBadge market={sec.market} t={t} />
+                  </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{sec.name}</div>
                 </td>
 
-                {/* ISIN */}
-                <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
-                  {sec.isin ?? '—'}
-                </td>
+                {/* ISIN (condicional) */}
+                {hasIsin && (
+                  <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
+                    {sec.isin ?? '—'}
+                  </td>
+                )}
 
-                {/* Google ticker */}
-                <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
-                  {sec.google_ticker ?? '—'}
-                </td>
+                {/* Google ticker (condicional) */}
+                {hasGoogle && (
+                  <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
+                    {sec.google_ticker ?? '—'}
+                  </td>
+                )}
 
                 {/* Precio */}
                 <td className="num">
-                  {fmt(sec.last_price)}
+                  {fmtPrice(sec.last_price)}
                   <small style={{ color: 'var(--text-muted)', marginLeft: 3 }}>{sec.currency}</small>
                 </td>
 
@@ -155,13 +199,13 @@ export default function SecurityTable({ securities, favoritesTab = false, onTogg
                 </td>
 
                 {/* Mín 1a */}
-                <td className="num">{fmt(sec.min_1y)}</td>
+                <td className="num">{fmtPrice(sec.min_1y)}</td>
 
                 {/* Mín 2a */}
-                <td className="num">{fmt(sec.min_2y)}</td>
+                <td className="num">{fmtPrice(sec.min_2y)}</td>
 
                 {/* Mín 5a */}
-                <td className="num">{fmt(sec.min_5y)}</td>
+                <td className="num">{fmtPrice(sec.min_5y)}</td>
 
                 {/* Indicador mínimo naranja */}
                 <td>
@@ -173,11 +217,13 @@ export default function SecurityTable({ securities, favoritesTab = false, onTogg
                   />
                 </td>
 
-                {/* Dividendo */}
-                <td className="num">{fmt(sec.last_dividend)}</td>
+                {/* Dividendo (condicional) */}
+                {hasDividend && (
+                  <td className="num">{fmt(sec.last_dividend)}</td>
+                )}
 
                 {/* Precio objetivo compra — editable */}
-                <TargetCell sec={sec} onUpdate={onTargetUpdate} />
+                <TargetCell sec={sec} onUpdate={onTargetUpdate} t={t} />
 
                 {/* % hasta objetivo */}
                 <td className={`num ${pctToTarget == null ? 'neu' : pctToTarget > 0 ? 'neg' : 'pos'}`}>
@@ -188,11 +234,11 @@ export default function SecurityTable({ securities, favoritesTab = false, onTogg
 
                 {/* Acción: estrella / papelera + alerta comprar */}
                 <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
-                  {isBuyAlert && <div className="alert-buy">¡Comprar!</div>}
+                  {isBuyAlert && <div className="alert-buy">{t('markets.buy_alert')}</div>}
                   <button
                     className="btn-ghost btn-sm"
                     style={{ padding: '2px 8px', fontSize: '1rem' }}
-                    title={sec.is_favorite ? (favoritesTab ? 'Quitar favorito' : 'Quitar favorito') : 'Añadir favorito'}
+                    title={sec.is_favorite ? t('markets.remove_fav') : t('markets.add_fav')}
                     onClick={() => onToggleFav(sec.id, sec.is_favorite)}
                   >
                     {sec.is_favorite ? (favoritesTab ? '🗑' : '★') : '☆'}

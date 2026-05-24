@@ -3,7 +3,7 @@ import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
 
 export default function Utilities() {
-  const { theme, toggleTheme } = useAppConfig()
+  const { theme, toggleTheme, locale, setLocale, t } = useAppConfig()
 
   // Cambio de contraseña
   const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
@@ -64,17 +64,17 @@ export default function Utilities() {
 
   return (
     <div>
-      <h1>Utilidades</h1>
+      <h1>{t('utilities.title')}</h1>
 
       {/* Cambiar contraseña */}
       <div className="card">
-        <h2>Cambiar contraseña</h2>
+        <h2>{t('utilities.password')}</h2>
         {pwError && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{pwError}</div>}
-        {pwOk    && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12 }}>Contraseña actualizada correctamente.</div>}
+        {pwOk    && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12 }}>{t('utilities.pw_ok')}</div>}
         <form onSubmit={changePassword}>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Contraseña actual</label>
+              <label>{t('utilities.pw_current')}</label>
               <input
                 type="password"
                 value={pwForm.current}
@@ -83,7 +83,7 @@ export default function Utilities() {
               />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Nueva contraseña</label>
+              <label>{t('utilities.pw_new')}</label>
               <input
                 type="password"
                 value={pwForm.newPw}
@@ -93,7 +93,7 @@ export default function Utilities() {
               />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Repetir nueva contraseña</label>
+              <label>{t('utilities.pw_confirm')}</label>
               <input
                 type="password"
                 value={pwForm.confirm}
@@ -104,7 +104,7 @@ export default function Utilities() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button type="submit" className="btn-primary btn-sm" disabled={pwBusy}>
-              {pwBusy ? 'Guardando…' : 'Cambiar contraseña'}
+              {pwBusy ? t('utilities.pw_saving') : t('utilities.pw_save')}
             </button>
           </div>
         </form>
@@ -112,23 +112,44 @@ export default function Utilities() {
 
       {/* Tema */}
       <div className="card" style={{ marginTop: 24 }}>
-        <h2>Apariencia</h2>
+        <h2>{t('utilities.appearance')}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Tema actual: <strong style={{ color: 'var(--text)' }}>{theme === 'dark' ? 'Oscuro' : 'Claro'}</strong>
+            {t('utilities.theme_current')}{' '}
+            <strong style={{ color: 'var(--text)' }}>
+              {theme === 'dark' ? t('utilities.theme_dark') : t('utilities.theme_light')}
+            </strong>
           </span>
           <button className="btn-ghost btn-sm" onClick={toggleTheme}>
-            {theme === 'dark' ? '☀ Cambiar a claro' : '◑ Cambiar a oscuro'}
+            {theme === 'dark' ? t('utilities.theme_toggle_light') : t('utilities.theme_toggle_dark')}
+          </button>
+        </div>
+      </div>
+
+      {/* Idioma */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>{t('utilities.language')}</h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className={locale === 'es' ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+            onClick={() => setLocale('es')}
+          >
+            🇪🇸 {t('utilities.lang_es')}
+          </button>
+          <button
+            className={locale === 'en' ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+            onClick={() => setLocale('en')}
+          >
+            🇬🇧 {t('utilities.lang_en')}
           </button>
         </div>
       </div>
 
       {/* Backup */}
       <div className="card" style={{ marginTop: 24 }}>
-        <h2>Copia de seguridad</h2>
+        <h2>{t('utilities.backup')}</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
-          Exporta todas tus posiciones, transacciones y dividendos a un fichero JSON.
-          La importación es idempotente: no duplica registros ya existentes.
+          {t('utilities.backup_desc')}
         </p>
 
         {backupErr && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{backupErr}</div>}
@@ -136,14 +157,14 @@ export default function Utilities() {
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="btn-primary btn-sm" onClick={exportBackup}>
-            ↓ Exportar JSON
+            {t('utilities.backup_export')}
           </button>
           <button
             className="btn-ghost btn-sm"
             disabled={importing}
             onClick={() => fileRef.current?.click()}
           >
-            {importing ? 'Importando…' : '↑ Importar JSON'}
+            {importing ? t('utilities.backup_importing') : t('utilities.backup_import')}
           </button>
           <input
             ref={fileRef}

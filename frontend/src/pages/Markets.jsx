@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { useAppConfig } from '../context/AppContext'
 import SecurityTable from '../components/SecurityTable'
 import SecurityCard from '../components/SecurityCard'
 import { useMediaQuery } from '../hooks/useMediaQuery'
-
-const FAV_TAB = { key: 'favoritos', label: '★ Favoritos' }
 
 function fmtDateTime(dt) {
   if (!dt) return null
@@ -83,6 +82,7 @@ function IndexHeader({ market }) {
 }
 
 export default function Markets() {
+  const { t } = useAppConfig()
   const [tabs, setTabs]             = useState([])
   const [activeTab, setActiveTab]   = useState(null)
   const [securities, setSecurities] = useState([])
@@ -90,13 +90,16 @@ export default function Markets() {
   const [error, setError]           = useState(null)
   const isMobile = useMediaQuery('(max-width: 767px)')
 
+  // Construir la pestaña Favoritos con la etiqueta traducida
+  const FAV_TAB = { key: 'favoritos', label: t('markets.favorites_tab') }
+
   // Load dynamic market tabs on mount
   useEffect(() => {
     api.get('/markets/list').then(mks => {
-      const t = mks.map(m => ({ key: m.code, label: m.name }))
-      t.push(FAV_TAB)
-      setTabs(t)
-      if (!activeTab) setActiveTab(t[0]?.key ?? 'favoritos')
+      const tabs = mks.map(m => ({ key: m.code, label: m.name }))
+      tabs.push(FAV_TAB)
+      setTabs(tabs)
+      if (!activeTab) setActiveTab(tabs[0]?.key ?? 'favoritos')
     }).catch(() => {
       setTabs([FAV_TAB])
       if (!activeTab) setActiveTab('favoritos')
@@ -136,20 +139,18 @@ export default function Markets() {
       } else {
         await api.post(`/favorites/${secId}`)
       }
-      // Actualización optimista: toggle el estado en la lista local
       setSecurities(prev => {
         const updated = prev.map(s =>
           s.id === secId
             ? { ...s, is_favorite: !isFav, target_buy_price: isFav ? null : s.target_buy_price }
             : s
         )
-        // En la pestaña favoritos, quitar el elemento si se desmarca
         if (activeTab === 'favoritos' && isFav) {
           return updated.filter(s => s.id !== secId)
         }
         return updated
       })
-    } catch { /* ignorar: el estado no cambia */ }
+    } catch { /* ignorar */ }
   }
 
   function handleTargetUpdate(secId, newPrice) {
@@ -160,18 +161,18 @@ export default function Markets() {
 
   return (
     <div>
-      <h1>Mercados</h1>
+      <h1>{t('markets.title')}</h1>
 
-      {/* Pestañas dinámicas */}
+      {/* Pestañas dinámicas con scroll horizontal */}
       <div className="tabs">
-        {tabs.map(t => (
+        {tabs.map(tab => (
           <button
-            key={t.key}
-            className={`tab-btn ${activeTab === t.key ? 'active' : ''}`}
-            onClick={() => handleTabChange(t.key)}
+            key={tab.key}
+            className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+            onClick={() => handleTabChange(tab.key)}
           >
-            {t.label}
-            {t.key === 'favoritos' && securities.length > 0 && activeTab === 'favoritos'
+            {tab.label}
+            {tab.key === 'favoritos' && securities.length > 0 && activeTab === 'favoritos'
               ? ` (${securities.length})` : ''}
           </button>
         ))}
@@ -183,7 +184,7 @@ export default function Markets() {
       {/* Última actualización */}
       {lastUpdated && (
         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8, textAlign: 'right' }}>
-          Precios actualizados: {fmtDateTime(lastUpdated)}
+          {t('markets.updated')} {fmtDateTime(lastUpdated)}
         </div>
       )}
 
@@ -195,8 +196,8 @@ export default function Markets() {
       ) : securities.length === 0 ? (
         <div className="state-empty">
           {activeTab === 'favoritos'
-            ? 'Aún no has marcado ningún valor como favorito. Pulsa ☆ en cualquier mercado.'
-            : 'No hay valores en este mercado. El administrador puede añadirlos en el panel de administración.'}
+            ? t('markets.no_favorites')
+            : t('markets.no_securities')}
         </div>
       ) : isMobile ? (
         securities.map(s => (

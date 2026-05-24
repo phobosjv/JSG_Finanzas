@@ -25,7 +25,7 @@ from app.api.deps import get_db, require_admin
 from app.models import AppConfig, MarketRow, Security, User
 from app.schemas.market_admin import (
     AppNameUpdate, CatalogImportBody,
-    MarketCreate, MarketOut, MarketUpdate, SnapshotIntervalUpdate,
+    MarketCreate, MarketOut, MarketReorderItem, MarketUpdate, SnapshotIntervalUpdate,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -66,7 +66,7 @@ def list_markets(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    return db.scalars(select(MarketRow).order_by(MarketRow.code)).all()
+    return db.scalars(select(MarketRow).order_by(MarketRow.sort_order, MarketRow.code)).all()
 
 
 @router.post("/markets", response_model=MarketOut, status_code=status.HTTP_201_CREATED)
@@ -84,6 +84,7 @@ def create_market(
         index_ticker=body.index_ticker,
         currency=body.currency,
         fiscal_window_days=body.fiscal_window_days,
+        sort_order=body.sort_order,
         created_at=datetime.now().isoformat(),
     )
     db.add(market)
@@ -108,6 +109,8 @@ def update_market(
         market.currency = body.currency
     if body.fiscal_window_days is not None:
         market.fiscal_window_days = body.fiscal_window_days
+    if body.sort_order is not None:
+        market.sort_order = body.sort_order
     db.commit()
     db.refresh(market)
     return market
@@ -130,6 +133,24 @@ def delete_market(
             detail=f"El mercado '{code}' tiene valores asignados; reasígnalos antes de eliminarlo",
         )
     db.delete(market)
+    db.commit()
+
+
+@router.put("/markets/reorder", status_code=status.HTTP_204_NO_CONTENT)
+def reorder_markets(
+    body: list[MarketReorderItem],
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Actualiza el sort_order de varios mercados en una sola llamada.
+    Recibe [{code, sort_order}, ...] y aplica el nuevo orden.
+    Los códigos que no existan se ignoran silenciosamente.
+    """
+    for item in body:
+        market = db.get(MarketRow, item.code)
+        if market:
+            market.sort_order = item.sort_order
     db.commit()
 
 

@@ -28,6 +28,7 @@ Registro en APScheduler (se hace en main.py):
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select, func
@@ -72,6 +73,9 @@ def update_price_history(db: Session) -> None:
         except Exception:
             log.exception("Error actualizando historico de %s", sec.yahoo_ticker)
             db.rollback()
+        # Pausa entre peticiones para evitar rate-limiting de yfinance
+        # (especialmente relevante en el primer arranque con muchos valores nuevos).
+        time.sleep(0.5)
 
 
 def _update_history_for_security(

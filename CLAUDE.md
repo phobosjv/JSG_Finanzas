@@ -109,6 +109,7 @@ Chain de revisiones (orden cronológico):
 3. `a3f9c1d2e5b4` — v1.2.0 dynamic markets
 4. `c7f9e2b4d8a1` — v1.3.0 user subscriptions + app_config.app_name
 5. `b2d1a3c4e5f6` — v1.4.0 security_splits
+6. `e3f1a2b4c5d6` — v1.5.0 market sort_order
 
 ## Estructura del proyecto
 
@@ -171,26 +172,28 @@ Los splits son eventos corporativos globales gestionados por el admin:
 
 ---
 
-## Estado actual (mayo 2026) — v1.4.3
+## Estado actual (mayo 2026) — v1.5.0
 
 ### Implementado y funcional
 
 - **Auth**: login por cookie firmada (itsdangerous), hash bcrypt.
   Bloqueado si `is_enabled=False` o `expires_at` pasado (→ 403 con
   mensaje "Contactar con el administrador").
-- **Modelos**: 13 tablas SQLAlchemy, 5 migraciones Alembic.
+- **Modelos**: 13 tablas SQLAlchemy, 6 migraciones Alembic.
 - **Providers**: yfinance (histórico + snapshot), BCE (tipos EUR/USD).
 - **Scheduler**: job nocturno (06:30) que actualiza histórico, snapshots e
   indicadores; job periódico de snapshots (intervalo configurable por admin,
-  5-60 min, por defecto 5 min).
+  5-60 min, por defecto 5 min). Pausa de 0,5 s entre peticiones para evitar
+  rate-limiting de yfinance.
 - **Services**: FIFO con normalización de splits, informe fiscal IRPF,
   HTML→PDF (Ctrl+P), indicadores de rango, backup.
 - **API**: auth, admin (usuarios + suscripciones + historial), admin_markets
-  (incluye catalog/export y catalog/import), admin_splits, app_config
-  (público), securities, markets, portfolio, favorites, reports, backup.
+  (incluye catalog/export, catalog/import y markets/reorder), admin_splits,
+  app_config (público), securities, markets, portfolio, favorites, reports, backup.
 - **Frontend**: Login, Dashboard, Markets, Portfolio, SecurityDetail,
-  Utilities (con selector de tema), AdminPanel (usuarios, mercados, valores,
-  splits, configuración, catálogo de valores).
+  Utilities (selector de tema + selector de idioma ES/EN), AdminPanel
+  (usuarios, mercados con reordenación, valores, splits, configuración,
+  catálogo de valores).
 - **Sistema de roles**: `is_admin` en User; admin → AdminPanel; usuario normal
   → app completa.
 - **Control de suscripciones** (v1.3.0): enable/disable, fecha de caducidad,
@@ -213,6 +216,23 @@ Los splits son eventos corporativos globales gestionados por el admin:
   y `POST /admin/catalog/import`. Deduplicación por yahoo_ticker (único global).
   Fichero `catalogo-valores.json` con 93 valores precargados (IBEX35 + Mercado
   Continuo + Nasdaq).
+- **Soporte ETFs y criptomonedas** (v1.5.0): catálogos listos para importar
+  (`catalogo-etfs-completo.json` con 47 ETFs EUR/USD, `catalogo-crypto.json`
+  con 31 criptos). `fiscal_window_days=1` para crypto (sin regla de recompra
+  en España). Divisa soportada: EUR y USD.
+- **Orden de pestañas de mercado configurable** (v1.5.0): columna
+  `sort_order` en `markets`. El admin puede reordenar las pestañas desde el
+  AdminPanel con botones ▲/▼. Endpoint `PUT /admin/markets/reorder`.
+- **Internacionalización ES/EN** (v1.5.0): selector de idioma en Utilidades.
+  Cadenas traducidas en toda la interfaz mediante `t(key)` desde AppContext.
+  Preferencia persistida en `localStorage`. Fichero `translations.js`.
+- **Mejoras UI** (v1.5.0):
+  - Pestañas con scroll horizontal (`overflow-x: auto`) en lugar de envolver.
+  - Badge de tipo de activo (ETF/Crypto/Acción) en tabla y tarjetas.
+  - Columnas ISIN, Google y Dividendo condicionales: solo visibles si algún
+    valor las tiene.
+  - `fmtPrice()` adaptativo: 2, 4 o 6 decimales según magnitud del precio
+    (clave para criptos de micro-cap como SHIB).
 - **PWA + Docker** configurados.
 - **Tests**: 187 en verde (pytest).
 

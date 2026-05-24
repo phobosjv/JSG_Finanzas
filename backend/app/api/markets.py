@@ -111,7 +111,7 @@ def list_markets(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    return db.scalars(select(MarketRow).order_by(MarketRow.code)).all()
+    return db.scalars(select(MarketRow).order_by(MarketRow.sort_order, MarketRow.code)).all()
 
 
 # ---------------------------------------------------------------------------

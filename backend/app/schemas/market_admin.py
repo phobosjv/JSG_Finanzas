@@ -13,6 +13,7 @@ class MarketCreate(BaseModel):
     index_ticker: str | None = None
     currency: str = "EUR"
     fiscal_window_days: int = 60
+    sort_order: int = 0
 
     @field_validator("code")
     @classmethod
@@ -47,6 +48,7 @@ class MarketUpdate(BaseModel):
     index_ticker: str | None = None
     currency: Literal["EUR", "USD"] | None = None
     fiscal_window_days: int | None = None
+    sort_order: int | None = None
 
     @field_validator("fiscal_window_days")
     @classmethod
@@ -62,8 +64,15 @@ class MarketOut(BaseModel):
     index_ticker: str | None
     currency: str
     fiscal_window_days: int
+    sort_order: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class MarketReorderItem(BaseModel):
+    """Un ítem en la lista de reordenación de mercados."""
+    code: str
+    sort_order: int
 
 
 class SnapshotIntervalUpdate(BaseModel):

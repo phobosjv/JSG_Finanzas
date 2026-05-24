@@ -670,6 +670,27 @@ function MarketsSection() {
     setErr(null); setMsg(null)
   }
 
+  /** Mueve un mercado una posición arriba o abajo y persiste el nuevo orden. */
+  async function moveMarket(code, direction) {
+    const idx = markets.findIndex(m => m.code === code)
+    if (direction === 'up'   && idx === 0)                return
+    if (direction === 'down' && idx === markets.length - 1) return
+
+    // Construir nuevo orden intercambiando posiciones
+    const newList = [...markets]
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    ;[newList[idx], newList[swapIdx]] = [newList[swapIdx], newList[idx]]
+
+    // Asignar sort_order = índice para que sea el orden visual
+    const reorder = newList.map((m, i) => ({ code: m.code, sort_order: i }))
+
+    setErr(null); setMsg(null)
+    try {
+      await api.put('/admin/markets/reorder', reorder)
+      await load()
+    } catch (e) { setErr(e.message) }
+  }
+
   return (
     <div className="card" style={{ marginTop: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -727,6 +748,7 @@ function MarketsSection() {
         <table>
           <thead>
             <tr>
+              <th style={{ width: 60 }}>Orden</th>
               <th>Código</th>
               <th>Nombre</th>
               <th>Ticker índice</th>
@@ -736,8 +758,27 @@ function MarketsSection() {
             </tr>
           </thead>
           <tbody>
-            {markets.map(m => (
+            {markets.map((m, idx) => (
               <tr key={m.code}>
+                {/* Botones de reordenación */}
+                <td>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    <button
+                      className="btn-ghost btn-sm"
+                      style={{ padding: '1px 6px', fontSize: '0.75rem' }}
+                      disabled={idx === 0}
+                      onClick={() => moveMarket(m.code, 'up')}
+                      title="Subir"
+                    >▲</button>
+                    <button
+                      className="btn-ghost btn-sm"
+                      style={{ padding: '1px 6px', fontSize: '0.75rem' }}
+                      disabled={idx === markets.length - 1}
+                      onClick={() => moveMarket(m.code, 'down')}
+                      title="Bajar"
+                    >▼</button>
+                  </div>
+                </td>
                 <td><code style={{ fontSize: '0.85rem' }}>{m.code}</code></td>
                 <td>{m.name}</td>
                 <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{m.index_ticker ?? '—'}</td>
@@ -754,6 +795,9 @@ function MarketsSection() {
           </tbody>
         </table>
       </div>
+      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 8, marginBottom: 0 }}>
+        El orden aquí determinará el orden de las pestañas en la sección Mercados.
+      </p>
     </div>
   )
 }

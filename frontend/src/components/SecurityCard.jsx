@@ -1,7 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
+import { useAppConfig } from '../context/AppContext'
 import './SecurityCard.css'
+
+/** Formateador de precio adaptativo (igual que en SecurityTable). */
+function fmtPrice(val) {
+  if (val == null) return '—'
+  const n = Number(val)
+  let dec = 2
+  if (n !== 0 && Math.abs(n) < 0.01) dec = 6
+  else if (Math.abs(n) < 1)          dec = 4
+  return n.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+}
 
 function fmt(val, dec = 2) {
   if (val == null) return '—'
@@ -9,6 +20,20 @@ function fmt(val, dec = 2) {
     minimumFractionDigits: dec,
     maximumFractionDigits: dec,
   })
+}
+
+function assetTypeKey(marketCode) {
+  const c = (marketCode ?? '').toLowerCase()
+  if (c.includes('etf'))    return 'etf'
+  if (c.includes('crypto')) return 'crypto'
+  return 'stock'
+}
+
+function AssetBadge({ market, t }) {
+  const type = assetTypeKey(market)
+  return (
+    <span className={`badge-asset ${type}`}>{t(`badge.${type}`)}</span>
+  )
 }
 
 function minLabel(price, min1y, min2y, min5y) {
@@ -31,6 +56,7 @@ export default function SecurityCard({ sec, favoritesTab = false, onToggleFav, o
     sec.target_buy_price != null ? String(sec.target_buy_price) : ''
   )
   const navigate = useNavigate()
+  const { t } = useAppConfig()
 
   const pct    = sec.daily_change_pct != null ? Number(sec.daily_change_pct) : null
   const pctCls = pct == null ? 'neu' : pct > 0 ? 'pos' : pct < 0 ? 'neg' : 'neu'
@@ -59,16 +85,19 @@ export default function SecurityCard({ sec, favoritesTab = false, onToggleFav, o
     <div className="sec-card card">
       <div className="sec-card-header" onClick={() => setOpen(o => !o)}>
         <div>
-          <div className="ticker">{sec.yahoo_ticker}</div>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+            <span className="ticker">{sec.yahoo_ticker}</span>
+            <AssetBadge market={sec.market} t={t} />
+          </div>
           <div className="sec-name">{sec.name}</div>
           {badge && <span className="badge-min" style={{ marginTop: 2 }}>{badge}</span>}
         </div>
         <div className="sec-card-right">
-          <div className="sec-price">{fmt(sec.last_price)} <small>{sec.currency}</small></div>
+          <div className="sec-price">{fmtPrice(sec.last_price)} <small>{sec.currency}</small></div>
           <div className={`sec-change ${pctCls}`}>
             {pct != null ? `${sign}${fmt(pct)}%` : '—'}
           </div>
-          {isBuyAlert && <div className="alert-buy">¡Comprar!</div>}
+          {isBuyAlert && <div className="alert-buy">{t('markets.buy_alert')}</div>}
         </div>
         <span className="sec-chevron">{open ? '▲' : '▼'}</span>
       </div>
@@ -77,36 +106,38 @@ export default function SecurityCard({ sec, favoritesTab = false, onToggleFav, o
         <div className="sec-card-body">
           {sec.isin && (
             <div className="sec-stat-row">
-              <span>ISIN</span>
+              <span>{t('markets.col_isin')}</span>
               <span style={{ fontFamily: 'var(--mono)', fontSize: '0.78rem' }}>{sec.isin}</span>
             </div>
           )}
           {sec.google_ticker && (
             <div className="sec-stat-row">
-              <span>Google</span>
+              <span>{t('markets.col_google')}</span>
               <span style={{ fontFamily: 'var(--mono)', fontSize: '0.78rem' }}>{sec.google_ticker}</span>
             </div>
           )}
           <div className="sec-stat-row">
-            <span>Mín. 1a</span><span className="num">{fmt(sec.min_1y)}</span>
+            <span>{t('markets.col_min1y')}</span><span className="num">{fmtPrice(sec.min_1y)}</span>
           </div>
           <div className="sec-stat-row">
-            <span>Mín. 2a</span><span className="num">{fmt(sec.min_2y)}</span>
+            <span>{t('markets.col_min2y')}</span><span className="num">{fmtPrice(sec.min_2y)}</span>
           </div>
           <div className="sec-stat-row">
-            <span>Mín. 5a</span><span className="num">{fmt(sec.min_5y)}</span>
+            <span>{t('markets.col_min5y')}</span><span className="num">{fmtPrice(sec.min_5y)}</span>
           </div>
           <div className="sec-stat-row">
-            <span>Máx. 1a</span><span className="num">{fmt(sec.max_1y)}</span>
+            <span>Máx. 1a</span><span className="num">{fmtPrice(sec.max_1y)}</span>
           </div>
-          <div className="sec-stat-row">
-            <span>Dividendo</span><span className="num">{fmt(sec.last_dividend)}</span>
-          </div>
+          {sec.last_dividend != null && (
+            <div className="sec-stat-row">
+              <span>{t('markets.col_dividend')}</span><span className="num">{fmt(sec.last_dividend)}</span>
+            </div>
+          )}
 
           {sec.is_favorite && (
             <>
               <div className="sec-stat-row">
-                <span>Obj. Compra</span>
+                <span>{t('markets.col_target')}</span>
                 {editTarget ? (
                   <input
                     type="number"
@@ -125,13 +156,13 @@ export default function SecurityCard({ sec, favoritesTab = false, onToggleFav, o
                     style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}
                     onClick={e => { e.stopPropagation(); setEdit(true) }}
                   >
-                    {sec.target_buy_price != null ? fmt(sec.target_buy_price) : '— editar'}
+                    {sec.target_buy_price != null ? fmtPrice(sec.target_buy_price) : t('common.edit')}
                   </span>
                 )}
               </div>
               {pctToTarget != null && (
                 <div className="sec-stat-row">
-                  <span>% hasta obj.</span>
+                  <span>{t('markets.col_target_pct')}</span>
                   <span className={`num ${pctToTarget > 0 ? 'neg' : 'pos'}`}>
                     {pctToTarget >= 0 ? '+' : ''}{fmt(pctToTarget)}%
                   </span>
@@ -146,7 +177,9 @@ export default function SecurityCard({ sec, favoritesTab = false, onToggleFav, o
                 className="btn-ghost btn-sm"
                 onClick={e => { e.stopPropagation(); onToggleFav(sec.id, sec.is_favorite) }}
               >
-                {sec.is_favorite ? (favoritesTab ? '🗑 Quitar' : '★ Favorito') : '☆ Favorito'}
+                {sec.is_favorite
+                  ? (favoritesTab ? `🗑 ${t('markets.remove_fav')}` : `★ ${t('markets.remove_fav')}`)
+                  : `☆ ${t('markets.add_fav')}`}
               </button>
             )}
             <button

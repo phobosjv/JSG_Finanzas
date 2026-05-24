@@ -1,0 +1,44 @@
+{
+  "_nota": "Catálogo de criptomonedas para importar en FJS Finanzas v1.5.0. Mercado 'crypto' en USD con fiscal_window_days=1 (en España las criptos no tienen regla de recompra de 2 meses). Los ISINs son null. Los tickers siguen el formato de Yahoo Finance (SYMBOL-USD).",
+  "markets": [
+    {
+      "code": "crypto",
+      "name": "Crypto",
+      "currency": "USD",
+      "fiscal_window_days": 1
+    }
+  ],
+  "securities": [
+    { "name": "Bitcoin", "yahoo_ticker": "BTC-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Ethereum", "yahoo_ticker": "ETH-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Tether", "yahoo_ticker": "USDT-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "BNB", "yahoo_ticker": "BNB-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Solana", "yahoo_ticker": "SOL-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "XRP", "yahoo_ticker": "XRP-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "USD Coin", "yahoo_ticker": "USDC-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Cardano", "yahoo_ticker": "ADA-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Avalanche", "yahoo_ticker": "AVAX-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Dogecoin", "yahoo_ticker": "DOGE-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "TRON", "yahoo_ticker": "TRX-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Chainlink", "yahoo_ticker": "LINK-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Polkadot", "yahoo_ticker": "DOT-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Polygon (MATIC)", "yahoo_ticker": "MATIC-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Polygon (POL)", "yahoo_ticker": "POL-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Dai", "yahoo_ticker": "DAI-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Litecoin", "yahoo_ticker": "LTC-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Uniswap", "yahoo_ticker": "UNI-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Shiba Inu", "yahoo_ticker": "SHIB-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Bitcoin Cash", "yahoo_ticker": "BCH-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Stellar", "yahoo_ticker": "XLM-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Internet Computer", "yahoo_ticker": "ICP-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Cosmos", "yahoo_ticker": "ATOM-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "NEAR Protocol", "yahoo_ticker": "NEAR-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Filecoin", "yahoo_ticker": "FIL-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Aave", "yahoo_ticker": "AAVE-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Arbitrum", "yahoo_ticker": "ARB-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Optimism", "yahoo_ticker": "OP-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Cronos", "yahoo_ticker": "CRO-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "VeChain", "yahoo_ticker": "VET-USD", "isin": null, "market": "crypto", "currency": "USD" },
+    { "name": "Monero", "yahoo_ticker": "XMR-USD", "isin": null, "market": "crypto", "currency": "USD" }
+  ]
+}

@@ -6,6 +6,7 @@ import {
   AreaChart, Area,
 } from 'recharts'
 import { api } from '../api/client'
+import { useAppConfig } from '../context/AppContext'
 
 function fmt(val, dec = 2) {
   if (val == null) return '—'
@@ -121,6 +122,7 @@ function TargetSellCell({ pos, onUpdate }) {
 }
 
 export default function Portfolio() {
+  const { t } = useAppConfig()
   const [positions, setPositions]   = useState(null)
   const [closed, setClosed]         = useState([])
   const [history, setHistory]       = useState([])
@@ -164,35 +166,35 @@ export default function Portfolio() {
   const bpTotal       = totalPnL + realizedNet + totalDivs
   return (
     <div>
-      <h1>Mi cartera</h1>
+      <h1>{t('portfolio.title')}</h1>
 
       {/* Tarjetas resumen */}
       <div className="card-row">
-        <Card label="Importe invertido" value={`${fmt(totalCost)} €`} />
-        <Card label="Valor actual"      value={`${fmt(totalValue)} €`} />
+        <Card label={t('portfolio.invested')}  value={`${fmt(totalCost)} €`} />
+        <Card label={t('portfolio.value')}     value={`${fmt(totalValue)} €`} />
         <Card
-          label="B/P latente"
+          label={t('portfolio.unrealized')}
           value={`${sign(totalPnL)}${fmt(totalPnL)} €`}
           clsName={cls(totalPnL)}
         />
         <Card
-          label="Var. hoy"
+          label={t('portfolio.today')}
           value={`${sign(totalDayEur)}${fmt(totalDayEur)} €`}
           clsName={cls(totalDayEur)}
         />
         <Card
-          label="Beneficio ventas"
+          label={t('portfolio.realized')}
           value={`${sign(grossRealized)}${fmt(grossRealized)} €`}
           clsName={cls(grossRealized)}
         />
-        <Card label="Dividendos cobrados" value={`${fmt(totalDivs)} €`} />
+        <Card label={t('portfolio.dividends')} value={`${fmt(totalDivs)} €`} />
         <Card
-          label="Comisiones pagadas"
+          label={t('portfolio.fees')}
           value={`-${fmt(totalFees)} €`}
           clsName="neg"
         />
         <Card
-          label="Beneficio total"
+          label={t('portfolio.total')}
           value={`${sign(bpTotal)}${fmt(bpTotal)} €`}
           clsName={cls(bpTotal)}
         />
@@ -387,30 +389,30 @@ export default function Portfolio() {
 
       {/* Tabla posiciones abiertas */}
       {positions.length === 0 ? (
-        <div className="state-empty">No hay posiciones abiertas</div>
+        <div className="state-empty">{t('portfolio.open')}</div>
       ) : (
         <div className="card">
-          <h2>Posiciones abiertas</h2>
+          <h2>{t('portfolio.open')}</h2>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Valor</th>
-                  <th className="num">Acciones</th>
-                  <th className="num">P. medio</th>
-                  <th className="num">Invertido</th>
-                  <th className="num">Precio act.</th>
-                  <th className="num">Valor act.</th>
-                  <th className="num">B/P €</th>
-                  <th className="num">B/P %</th>
-                  <th className="num">Var. hoy €</th>
-                  <th className="num">Var. hoy %</th>
-                  <th className="num">Dividendos</th>
-                  <th className="num">Total B/P</th>
-                  <th className="num">Máx. 1a</th>
-                  <th className="num">Obj. Venta</th>
-                  <th className="num">% Obj.</th>
-                  <th style={{ textAlign: 'center' }}>Alerta</th>
+                  <th>{t('portfolio.col_security')}</th>
+                  <th className="num">{t('portfolio.col_shares')}</th>
+                  <th className="num">{t('portfolio.col_avg')}</th>
+                  <th className="num">{t('portfolio.col_cost')}</th>
+                  <th className="num">{t('portfolio.col_price')}</th>
+                  <th className="num">{t('portfolio.col_value')}</th>
+                  <th className="num">{t('portfolio.col_unrealized')}</th>
+                  <th className="num">{t('portfolio.col_pct')}</th>
+                  <th className="num">{t('portfolio.col_daily')} €</th>
+                  <th className="num">{t('portfolio.col_daily')} %</th>
+                  <th className="num">{t('portfolio.col_divs')}</th>
+                  <th className="num">{t('portfolio.col_total')}</th>
+                  <th className="num">{t('portfolio.col_range')}</th>
+                  <th className="num">{t('portfolio.col_target')}</th>
+                  <th className="num">{t('portfolio.col_target_pct')}</th>
+                  <th style={{ textAlign: 'center' }}>{t('markets.col_alert')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -484,18 +486,18 @@ export default function Portfolio() {
       {/* Tabla posiciones cerradas */}
       {closed.length > 0 && (
         <div className="card">
-          <h2>Posiciones cerradas</h2>
+          <h2>{t('portfolio.closed')}</h2>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Valor</th>
-                  <th className="num">Acciones</th>
-                  <th className="num">Coste €</th>
-                  <th className="num">Ingresos €</th>
-                  <th className="num">B/P realizado</th>
-                  <th className="num">Dividendos</th>
-                  <th className="num">Total B/P</th>
+                  <th>{t('portfolio.col_security')}</th>
+                  <th className="num">{t('portfolio.col_shares')}</th>
+                  <th className="num">{t('portfolio.col_cost')}</th>
+                  <th className="num">{t('portfolio.col_value')}</th>
+                  <th className="num">{t('portfolio.col_realized')}</th>
+                  <th className="num">{t('portfolio.col_divs')}</th>
+                  <th className="num">{t('portfolio.col_total')}</th>
                 </tr>
               </thead>
               <tbody>

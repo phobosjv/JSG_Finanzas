@@ -4,17 +4,17 @@ import { useAppConfig } from '../context/AppContext'
 import { version } from '../../package.json'
 import './Navigation.css'
 
-const LINKS = [
-  { to: '/',           label: 'Inicio',     icon: '◈' },
-  { to: '/markets',    label: 'Mercados',   icon: '↗' },
-  { to: '/portfolio',  label: 'Cartera',    icon: '◉' },
-  { to: '/tax',        label: 'Fiscal',     icon: '§' },
-  { to: '/utilities',  label: 'Utilidades', icon: '⚙' },
+const NAV_LINKS = [
+  { to: '/',           key: 'nav.dashboard', icon: '◈' },
+  { to: '/markets',    key: 'nav.markets',   icon: '↗' },
+  { to: '/portfolio',  key: 'nav.portfolio', icon: '◉' },
+  { to: '/tax',        key: 'nav.tax',       icon: '§' },
+  { to: '/utilities',  key: 'nav.utilities', icon: '⚙' },
 ]
 
 export default function Navigation() {
   const { user, logout } = useAuth()
-  const { appName, theme, toggleTheme } = useAppConfig()
+  const { appName, theme, toggleTheme, t } = useAppConfig()
 
   return (
     <>
@@ -31,10 +31,10 @@ export default function Navigation() {
           <span className="sidebar-version">v{version}</span>
         </div>
         <div className="sidebar-links">
-          {LINKS.map(l => (
+          {NAV_LINKS.map(l => (
             <NavLink key={l.to} to={l.to} end={l.to === '/'} className={({ isActive }) => isActive ? 'active' : ''}>
               <span className="nav-icon">{l.icon}</span>
-              {l.label}
+              {t(l.key)}
             </NavLink>
           ))}
         </div>
@@ -45,12 +45,12 @@ export default function Navigation() {
               <button
                 className="btn-ghost btn-sm"
                 onClick={toggleTheme}
-                title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+                title={theme === 'dark' ? t('utilities.theme_toggle_light') : t('utilities.theme_toggle_dark')}
                 style={{ fontSize: '1rem', padding: '4px 8px' }}
               >
                 {theme === 'dark' ? '☀' : '◑'}
               </button>
-              <button className="btn-ghost btn-sm" onClick={logout}>Salir</button>
+              <button className="btn-ghost btn-sm" onClick={logout}>{t('nav.logout')}</button>
             </div>
           </div>
         )}
@@ -58,10 +58,10 @@ export default function Navigation() {
 
       {/* Barra inferior — móvil */}
       <nav className="bottom-nav">
-        {LINKS.map(l => (
+        {NAV_LINKS.map(l => (
           <NavLink key={l.to} to={l.to} end={l.to === '/'} className={({ isActive }) => isActive ? 'active' : ''}>
             <span className="nav-icon">{l.icon}</span>
-            <span className="nav-label">{l.label}</span>
+            <span className="nav-label">{t(l.key)}</span>
           </NavLink>
         ))}
       </nav>

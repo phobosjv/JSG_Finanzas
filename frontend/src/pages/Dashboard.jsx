@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { useAppConfig } from '../context/AppContext'
 import './Dashboard.css'
 
 function fmt(val, dec = 2) {
@@ -23,6 +24,7 @@ function SummaryCard({ label, value, clsName }) {
 
 function TopMoversSection({ title, market }) {
   const navigate = useNavigate()
+  const { t } = useAppConfig()
   const [up, setUp]     = useState(null)
   const [down, setDown] = useState(null)
 
@@ -64,9 +66,9 @@ function TopMoversSection({ title, market }) {
         <table style={{ width: '100%' }}>
           <thead>
             <tr>
-              <th>Valor</th>
-              <th className="num">Precio</th>
-              <th className="num">Var. %</th>
+              <th>{t('markets.col_name')}</th>
+              <th className="num">{t('markets.col_price')}</th>
+              <th className="num">{t('markets.col_change')}</th>
             </tr>
           </thead>
           <tbody>
@@ -81,8 +83,8 @@ function TopMoversSection({ title, market }) {
     <div className="card" style={{ marginTop: 16 }}>
       <h2 style={{ marginBottom: 16 }}>{title}</h2>
       <div className="movers-grid">
-        <div className="movers-col"><MoverTable items={up}   label="Mayores subidas" /></div>
-        <div className="movers-col"><MoverTable items={down} label="Mayores bajadas"  /></div>
+        <div className="movers-col"><MoverTable items={up}   label={t('dashboard.up')}   /></div>
+        <div className="movers-col"><MoverTable items={down} label={t('dashboard.down')} /></div>
       </div>
     </div>
   )
@@ -90,6 +92,7 @@ function TopMoversSection({ title, market }) {
 
 export default function Dashboard() {
   const { user, logout } = useAuth()
+  const { t } = useAppConfig()
   const navigate = useNavigate()
   const [positions, setPositions] = useState(null)
   const [favorites, setFavorites] = useState([])
@@ -119,25 +122,25 @@ export default function Dashboard() {
       </div>
 
       <div className="card-row">
-        <SummaryCard label="Valor cartera"  value={`${fmt(totalValue)} €`} />
-        <SummaryCard label="B/P latente"    value={`${sign(totalPnL)}${fmt(totalPnL)} €`} clsName={cls(totalPnL)} />
-        <SummaryCard label="Var. hoy"       value={`${sign(totalDayEur)}${fmt(totalDayEur)} €`} clsName={cls(totalDayEur)} />
-        <SummaryCard label="Posiciones"     value={positions.length} />
+        <SummaryCard label={t('portfolio.value')}     value={`${fmt(totalValue)} €`} />
+        <SummaryCard label={t('portfolio.unrealized')} value={`${sign(totalPnL)}${fmt(totalPnL)} €`} clsName={cls(totalPnL)} />
+        <SummaryCard label={t('portfolio.today')}     value={`${sign(totalDayEur)}${fmt(totalDayEur)} €`} clsName={cls(totalDayEur)} />
+        <SummaryCard label={t('portfolio.open')}      value={positions.length} />
       </div>
 
       {positions.length > 0 && (
         <div className="card">
-          <h2>Posiciones abiertas</h2>
+          <h2>{t('portfolio.open')}</h2>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Valor</th>
-                  <th className="num">Acciones</th>
-                  <th className="num">Valor (€)</th>
-                  <th className="num">B/P (€)</th>
-                  <th className="num">B/P %</th>
-                  <th className="num">Var. hoy %</th>
+                  <th>{t('portfolio.col_security')}</th>
+                  <th className="num">{t('portfolio.col_shares')}</th>
+                  <th className="num">{t('portfolio.col_value')}</th>
+                  <th className="num">{t('portfolio.col_unrealized')}</th>
+                  <th className="num">{t('portfolio.col_pct')}</th>
+                  <th className="num">{t('portfolio.col_daily')} %</th>
                 </tr>
               </thead>
               <tbody>
@@ -167,16 +170,16 @@ export default function Dashboard() {
 
       {favorites.length > 0 && (
         <div className="card">
-          <h2>Favoritos</h2>
+          <h2>{t('markets.favorites_tab')}</h2>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Valor</th>
-                  <th className="num">Precio</th>
-                  <th className="num">Var. %</th>
-                  <th className="num">Objetivo compra</th>
-                  <th style={{ textAlign: 'center' }}>Alerta</th>
+                  <th>{t('markets.col_name')}</th>
+                  <th className="num">{t('markets.col_price')}</th>
+                  <th className="num">{t('markets.col_change')}</th>
+                  <th className="num">{t('markets.col_target')}</th>
+                  <th style={{ textAlign: 'center' }}>{t('markets.col_alert')}</th>
                 </tr>
               </thead>
               <tbody>
