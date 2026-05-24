@@ -303,6 +303,92 @@ más reciente de `ecb_rates` y usa ese tipo. Fallback a 1 si no hay datos BCE.
 
 ---
 
+## Generación del ZIP de distribución
+
+El zip se genera al final de cada versión. Contiene el frontend
+**precompilado** (`frontend/dist/`) para que el despliegue Docker no
+necesite Node.js ni acceso a internet para `npm`.
+
+### Pasos obligatorios (en orden)
+
+1. **Compilar el frontend** desde el entorno de desarrollo (Windows):
+   ```powershell
+   cd frontend && npm run build
+   ```
+   Produce `frontend/dist/` con los estáticos listos.
+
+2. **Regenerar el manual PDF** (si hubo cambios en `gen_instrucciones.py`):
+   ```powershell
+   python gen_instrucciones.py
+   ```
+   Verifica que el puerto en las instrucciones coincide con
+   `docker-compose.yml` (actualmente **8040**).
+
+3. **Crear `entrypoint.sh` SIN BOM, con saltos LF** usando la Bash tool
+   con `printf` (nunca con PowerShell `Set-Content`/`Out-File` ni con
+   editores de Windows que añadan BOM):
+   ```bash
+   printf '#!/bin/sh\nset -e\n\nalembic upgrade head\n\nexec uvicorn app.main:app --host 0.0.0.0 --port 8000\n' \
+     > entrypoint.sh
+   ```
+   Verificar que los dos primeros bytes son `0x23 0x21` (`#!`):
+   ```bash
+   xxd entrypoint.sh | head -1   # debe empezar: 2321 2f62...
+   ```
+   Un BOM (`EF BB BF`) antes del shebang hace que el kernel Linux no
+   reconozca el script → el contenedor muere al arrancar sin exponer
+   ningún puerto.
+
+4. **Generar el zip** con la Bash tool (o PowerShell con
+   `ZipFile::Open`), excluyendo los directorios y ficheros que no deben
+   distribuirse:
+
+   **Excluir siempre:**
+   - `.git/`, `.claude/`
+   - `backend/venv/`, `backend/.venv/`
+   - `frontend/node_modules/`
+   - `backend/finanzas.egg-info/`
+   - `__pycache__/`, `.pytest_cache/`, `.mypy_cache/`, `htmlcov/`
+   - `backend/.env` (contiene credenciales reales)
+   - `*.db`, `*.db-shm`, `*.db-wal`
+   - `*.pyc`, `*.pyo`, `*.log`
+   - `CLAUDE.md` (instrucciones internas)
+   - `gen_instrucciones.py` (herramienta de desarrollo)
+   - `finanzas-vX.Y.Z.zip` (el propio zip)
+
+   **Incluir siempre:**
+   - `frontend/dist/` (frontend precompilado — imprescindible)
+   - `frontend/src/`, `frontend/package*.json`, `frontend/vite.config.js`
+   - Todo `backend/app/`, `backend/alembic/`, `backend/tests/`
+   - `Dockerfile`, `docker-compose.yml`, `entrypoint.sh`, `.dockerignore`
+   - `.env.example`, `instrucciones.pdf`, `CHANGELOG.md`, `README.md`
+   - `catalogo-valores.json`, `catalogo-etfs-completo.json`, `catalogo-crypto.json`
+
+5. **Verificar el zip** antes de hacer commit:
+   - `entrypoint.sh` dentro del zip empieza con `0x23 0x21` (sin BOM)
+   - No contiene `backend/.env`, `.claude/`, `CLAUDE.md`
+   - Contiene `frontend/dist/assets/*.js` y `frontend/dist/index.html`
+
+### Dockerfile para distribución
+
+El `Dockerfile` actual usa el `frontend/dist/` precompilado directamente
+(sin etapa Node). Esto es correcto para el zip de distribución. **No
+añadir de nuevo la etapa `FROM node:20-alpine`** en el Dockerfile de
+distribución — solo sirve para entornos de CI/CD que compilan desde
+código fuente.
+
+### Puerto expuesto
+
+El puerto externo está definido en `docker-compose.yml`:
+```yaml
+ports:
+  - "8040:8000"
+```
+Si se cambia este puerto, actualizar también `gen_instrucciones.py`
+para que las instrucciones sean coherentes.
+
+---
+
 ## Comandos
 
 ```bash
