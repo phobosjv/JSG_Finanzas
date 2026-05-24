@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.5.1] — 2026-05-24
+
+### Añadido
+
+- **Eliminar posición sin ventas**: nueva acción en Mi Cartera para borrar
+  una posici��n completa (y todas sus compras y dividendos asociados) cuando
+  el usuario la dio de alta por error o para pruebas.
+  - Botón 🗑 visible en la fila solo si la posición no tiene ninguna venta.
+  - Diálogo de confirmación antes de eliminar.
+  - Backend: `DELETE /api/portfolio/positions/{position_id}` (204).
+    Si la posición tiene ventas → 422 con mensaje claro.
+  - 3 tests de regresión: sin ventas (204), con ventas (422), id inexistente (404).
+- **Badge ACCIÓN/ETF/CRYPTO en Mi Cartera**: el chip de tipo de activo
+  (igual que en el Explorador de Mercados) aparece ahora también en la
+  columna "Valor" de las tablas de posiciones abiertas y cerradas.
+  El campo `market_code` se añade a `PositionSummary` y
+  `ClosedPositionSummary`.
+
+---
+
 ## [1.5.0] — 2026-05-24
 
 ### Añadido

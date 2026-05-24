@@ -80,6 +80,8 @@ export const translations = {
     'portfolio.col_target':     'Obj. venta',
     'portfolio.col_target_pct': '% hasta obj.',
     'portfolio.col_range':      'Rango 1a',
+    'portfolio.delete_title':   'Eliminar posición',
+    'portfolio.delete_confirm': '¿Eliminar la posición "{name}" y todas sus compras y dividendos? Esta acción no se puede deshacer.',
 
     // ── Utilidades ───────────────────────────────────────────────────────
     'utilities.title':          'Utilidades',
@@ -190,6 +192,8 @@ export const translations = {
     'portfolio.col_target':     'Sell target',
     'portfolio.col_target_pct': '% to target',
     'portfolio.col_range':      '1y range',
+    'portfolio.delete_title':   'Delete position',
+    'portfolio.delete_confirm': 'Delete position "{name}" and all its purchases and dividends? This action cannot be undone.',
 
     // ── Utilities ─────────────────────────────────────────────────────────
     'utilities.title':          'Utilities',

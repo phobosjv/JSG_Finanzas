@@ -168,6 +168,8 @@ class PositionSummary(BaseModel):
     yahoo_ticker: str
     name: str
     currency: str                # divisa nativa del valor ('EUR' o 'USD')
+    market_code: str             # código de mercado (para badge ETF/Crypto/Acción)
+    has_sells: bool              # True si existe alguna venta (impide borrar la posición completa)
     # Acciones y coste
     shares: Decimal
     avg_cost_eur: Decimal        # precio medio por acción en EUR (con comisión)
@@ -197,6 +199,7 @@ class ClosedPositionSummary(BaseModel):
     security_id: int
     yahoo_ticker: str
     name: str
+    market_code: str             # código de mercado (para badge ETF/Crypto/Acción)
     shares_sold: Decimal
     cost_eur: Decimal            # coste total de adquisición
     proceeds_eur: Decimal        # ingresos totales de la venta

@@ -8,6 +8,19 @@ import {
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
 
+/** Misma lógica que SecurityTable: tipo de activo desde el código de mercado. */
+function assetTypeKey(marketCode) {
+  const c = (marketCode ?? '').toLowerCase()
+  if (c.includes('etf'))    return 'etf'
+  if (c.includes('crypto')) return 'crypto'
+  return 'stock'
+}
+
+function AssetBadge({ marketCode, t }) {
+  const type = assetTypeKey(marketCode)
+  return <span className={`badge-asset ${type}`}>{t(`badge.${type}`)}</span>
+}
+
 function fmt(val, dec = 2) {
   if (val == null) return '—'
   return Number(val).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
@@ -128,6 +141,7 @@ export default function Portfolio() {
   const [history, setHistory]       = useState([])
   const [histYears, setHistYears]   = useState(2)
   const [error, setError]           = useState(null)
+  const [deleting, setDeleting]     = useState(null)   // position_id en curso de borrado
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -144,6 +158,19 @@ export default function Portfolio() {
     setPositions(prev =>
       prev.map(p => p.position_id === positionId ? { ...p, target_sell_price: newPrice } : p)
     )
+  }
+
+  async function handleDeletePosition(pos) {
+    if (!window.confirm(t('portfolio.delete_confirm').replace('{name}', pos.name))) return
+    setDeleting(pos.position_id)
+    try {
+      await api.delete(`/portfolio/positions/${pos.position_id}`)
+      setPositions(prev => prev.filter(p => p.position_id !== pos.position_id))
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setDeleting(null)
+    }
   }
 
   if (error)     return <div className="state-error">{error}</div>
@@ -413,6 +440,7 @@ export default function Portfolio() {
                   <th className="num">{t('portfolio.col_target')}</th>
                   <th className="num">{t('portfolio.col_target_pct')}</th>
                   <th style={{ textAlign: 'center' }}>{t('markets.col_alert')}</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -432,7 +460,10 @@ export default function Portfolio() {
                       onClick={() => navigate(`/securities/${p.security_id}`)}
                     >
                       <td>
-                        <div className="ticker">{p.yahoo_ticker}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div className="ticker">{p.yahoo_ticker}</div>
+                          <AssetBadge marketCode={p.market_code} t={t} />
+                        </div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{p.name}</div>
                       </td>
                       <td className="num">{fmt(p.shares, 4)}</td>
@@ -474,6 +505,19 @@ export default function Portfolio() {
                       <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                         {isSellAlert && <span className="alert-buy" style={{ color: 'var(--green)' }}>¡Vender!</span>}
                       </td>
+                      <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                        {!p.has_sells && (
+                          <button
+                            className="btn-ghost btn-sm"
+                            title={t('portfolio.delete_title')}
+                            disabled={deleting === p.position_id}
+                            onClick={() => handleDeletePosition(p)}
+                            style={{ color: 'var(--red, #ef4444)', padding: '2px 6px', fontSize: '0.8rem' }}
+                          >
+                            🗑
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   )
                 })}
@@ -508,7 +552,10 @@ export default function Portfolio() {
                     onClick={() => navigate(`/securities/${p.security_id}`)}
                   >
                     <td>
-                      <div className="ticker">{p.yahoo_ticker}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div className="ticker">{p.yahoo_ticker}</div>
+                        <AssetBadge marketCode={p.market_code} t={t} />
+                      </div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{p.name}</div>
                     </td>
                     <td className="num">{fmt(p.shares_sold, 4)}</td>

@@ -428,6 +428,66 @@ def test_target_sell_patch(admin_client, seed_markets):
 
 
 # ---------------------------------------------------------------------------
+#  Portfolio: eliminar posición completa
+# ---------------------------------------------------------------------------
+
+def test_delete_position_sin_ventas(admin_client, seed_markets):
+    """
+    Una posición con solo compras (sin ventas) puede eliminarse.
+    Tras el borrado: desaparece de /portfolio y no queda rastro en /closed.
+
+    Aritmética: 3 compras × 10 acc → posición abierta sin ventas.
+    DELETE /portfolio/positions/{id} → 204.
+    """
+    sec_id = _crear_security(admin_client, ticker="DEL.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 10, "5.00")
+    _buy(admin_client, pos_id, 5, "6.00")
+
+    # Verificar que aparece en posiciones abiertas
+    abiertas = admin_client.get("/api/portfolio").json()
+    assert any(p["position_id"] == pos_id for p in abiertas)
+
+    # Borrar la posición completa
+    r = admin_client.delete(f"/api/portfolio/positions/{pos_id}")
+    assert r.status_code == 204
+
+    # Ya no aparece en abiertas ni cerradas
+    abiertas2 = admin_client.get("/api/portfolio").json()
+    assert not any(p["position_id"] == pos_id for p in abiertas2)
+    cerradas = admin_client.get("/api/portfolio/closed").json()
+    assert not any(p["position_id"] == pos_id for p in cerradas)
+
+
+def test_delete_position_con_ventas_rechazado(admin_client, seed_markets):
+    """
+    Una posición con al menos una venta NO puede eliminarse → 422.
+    El historial fiscal debe preservarse; el usuario debe eliminar
+    las ventas manualmente si realmente quiere limpiar la posición.
+
+    Aritmética: compra 10 acc, venta 5 acc → posición abierta con ventas.
+    DELETE → 422.
+    """
+    sec_id = _crear_security(admin_client, ticker="NOVEND.MC")
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 10, "10.00")
+    _sell(admin_client, pos_id, 5, "12.00")
+
+    r = admin_client.delete(f"/api/portfolio/positions/{pos_id}")
+    assert r.status_code == 422
+    assert "ventas" in r.json()["detail"].lower()
+
+
+def test_delete_position_inexistente_devuelve_404(admin_client, seed_markets):
+    """
+    Intentar borrar un position_id que no existe (o no pertenece al usuario)
+    devuelve 404. _require_position aplica la comprobación de ownership.
+    """
+    r = admin_client.delete("/api/portfolio/positions/99999")
+    assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 #  Markets: overview y top-movers (sin snapshots reales)
 # ---------------------------------------------------------------------------
 

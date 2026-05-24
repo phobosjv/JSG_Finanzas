@@ -102,6 +102,8 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         yahoo_ticker=sec.yahoo_ticker,
         name=sec.name,
         currency=sec.currency,
+        market_code=sec.market,
+        has_sells=any(tx.type == "sell" for tx in txs),
         shares=shares,
         avg_cost_eur=avg_cost_eur,
         cost_eur=cost_eur,
@@ -337,6 +339,7 @@ def get_closed_positions(
             security_id=sec.id,
             yahoo_ticker=sec.yahoo_ticker,
             name=sec.name,
+            market_code=sec.market,
             shares_sold=shares_sold,
             cost_eur=cost_eur,
             proceeds_eur=proceeds_eur,
@@ -635,6 +638,48 @@ def delete_dividend(
     if div is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
     db.delete(div)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+#  Eliminar posición completa (solo si no tiene ventas)
+# ---------------------------------------------------------------------------
+
+@router.delete(
+    "/positions/{position_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_position(
+    position_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Elimina una posición y todas sus compras y dividendos.
+
+    Solo se permite si la posición no tiene ninguna venta registrada.
+    Si hay ventas (aunque sea parciales), hay historial fiscal que no se
+    puede borrar a la ligera; el usuario debe eliminar las ventas primero.
+    """
+    pos = _require_position(db, position_id, user.id)
+
+    has_sells = db.scalar(
+        select(TransactionRow).where(
+            TransactionRow.position_id == position_id,
+            TransactionRow.type == "sell",
+        )
+    ) is not None
+
+    if has_sells:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "No se puede eliminar una posición con ventas registradas. "
+                "Elimina primero las ventas desde el detalle del valor."
+            ),
+        )
+
+    db.delete(pos)  # CASCADE elimina transactions y dividends hijos
     db.commit()
 
 
