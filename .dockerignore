@@ -1,6 +1,7 @@
 # Control de versiones
 .git
 .gitignore
+.claude
 
 # Python
 backend/venv/
@@ -12,21 +13,19 @@ backend/.pytest_cache/
 backend/.mypy_cache/
 backend/*.egg-info/
 
-# Base de datos local (en Docker se usa el volumen)
-backend/finanzas.db
-backend/finanzas.db-shm
-backend/finanzas.db-wal
-/data/
+# Base de datos local (en Docker se usa el volumen persistente)
+*.db
+*.db-shm
+*.db-wal
 
-# Node (el build se hace dentro del contenedor multi-stage)
+# Node — el frontend ya viene pre-compilado en frontend/dist/
+# (incluido en el paquete de distribución)
 frontend/node_modules/
-# frontend/dist/ se NECESITA solo si no se hace el build en Docker;
-# como sí lo hacemos, lo excluimos para que no contamine el contexto
-frontend/dist/
 
-# Entorno local
+# Entorno local (nunca incluir en imagen Docker)
 .env
 .env.local
+backend/.env
 
 # Editores e IDEs
 .vscode/
@@ -37,3 +36,8 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Ficheros de desarrollo (no necesarios en producción)
+gen_instrucciones.py
+CLAUDE.md
+*.zip

@@ -29,10 +29,10 @@ SECTIONS = [
         "3. Ejecutar: docker compose up -d",
         "4. Crear el primer usuario administrador desde la consola del contenedor:",
         "     docker exec -it finanzas python -m app.scripts.create_user USUARIO CLAVE --admin",
-        "5. Abrir el navegador en http://localhost:8080",
+        "5. Abrir el navegador en http://localhost:8040",
         "",
-        "El contenedor expone el puerto 8080. La base de datos se almacena en un volumen",
-        "persistente (./data/finanzas.db).",
+        "El contenedor expone el puerto 8040 (configurable en docker-compose.yml).",
+        "La base de datos se almacena en un volumen Docker persistente (finanzas-data).",
     ]),
     ("Novedades en v1.5.0", [
         "ETFs y criptomonedas:",

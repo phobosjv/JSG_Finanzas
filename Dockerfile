@@ -1,41 +1,32 @@
 # =============================================================
-#  Etapa 1: compilar el frontend (Node) — BUILD ONLY
+#  Imagen de distribución — usa el frontend pre-compilado
 #
-#  Esta etapa NO forma parte de la imagen final. El escáner puede
-#  reportar CVEs aquí, pero el artefacto que se copia al stage 2
-#  son únicamente ficheros estáticos (HTML/JS/CSS), no binarios
-#  de Node ni sus dependencias. Las vulnerabilidades de esta etapa
-#  no tienen impacto en tiempo de ejecución.
-# =============================================================
-FROM node:20-alpine AS frontend
-WORKDIR /build
-COPY frontend/package*.json ./
-RUN npm ci --prefer-offline
-COPY frontend/ ./
-RUN npm run build
-
-# =============================================================
-#  Etapa 2: imagen final Python — lo único que se despliega
+#  El frontend (React/Vite) se compila en el equipo de desarrollo
+#  con "npm run build" y el directorio frontend/dist se incluye
+#  en el paquete de distribución (finanzas-vX.Y.Z.zip).
+#  Docker solo necesita copiar los estáticos ya compilados;
+#  no requiere Node.js ni acceso a internet para npm.
 #
-#  CVEs residuales tras apt-get upgrade:
-#  Las 2 CVEs que permanecen están en libcairo2/libpango, dependencias
-#  nativas obligatorias de WeasyPrint para generar PDF. No tienen
-#  parche disponible en Debian Bookworm a día de hoy. Riesgo aceptado:
-#  la app corre en red privada y no procesa PDF de orígenes externos.
-#  Revisar en cada rebuild; se parchearán en cuanto Debian publique fix.
+#  Beneficios:
+#  - Imagen final más pequeña (sin Node ni node_modules).
+#  - Builds más rápidos en el servidor de despliegue.
+#  - Sin dependencia de npmjs.org en producción.
 # =============================================================
 FROM python:3.12-slim
 
 WORKDIR /app
 
+# Instalar dependencias Python
 COPY backend/pyproject.toml ./
 RUN pip install --no-cache-dir .
 
+# Copiar código de la aplicación
 COPY backend/app     ./app
 COPY backend/alembic ./alembic
 COPY backend/alembic.ini ./
 
-COPY --from=frontend /build/dist ./static
+# Copiar frontend ya compilado (incluido en el zip de distribución)
+COPY frontend/dist   ./static
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
