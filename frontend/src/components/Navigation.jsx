@@ -18,6 +18,12 @@ export default function Navigation() {
 
   return (
     <>
+      {/* Cabecera superior — móvil */}
+      <header className="mobile-header">
+        <span className="mobile-header-name">{appName}</span>
+        <span className="mobile-header-version">v{version}</span>
+      </header>
+
       {/* Barra lateral — escritorio */}
       <nav className="sidebar">
         <div className="sidebar-brand">

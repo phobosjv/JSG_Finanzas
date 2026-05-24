@@ -5,7 +5,7 @@ Ejecutar desde la raiz del proyecto:
 """
 from fpdf import FPDF
 
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 TITLE   = f"FJS Finanzas {VERSION} - Manual de usuario"
 
 SECTIONS = [
@@ -33,6 +33,23 @@ SECTIONS = [
         "",
         "El contenedor expone el puerto 8080. La base de datos se almacena en un volumen",
         "persistente (./data/finanzas.db).",
+    ]),
+    ("Novedades en v1.4.2", [
+        "Mejoras de usabilidad y presentacion:",
+        "",
+        "  1. Informe fiscal PDF - resumen ejecutivo en pagina 1:",
+        "     El informe imprimible ahora incluye una primera pagina de resumen",
+        "     con cuatro indicadores clave: resultado neto de ventas, dividendos",
+        "     netos (bruto y retencion), comisiones pagadas y base imponible",
+        "     estimada (con tramo marginal y cuota estimada).",
+        "     Debajo aparece una barra de color que muestra como se distribuye",
+        "     la base entre los tramos del ahorro IRPF (19%, 21%, 23%, 27%, 28%).",
+        "     El detalle de operaciones se imprime a partir de la pagina 2.",
+        "",
+        "  2. Cabecera de la aplicacion en movil:",
+        "     En dispositivos moviles la barra lateral de escritorio no es visible.",
+        "     Ahora aparece una cabecera fija en la parte superior con el nombre",
+        "     de la aplicacion y el numero de version, igual que en escritorio.",
     ]),
     ("Novedades en v1.4.1 - Correcciones", [
         "Seis bugs corregidos con tests de regresion (174 tests en total):",

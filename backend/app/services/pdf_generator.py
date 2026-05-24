@@ -21,8 +21,31 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.services.tax_report import TaxReport
 
+# ---------------------------------------------------------------------------
+# Tramos IRPF base del ahorro (vigentes desde 2023)
+# (limit, rate): limit=None significa sin techo (último tramo).
+# ---------------------------------------------------------------------------
+_BRACKETS: list[tuple[Decimal | None, int]] = [
+    (Decimal("6000"),   19),
+    (Decimal("50000"),  21),
+    (Decimal("200000"), 23),
+    (Decimal("300000"), 27),
+    (None,              28),
+]
+_BRACKET_COLORS: dict[int, str] = {
+    19: "#4CAF50",
+    21: "#8BC34A",
+    23: "#FFC107",
+    27: "#FF9800",
+    28: "#F44336",
+}
+
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "reports" / "templates"
 
+
+# ---------------------------------------------------------------------------
+# Formateo de valores para la plantilla
+# ---------------------------------------------------------------------------
 
 def _fmt_money(value: Decimal) -> str:
     """1.234.567,89 — separador de miles punto, decimal coma."""
@@ -41,6 +64,72 @@ def _fmt_shares(value: Decimal) -> str:
 def _fmt_date(d) -> str:
     return d.strftime("%d/%m/%Y")
 
+
+# ---------------------------------------------------------------------------
+# Resumen ejecutivo: base imponible + tramos IRPF
+# ---------------------------------------------------------------------------
+
+def _build_tax_summary(report: TaxReport) -> dict:
+    """
+    Calcula el resumen fiscal para la primera página del informe.
+
+    Base imponible estimada = max(0, resultado_neto_ventas) + dividendos_netos.
+    Nota: esta es una estimación simplificada; el cálculo definitivo
+    corresponde a Hacienda y puede diferir.
+    """
+    base = (
+        max(Decimal("0"), report.net_capital_result_eur)
+        + report.total_dividends_net_eur
+    )
+    base = max(Decimal("0"), base)
+
+    estimated_tax = Decimal("0")
+    marginal = 19
+    segments: list[dict] = []
+    remaining = base
+    prev = Decimal("0")
+
+    for limit, rate in _BRACKETS:
+        slice_amt = (
+            min(remaining, limit - prev) if limit is not None else remaining
+        )
+        if slice_amt > Decimal("0"):
+            estimated_tax += slice_amt * Decimal(str(rate)) / Decimal("100")
+            pct = float(slice_amt / base * 100) if base > Decimal("0") else 0.0
+            segments.append(
+                {
+                    "rate":   rate,
+                    "amount": _fmt_money(slice_amt),
+                    "pct":    f"{pct:.4f}",
+                    "color":  _BRACKET_COLORS[rate],
+                }
+            )
+            marginal = rate
+        remaining -= slice_amt
+        if limit is not None:
+            prev = limit
+        if remaining <= Decimal("0"):
+            break
+
+    return {
+        "net_capital":          _fmt_money(report.net_capital_result_eur),
+        "net_capital_positive": report.net_capital_result_eur >= Decimal("0"),
+        "div_gross":            _fmt_money(report.total_dividends_gross_eur),
+        "div_withholding":      _fmt_money(report.total_dividends_withholding_eur),
+        "div_net":              _fmt_money(report.total_dividends_net_eur),
+        "div_net_positive":     report.total_dividends_net_eur >= Decimal("0"),
+        "commission_total":     _fmt_money(report.total_commission_eur),
+        "base_imponible":       _fmt_money(base),
+        "base_positive":        base > Decimal("0"),
+        "estimated_tax":        _fmt_money(estimated_tax),
+        "marginal_rate":        marginal,
+        "segments":             segments,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Contexto completo para Jinja2
+# ---------------------------------------------------------------------------
 
 def _build_context(report: TaxReport) -> dict:
     sale_lines = [
@@ -88,6 +177,7 @@ def _build_context(report: TaxReport) -> dict:
     return {
         "year":                 report.year,
         "generated_at":         datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "summary":              _build_tax_summary(report),
         "sale_lines":           sale_lines,
         "commission_lines":     commission_lines,
         "dividend_lines":       dividend_lines,
