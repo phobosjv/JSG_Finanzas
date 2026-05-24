@@ -873,3 +873,298 @@ def test_editar_compra_a_mas_acciones_ok(admin_client, seed_markets):
     })
     assert resp.status_code == 200
     assert float(resp.json()["shares"]) == 20.0
+
+
+# ---------------------------------------------------------------------------
+#  Tests de regresión — bugs corregidos en búsqueda profunda (v1.5.1)
+# ---------------------------------------------------------------------------
+
+# ── Bug 1: delete_position usaba HTTP_422_UNPROCESSABLE_ENTITY (deprecado) ──
+# Verificado por test_delete_position_con_ventas_rechazado (ya existente):
+# la corrección elimina el DeprecationWarning al ejecutar pytest.
+
+
+# ── Bug 2: catalog export/import perdía sort_order ──────────────────────────
+
+def test_catalog_export_incluye_sort_order(admin_client, seed_markets, engine):
+    """
+    GET /admin/catalog/export debe serializar el campo sort_order de cada
+    mercado. Antes de la corrección el campo no se incluía, y un ciclo
+    export→import lo perdía (todos los mercados quedaban con sort_order=0).
+    """
+    from sqlalchemy.orm import Session
+    from app.models import MarketRow
+
+    # Asignar sort_order distintos a los mercados de prueba
+    with Session(engine) as db:
+        db.get(MarketRow, "ibex35").sort_order   = 3
+        db.get(MarketRow, "continuo").sort_order = 1
+        db.get(MarketRow, "nasdaq").sort_order   = 2
+        db.commit()
+
+    resp = admin_client.get("/api/admin/catalog/export")
+    assert resp.status_code == 200
+    catalog = resp.json()
+
+    by_code = {m["code"]: m for m in catalog["markets"]}
+    assert "sort_order" in by_code["ibex35"], "sort_order ausente en exportación"
+    # Los valores exactos deben sobrevivir la serialización
+    assert by_code["ibex35"]["sort_order"]   == 3
+    assert by_code["continuo"]["sort_order"] == 1
+    assert by_code["nasdaq"]["sort_order"]   == 2
+
+
+def test_catalog_import_restaura_sort_order(admin_client, engine):
+    """
+    POST /admin/catalog/import debe crear los mercados con el sort_order
+    que viene en el JSON. Antes de la corrección, el schema CatalogMarketIn
+    no tenía el campo y el endpoint ignoraba cualquier valor, creando siempre
+    mercados con sort_order=0.
+
+    Aritmética: se importan 2 mercados con sort_order 5 y 2. Después de la
+    importación ambos deben tener exactamente esos valores.
+    """
+    from sqlalchemy.orm import Session
+    from app.models import MarketRow
+
+    catalog = {
+        "markets": [
+            {"code": "tst_a", "name": "Test A", "currency": "EUR",
+             "fiscal_window_days": 60, "sort_order": 5},
+            {"code": "tst_b", "name": "Test B", "currency": "USD",
+             "fiscal_window_days": 365, "sort_order": 2},
+        ],
+        "securities": [],
+    }
+    resp = admin_client.post("/api/admin/catalog/import", json=catalog)
+    assert resp.status_code == 200
+    assert resp.json()["markets_imported"] == 2
+
+    with Session(engine) as db:
+        m_a = db.get(MarketRow, "tst_a")
+        m_b = db.get(MarketRow, "tst_b")
+        assert m_a is not None
+        assert m_b is not None
+        # Bug: antes del fix ambos habrían tenido sort_order=0
+        assert m_a.sort_order == 5, f"Esperado 5, obtenido {m_a.sort_order}"
+        assert m_b.sort_order == 2, f"Esperado 2, obtenido {m_b.sort_order}"
+
+
+# ── Bug 3: texto del plazo de recompra hardcodeado a market=="nasdaq" ────────
+
+def test_tax_report_plazo_texto_deriva_de_fiscal_window_days():
+    """
+    El aviso de regla de recompra en el informe fiscal debe mostrar el plazo
+    correcto derivado de fiscal_window_days, no del código de mercado.
+
+    Bug: antes de la corrección, solo el mercado code="nasdaq" mostraba
+    "un año". Cualquier otro mercado con fiscal_window_days=365 (p.ej. "nyse")
+    decía incorrectamente "dos meses" aunque la ventana aplicada era de 1 año.
+
+    Aritmética:
+    - Mercado "nyse" con fiscal_window_days=365.
+    - Compra 10 acc a 100 € el 2024-01-01.
+    - Venta 10 acc a 80 € el 2024-06-01 → pérdida = -200 €.
+    - Recompra 10 acc el 2024-08-01 (dentro de la ventana de 1 año).
+    - Resultado esperado: aviso dice "un año", no "dos meses".
+    """
+    from datetime import date
+    from decimal import Decimal
+    from app.services.calculations import Transaction, SaleMatch
+    from app.services.tax_report import SecurityRef, SecuritySales, build_tax_report
+
+    buy_date  = date(2024, 1, 1)
+    sell_date = date(2024, 6, 1)
+    rebuy_date = date(2024, 8, 1)   # 61 días después de la venta → fuera de 2m, dentro de 1a
+
+    # Mercado con código ≠ "nasdaq" pero fiscal_window_days=365
+    sec = SecurityRef(security_id=1, name="Apple", isin=None,
+                      market="nyse", fiscal_window_days=365)
+
+    buy_tx = Transaction(
+        type="buy", date=buy_date,
+        shares=Decimal("10"), price=Decimal("100"),
+        fee=Decimal("0"), exchange_rate=Decimal("1"),
+    )
+    rebuy_tx = Transaction(
+        type="buy", date=rebuy_date,
+        shares=Decimal("10"), price=Decimal("85"),
+        fee=Decimal("0"), exchange_rate=Decimal("1"),
+    )
+    match = SaleMatch(
+        sell_date=sell_date, buy_date=buy_date,
+        shares=Decimal("10"),
+        cost_native=Decimal("1000"), cost_eur=Decimal("1000"),
+        proceeds_native=Decimal("800"), proceeds_eur=Decimal("800"),
+        gain_native=Decimal("-200"), gain_eur=Decimal("-200"),
+    )
+
+    sec_sales = SecuritySales(security=sec, matches=[match], all_buys=[buy_tx, rebuy_tx])
+    report = build_tax_report(2024, [sec_sales], [])
+
+    assert len(report.sale_lines) == 1
+    line = report.sale_lines[0]
+    assert line.loss_disallowed is True
+    assert line.disallowed_reason is not None
+    # El texto debe mencionar "un año", nunca "dos meses"
+    assert "un año" in line.disallowed_reason, (
+        f"Esperado 'un año' en el aviso, obtenido: {line.disallowed_reason!r}"
+    )
+    assert "dos meses" not in line.disallowed_reason
+
+
+def test_tax_report_plazo_texto_crypto_muestra_dias():
+    """
+    Mercado crypto con fiscal_window_days=1: el aviso debe mencionar "1 día",
+    no "dos meses".
+
+    Aritmética: compra el día D-0, venta el día D con pérdida, recompra el D+1
+    (dentro del plazo de 1 día). Aviso debe decir "1 día".
+    """
+    from datetime import date
+    from decimal import Decimal
+    from app.services.calculations import Transaction, SaleMatch
+    from app.services.tax_report import SecurityRef, SecuritySales, build_tax_report
+
+    buy_date   = date(2024, 6, 1)
+    sell_date  = date(2024, 6, 2)
+    rebuy_date = date(2024, 6, 3)   # 1 día después de la venta
+
+    sec = SecurityRef(security_id=2, name="Bitcoin", isin=None,
+                      market="crypto", fiscal_window_days=1)
+
+    buy_tx = Transaction(
+        type="buy", date=buy_date,
+        shares=Decimal("1"), price=Decimal("60000"),
+        fee=Decimal("0"), exchange_rate=Decimal("1"),
+    )
+    rebuy_tx = Transaction(
+        type="buy", date=rebuy_date,
+        shares=Decimal("1"), price=Decimal("55000"),
+        fee=Decimal("0"), exchange_rate=Decimal("1"),
+    )
+    match = SaleMatch(
+        sell_date=sell_date, buy_date=buy_date,
+        shares=Decimal("1"),
+        cost_native=Decimal("60000"), cost_eur=Decimal("60000"),
+        proceeds_native=Decimal("58000"), proceeds_eur=Decimal("58000"),
+        gain_native=Decimal("-2000"), gain_eur=Decimal("-2000"),
+    )
+
+    sec_sales = SecuritySales(security=sec, matches=[match], all_buys=[buy_tx, rebuy_tx])
+    report = build_tax_report(2024, [sec_sales], [])
+
+    line = report.sale_lines[0]
+    assert line.loss_disallowed is True
+    assert "1 día" in line.disallowed_reason, (
+        f"Esperado '1 día' en el aviso, obtenido: {line.disallowed_reason!r}"
+    )
+
+
+# ── Bug 4: _is_loss_disallowed no detectaba compra parcialmente consumida ────
+
+def test_perdida_disallowed_cuando_compra_parcialmente_consumida_en_ventana():
+    """
+    Bug: si el FIFO solo consume PARTE de una compra (p.ej. compra 10 acc,
+    vende 5), el código anterior excluía TODA la transacción de compra de la
+    comprobación de recompra. Las 5 acciones restantes del mismo lote —que sí
+    están dentro del plazo— no se detectaban, y la pérdida se marcaba como
+    computable cuando no debería serlo.
+
+    Aritmética:
+    - Mercado ibex35, fiscal_window_days=60.
+    - Compra: 10 acc × 100 € el 2024-05-02 (30 días antes de la venta → dentro de ±60 días).
+    - Venta: 5 acc × 80 € el 2024-06-01 → pérdida = 5×(80-100) = -100 €.
+    - FIFO empareja 5 de las 10 acciones. Quedan 5 en cartera, compradas
+      dentro de la ventana [2024-04-02, 2024-08-01].
+    - Resultado esperado: loss_disallowed=True (las 5 restantes son recompra).
+    """
+    from datetime import date
+    from decimal import Decimal
+    from app.services.calculations import Transaction, SaleMatch
+    from app.services.tax_report import SecurityRef, SecuritySales, build_tax_report
+
+    sell_date = date(2024, 6, 1)
+    buy_date  = date(2024, 5, 2)   # 30 días antes → dentro del plazo ±60 días
+
+    sec = SecurityRef(security_id=1, name="Iberdrola", isin=None,
+                      market="ibex35", fiscal_window_days=60)
+
+    # Una sola compra de 10 acciones
+    buy_tx = Transaction(
+        type="buy", date=buy_date,
+        shares=Decimal("10"), price=Decimal("100"),
+        fee=Decimal("0"), exchange_rate=Decimal("1"),
+    )
+
+    # El FIFO solo consume 5 de las 10
+    match = SaleMatch(
+        sell_date=sell_date, buy_date=buy_date,
+        shares=Decimal("5"),           # ← solo 5 consumidas
+        cost_native=Decimal("500"),    # 5 × 100
+        cost_eur=Decimal("500"),
+        proceeds_native=Decimal("400"), # 5 × 80
+        proceeds_eur=Decimal("400"),
+        gain_native=Decimal("-100"),
+        gain_eur=Decimal("-100"),
+    )
+
+    sec_sales = SecuritySales(security=sec, matches=[match], all_buys=[buy_tx])
+    report = build_tax_report(2024, [sec_sales], [])
+
+    assert len(report.sale_lines) == 1
+    line = report.sale_lines[0]
+    assert line.loss_disallowed is True, (
+        "La pérdida debe marcarse: quedan 5 acc del mismo lote "
+        "comprado dentro del plazo de 2 meses."
+    )
+
+
+def test_perdida_computable_cuando_compra_totalmente_consumida_sin_otras_en_ventana():
+    """
+    Caso control: si el FIFO consume EXACTAMENTE todas las acciones del lote
+    y no hay otras compras en la ventana, la pérdida SÍ es computable.
+
+    Aritmética:
+    - Compra 5 acc × 100 € el 2024-05-02 (30 días antes).
+    - Venta 5 acc × 80 € el 2024-06-01 → pérdida = -100 €.
+    - FIFO consume las 5 completas: no quedan acciones del lote.
+    - Sin otras compras en la ventana.
+    - Resultado: loss_disallowed=False (pérdida computable).
+    """
+    from datetime import date
+    from decimal import Decimal
+    from app.services.calculations import Transaction, SaleMatch
+    from app.services.tax_report import SecurityRef, SecuritySales, build_tax_report
+
+    sell_date = date(2024, 6, 1)
+    buy_date  = date(2024, 5, 2)   # 30 días antes → dentro del plazo, pero lote agotado
+
+    sec = SecurityRef(security_id=1, name="Iberdrola", isin=None,
+                      market="ibex35", fiscal_window_days=60)
+
+    buy_tx = Transaction(
+        type="buy", date=buy_date,
+        shares=Decimal("5"), price=Decimal("100"),
+        fee=Decimal("0"), exchange_rate=Decimal("1"),
+    )
+
+    match = SaleMatch(
+        sell_date=sell_date, buy_date=buy_date,
+        shares=Decimal("5"),           # ← exactamente lo mismo que la compra
+        cost_native=Decimal("500"),
+        cost_eur=Decimal("500"),
+        proceeds_native=Decimal("400"),
+        proceeds_eur=Decimal("400"),
+        gain_native=Decimal("-100"),
+        gain_eur=Decimal("-100"),
+    )
+
+    sec_sales = SecuritySales(security=sec, matches=[match], all_buys=[buy_tx])
+    report = build_tax_report(2024, [sec_sales], [])
+
+    line = report.sale_lines[0]
+    assert line.loss_disallowed is False, (
+        "Con compra totalmente consumida y sin otras en la ventana, "
+        "la pérdida debe ser computable."
+    )

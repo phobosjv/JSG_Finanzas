@@ -187,14 +187,26 @@ def _is_loss_disallowed(
     window = security.recapture_window
     sell = match.sell_date
 
-    # La compra emparejada con esta venta no cuenta como "recompra".
-    # Si hay varias compras en la misma fecha (match.buy_date), solo se excluye
-    # UNA de ellas (la primera encontrada, que representa el lote consumido por
-    # el FIFO). Las demás sí deben comprobarse como posibles recompras.
+    # La compra emparejada con esta venta no cuenta íntegramente como "recompra".
+    # Se excluye la primera compra hallada en match.buy_date que representa el
+    # lote consumido por FIFO; pero SOLO la parte consumida (match.shares).
+    # Si esa compra tenía MÁS acciones de las que el FIFO consumió, las acciones
+    # sobrantes SÍ son una "recompra" potencial dentro del plazo.
+    #
+    # IMPORTANTE: all_buys debe haberse normalizado con los mismos splits que se
+    # usaron en compute_position (lo hace tax_report_input.build_tax_report_input)
+    # para que buy.shares y match.shares sean comparables (ambos post-split).
     matched_buy_excluded = False
     for buy in all_buys:
         if not matched_buy_excluded and buy.date == match.buy_date:
             matched_buy_excluded = True
+            # Si el lote de compra tenía más acciones de las emparejadas con
+            # esta venta, las restantes ESTÁN en el plazo → pérdida afectada.
+            if (
+                buy.shares > match.shares
+                and (sell - window) <= buy.date <= (sell + window)
+            ):
+                return True
             continue
         # Recompra dentro de la ventana [venta - plazo, venta + plazo]
         if (sell - window) <= buy.date <= (sell + window):
@@ -237,7 +249,17 @@ def build_tax_report(
             reason = None
             if disallowed:
                 any_disallowed = True
-                plazo = "un ano" if sec.market == "nasdaq" else "dos meses"
+                # El texto del plazo se deriva de fiscal_window_days del mercado
+                # (no del código de mercado): así es correcto para cualquier
+                # mercado personalizado, no solo para el código "nasdaq".
+                days = sec.fiscal_window_days
+                if days >= 365:
+                    plazo = "un año"
+                elif days >= 30:
+                    meses = round(days / 30)
+                    plazo = f"{meses} {'mes' if meses == 1 else 'meses'}"
+                else:
+                    plazo = f"{days} {'día' if days == 1 else 'días'}"
                 reason = (
                     f"Posible aplicacion de la regla de recompra: existe una "
                     f"compra del mismo valor dentro del plazo de {plazo} "

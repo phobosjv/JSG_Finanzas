@@ -111,6 +111,7 @@ class CatalogMarketIn(BaseModel):
     index_ticker: str | None = None
     currency: str = "EUR"
     fiscal_window_days: int = 60
+    sort_order: int = 0
 
 
 class CatalogSecurityIn(BaseModel):

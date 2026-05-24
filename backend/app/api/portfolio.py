@@ -672,7 +672,7 @@ def delete_position(
 
     if has_sells:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "No se puede eliminar una posición con ventas registradas. "
                 "Elimina primero las ventas desde el detalle del valor."

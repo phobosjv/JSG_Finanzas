@@ -21,7 +21,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.repositories.portfolio_repository import PortfolioRepository
-from app.services.calculations import compute_position
+from app.services.calculations import compute_position, normalize_splits
 from app.services.tax_report import SecuritySales, DividendRecord
 
 
@@ -50,11 +50,18 @@ def build_tax_report_input(
         # FIFO: produce los SaleMatch (emparejamientos venta-compra).
         position_result = compute_position(txs, divs, splits)
 
+        # Normalizar all_buys con los mismos splits aplicados en compute_position.
+        # Esto permite comparar match.shares (post-split) con buy.shares (también
+        # post-split) en _is_loss_disallowed para detectar correctamente la regla
+        # de recompra cuando el FIFO solo consume PARTE de una compra.
+        raw_buys = repo.all_buys_for_security(user_id, pos.security_id)
+        normalized_buys = normalize_splits(raw_buys, splits) if splits else raw_buys
+
         sales.append(
             SecuritySales(
                 security=repo.security_ref(pos.security_id),
                 matches=position_result.sale_matches,
-                all_buys=repo.all_buys_for_security(user_id, pos.security_id),
+                all_buys=normalized_buys,
             )
         )
 

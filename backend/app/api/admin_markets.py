@@ -179,6 +179,7 @@ def export_catalog(
                 "index_ticker": m.index_ticker,
                 "currency": m.currency,
                 "fiscal_window_days": m.fiscal_window_days,
+                "sort_order": m.sort_order,
             }
             for m in markets
         ],
@@ -239,6 +240,7 @@ def import_catalog(
                     index_ticker=m.index_ticker or None,
                     currency=(m.currency or "EUR").upper(),
                     fiscal_window_days=max(1, m.fiscal_window_days or 60),
+                    sort_order=m.sort_order,
                     created_at=datetime.now().isoformat(),
                 )
             )

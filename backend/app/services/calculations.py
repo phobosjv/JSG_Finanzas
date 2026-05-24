@@ -164,7 +164,7 @@ def to_eur(amount_native: Decimal, exchange_rate: Decimal) -> Decimal:
 #  Núcleo: recorrido FIFO de las transacciones
 # --------------------------------------------------------------------------
 
-def _normalize_splits(
+def normalize_splits(
     transactions: list[Transaction],
     splits: list[Split],
 ) -> list[Transaction]:
@@ -220,7 +220,7 @@ def compute_position(
     a cantidades post-split antes de aplicar FIFO.
     """
     if splits:
-        transactions = _normalize_splits(transactions, splits)
+        transactions = normalize_splits(transactions, splits)
 
     # Ordenar por fecha es imprescindible para que FIFO sea correcto.
     # Ante misma fecha, las compras van antes que las ventas: no se puede
