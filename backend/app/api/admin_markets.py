@@ -14,16 +14,18 @@ PATCH  /admin/config/snapshot-interval — cambia el intervalo de actualización
 
 from __future__ import annotations
 
-from datetime import datetime
+import json
+from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
 from app.models import AppConfig, MarketRow, Security, User
 from app.schemas.market_admin import (
-    AppNameUpdate, MarketCreate, MarketOut, MarketUpdate, SnapshotIntervalUpdate,
+    AppNameUpdate, CatalogImportBody,
+    MarketCreate, MarketOut, MarketUpdate, SnapshotIntervalUpdate,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -129,6 +131,158 @@ def delete_market(
         )
     db.delete(market)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+#  Exportación / importación del catálogo de mercados y valores
+# ---------------------------------------------------------------------------
+
+@router.get("/catalog/export")
+def export_catalog(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Exporta el catálogo completo de mercados y valores en JSON descargable.
+    El fichero resultante puede importarse en otro servidor con POST /catalog/import.
+    """
+    markets = db.scalars(select(MarketRow).order_by(MarketRow.code)).all()
+    securities = db.scalars(select(Security).order_by(Security.name)).all()
+
+    payload = {
+        "exported_at": date.today().isoformat(),
+        "markets": [
+            {
+                "code": m.code,
+                "name": m.name,
+                "index_ticker": m.index_ticker,
+                "currency": m.currency,
+                "fiscal_window_days": m.fiscal_window_days,
+            }
+            for m in markets
+        ],
+        "securities": [
+            {
+                "name": s.name,
+                "isin": s.isin,
+                "yahoo_ticker": s.yahoo_ticker,
+                "google_ticker": s.google_ticker,
+                "market": s.market,
+                "currency": s.currency,
+            }
+            for s in securities
+        ],
+    }
+
+    json_bytes = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    today = date.today().isoformat()
+    return Response(
+        content=json_bytes,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="catalogo_valores_{today}.json"'
+        },
+    )
+
+
+@router.post("/catalog/import")
+def import_catalog(
+    body: CatalogImportBody,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Importa un catálogo de mercados y valores desde JSON.
+
+    Reglas de deduplicación:
+    - Mercados: índice = code (PK). Si el código ya existe, se omite.
+    - Valores  : índice = yahoo_ticker (UNIQUE global). Si el ticker ya
+                 existe en cualquier mercado, se omite (no se mueve de mercado).
+
+    Devuelve los contadores de importados / omitidos para dar feedback al admin.
+    """
+    markets_imported = 0
+    markets_skipped = 0
+
+    # — Paso 1: importar mercados (code = PK) —————————————————————————————
+    for m in body.markets:
+        code = m.code.strip().lower()
+        if not code:
+            markets_skipped += 1
+            continue
+        if db.get(MarketRow, code) is None:
+            db.add(
+                MarketRow(
+                    code=code,
+                    name=m.name.strip() or code,
+                    index_ticker=m.index_ticker or None,
+                    currency=(m.currency or "EUR").upper(),
+                    fiscal_window_days=max(1, m.fiscal_window_days or 60),
+                    created_at=datetime.now().isoformat(),
+                )
+            )
+            markets_imported += 1
+        else:
+            markets_skipped += 1
+
+    # flush para que los mercados recién importados sean visibles en el paso 2
+    if markets_imported > 0:
+        db.flush()
+
+    # — Paso 2: importar valores (yahoo_ticker = UNIQUE global) ——————————
+    existing_tickers: set[str] = set(
+        db.scalars(select(Security.yahoo_ticker))
+    )
+
+    securities_imported = 0
+    securities_skipped = 0
+    securities_no_market = 0
+
+    for s in body.securities:
+        ticker = s.yahoo_ticker.strip().upper()
+        if not ticker:
+            securities_skipped += 1
+            continue
+
+        # Ya existe en la BD (en cualquier mercado)
+        if ticker in existing_tickers:
+            securities_skipped += 1
+            continue
+
+        # Moneda válida (solo EUR y USD soportadas por el motor de cálculo)
+        currency = (s.currency or "EUR").upper()
+        if currency not in ("EUR", "USD"):
+            securities_skipped += 1
+            continue
+
+        # El mercado debe existir (en la BD original o recién importado)
+        market_code = (s.market or "").strip().lower()
+        if not market_code or db.get(MarketRow, market_code) is None:
+            securities_no_market += 1
+            continue
+
+        db.add(
+            Security(
+                name=s.name.strip(),
+                isin=s.isin or None,
+                yahoo_ticker=ticker,
+                google_ticker=s.google_ticker or None,
+                market=market_code,
+                currency=currency,
+            )
+        )
+        existing_tickers.add(ticker)  # evitar duplicados dentro del mismo lote
+        securities_imported += 1
+
+    db.commit()
+
+    return {
+        "markets_imported":      markets_imported,
+        "markets_skipped":       markets_skipped,
+        "securities_imported":   securities_imported,
+        "securities_skipped":    securities_skipped,
+        "securities_no_market":  securities_no_market,
+    }
 
 
 # ---------------------------------------------------------------------------

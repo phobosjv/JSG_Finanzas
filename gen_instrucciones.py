@@ -5,7 +5,7 @@ Ejecutar desde la raiz del proyecto:
 """
 from fpdf import FPDF
 
-VERSION = "1.4.2"
+VERSION = "1.4.3"
 TITLE   = f"FJS Finanzas {VERSION} - Manual de usuario"
 
 SECTIONS = [
@@ -33,6 +33,36 @@ SECTIONS = [
         "",
         "El contenedor expone el puerto 8080. La base de datos se almacena en un volumen",
         "persistente (./data/finanzas.db).",
+    ]),
+    ("Novedades en v1.4.3", [
+        "Importacion y exportacion del catalogo de valores (administrador):",
+        "",
+        "  Nueva seccion 'Catalogo de valores' en el Panel de Administracion:",
+        "",
+        "  - Exportar catalogo: descarga un fichero JSON con todos los mercados",
+        "    y valores actualmente registrados en el sistema. Util para migrar",
+        "    el catalogo a un servidor nuevo sin tener que introducirlos a mano.",
+        "",
+        "  - Importar catalogo: sube un JSON (propio o el fichero de referencia",
+        "    catalogo-valores.json incluido en el paquete de instalacion) y añade",
+        "    los mercados y valores que no existan todavia.",
+        "",
+        "  Reglas de importacion:",
+        "    * Mercados: indice = codigo de mercado. Si ya existe, se omite.",
+        "    * Valores: indice = Yahoo Ticker (unico global). Si el ticker ya",
+        "      existe en cualquier mercado, no se importa ni se cambia de mercado.",
+        "    * Si el mercado de un valor no existe (ni en la BD ni en el mismo",
+        "      lote de importacion), el valor se omite y se informa al admin.",
+        "    * Los mercados del mismo lote se importan antes que los valores,",
+        "      permitiendo hacer una importacion inicial completa en una sola vez.",
+        "    * Al terminar se muestra un resumen con los contadores de importados",
+        "      y omitidos para mercados y para valores.",
+        "",
+        "  Fichero catalogo-valores.json:",
+        "    Incluido en el paquete de instalacion. Contiene 3 mercados",
+        "    (IBEX 35, Mercado Continuo, Nasdaq) y 93 valores con sus Yahoo",
+        "    tickers, Google tickers, ISINs (donde se conocen) y monedas.",
+        "    La composicion del IBEX35 es aproximada a 2025; verificar en BME.",
     ]),
     ("Novedades en v1.4.2", [
         "Mejoras de usabilidad y presentacion:",

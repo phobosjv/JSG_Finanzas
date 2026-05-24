@@ -959,6 +959,12 @@ export default function AdminPanel() {
   const [adminImporting, setAdminImporting] = useState(false)
   const [adminBackupMsg, setAdminBackupMsg] = useState(null)
   const [adminBackupErr, setAdminBackupErr] = useState(null)
+
+  // Catálogo de valores
+  const catalogFileRef                        = useRef(null)
+  const [catalogImporting, setCatalogImporting] = useState(false)
+  const [catalogMsg, setCatalogMsg]             = useState(null)
+  const [catalogErr, setCatalogErr]             = useState(null)
   const [pwBusy, setPwBusy] = useState(false)
   const [pwError, setPwError] = useState(null)
   const [pwOk, setPwOk] = useState(false)
@@ -1013,6 +1019,47 @@ export default function AdminPanel() {
       setAdminBackupErr(err.message ?? 'Error al importar')
     } finally {
       setAdminImporting(false)
+      e.target.value = ''
+    }
+  }
+
+  async function exportCatalog() {
+    setCatalogErr(null)
+    try {
+      const res = await fetch('/api/admin/catalog/export', { credentials: 'include' })
+      if (!res.ok) { setCatalogErr('Error al exportar el catálogo'); return }
+      const blob = await res.blob()
+      const cd   = res.headers.get('Content-Disposition') ?? ''
+      const match = cd.match(/filename="([^"]+)"/)
+      const filename = match ? match[1] : 'catalogo_valores.json'
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = filename; a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setCatalogErr(err.message ?? 'Error al exportar')
+    }
+  }
+
+  async function importCatalog(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCatalogImporting(true); setCatalogErr(null); setCatalogMsg(null)
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      const r = await api.post('/admin/catalog/import', data)
+      const noMkt = r.securities_no_market > 0
+        ? `, ${r.securities_no_market} sin mercado`
+        : ''
+      setCatalogMsg(
+        `Mercados: ${r.markets_imported} importados, ${r.markets_skipped} ya existían. ` +
+        `Valores: ${r.securities_imported} importados, ${r.securities_skipped} ya existían${noMkt}.`
+      )
+    } catch (err) {
+      setCatalogErr(err.message ?? 'Error al importar')
+    } finally {
+      setCatalogImporting(false)
       e.target.value = ''
     }
   }
@@ -1236,6 +1283,38 @@ export default function AdminPanel() {
             accept=".json,application/json"
             style={{ display: 'none' }}
             onChange={importAdminBackup}
+          />
+        </div>
+      </div>
+
+      {/* Catálogo de mercados y valores */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>Catálogo de valores</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
+          Exporta o importa el catálogo de mercados y valores en formato JSON.
+          Útil para copiar el catálogo entre servidores.<br />
+          <strong>Índice de deduplicación:</strong> Yahoo Ticker (único global).
+          Si un valor ya existe en cualquier mercado no se sobreescribe.
+        </p>
+        {catalogErr && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{catalogErr}</div>}
+        {catalogMsg && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12, fontSize: '0.85rem' }}>{catalogMsg}</div>}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button className="btn-primary btn-sm" onClick={exportCatalog}>
+            ↓ Exportar catálogo
+          </button>
+          <button
+            className="btn-ghost btn-sm"
+            disabled={catalogImporting}
+            onClick={() => catalogFileRef.current?.click()}
+          >
+            {catalogImporting ? 'Importando…' : '↑ Importar catálogo'}
+          </button>
+          <input
+            ref={catalogFileRef}
+            type="file"
+            accept=".json,application/json"
+            style={{ display: 'none' }}
+            onChange={importCatalog}
           />
         </div>
       </div>

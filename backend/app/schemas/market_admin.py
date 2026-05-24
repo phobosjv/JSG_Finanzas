@@ -92,6 +92,39 @@ class AppNameUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+#  Importación / exportación de catálogo
+# ---------------------------------------------------------------------------
+
+class CatalogMarketIn(BaseModel):
+    """Un mercado en el JSON de catálogo (importación/exportación)."""
+    code: str
+    name: str
+    index_ticker: str | None = None
+    currency: str = "EUR"
+    fiscal_window_days: int = 60
+
+
+class CatalogSecurityIn(BaseModel):
+    """Un valor en el JSON de catálogo (importación/exportación)."""
+    name: str
+    isin: str | None = None
+    yahoo_ticker: str
+    google_ticker: str | None = None
+    market: str
+    currency: str = "EUR"
+
+
+class CatalogImportBody(BaseModel):
+    """Cuerpo de la petición de importación de catálogo.
+    Campos extra (exported_at, _note…) son ignorados.
+    """
+    markets: list[CatalogMarketIn] = []
+    securities: list[CatalogSecurityIn] = []
+
+    model_config = {"extra": "ignore"}
+
+
+# ---------------------------------------------------------------------------
 #  Splits / contrasplits
 # ---------------------------------------------------------------------------
 
