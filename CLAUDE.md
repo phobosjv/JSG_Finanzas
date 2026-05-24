@@ -34,6 +34,53 @@ con login por contraseña. Inspiración funcional: snowball-analytics.
 5. **Verificar con tests** todo lo que tenga lógica no trivial. Cada test
    lleva en comentario la aritmética que justifica el resultado esperado.
 6. **Explicar las decisiones de diseño antes de escribir el código.**
+7. **No hardcodear nada que pueda cambiar**: ni el nombre de la app, ni los
+   mercados, ni los splits, ni los tipos de cambio. Todo gestionable por
+   admin y/o almacenado en la BD.
+8. **No exponer nada que no sea necesario.** El API REST es la única interfaz
+   entre frontend y backend; no hay acceso directo a la BD ni a los modelos
+   SQLAlchemy desde el frontend.
+9. **No mezclar responsabilidades.** Repositorios para I/O puro, servicios
+   para lógica pura, routers para HTTP. No colar lógica de negocio en los
+   routers ni SQLAlchemy en los servicios.
+10. **Mantener la distinción entre modelos de BD y objetos de cálculo.**
+    Evita colisiones de import y deja claro qué es qué.
+11. **Documentar las limitaciones conocidas** (ej. Money, splits con ratios
+    periódicos) para que no se pierda el contexto.
+12. **Seguir las convenciones de nombres** para que el código sea fácil de
+    entender y navegar.
+13. **Escribir tests para cualquier bug que se quiera corregir.** No se arregla
+    un bug sin un test que lo reproduzca y verifique la corrección.
+14. **Mantener el código limpio y legible.** No sacrificar claridad por brevedad.
+    Usar nombres descriptivos, evitar trucos crípticos, escribir comentarios
+    donde la intención no sea obvia.
+15. **Usar control de versiones y commits atómicos.** Cada commit debe ser una
+    unidad lógica completa, con un mensaje claro que explique el "qué" y el
+    "por qué". No mezclar cambios no relacionados en un mismo commit.
+16. **Revisar el código antes de hacer merge.** Asegurarse de que cumple con las
+    reglas de oro, que no introduce bugs, que es legible y que tiene tests
+    adecuados.
+17. **Documentar el proyecto.** Mantener este README actualizado con la
+    arquitectura, las decisiones de diseño, las convenciones y cualquier
+    información relevante para entender el proyecto.
+18. **Mantener la seguridad en mente.** Proteger las rutas que requieren
+    autenticación, validar la entrada del usuario, manejar los errores de
+    forma segura, no exponer información sensible.
+19. **Hacer backups regulares.** Configurar un sistema de backups automáticos
+    para la base de datos y probar la restauración periódicamente.
+20. **Planificar el mantenimiento.** Establecer un proceso para actualizar las
+    dependencias, revisar los logs de errores, monitorizar el rendimiento y
+    corregir los bugs que puedan surgir.
+21. **Número de versión en el programa.** Mantener un número de versión en el código (por ejemplo, en
+    `app_config`) que se incremente con cada release importante, para tener un
+    control claro de qué versión está desplegada y facilitar la gestión de
+    cambios y migraciones. Que sea visible en la interfaz de usuario.
+22. **Gestión de errores y logging.** Implementar un sistema de logging para registrar los errores y eventos importantes, con diferentes niveles (info, warning, error). Asegurarse de que los errores se manejan de forma adecuada y que no se exponen detalles sensibles al usuario.
+23. **Pruebas de integración y end-to-end.** Además de los tests unitarios, implementar pruebas de integración para verificar que los diferentes componentes del sistema funcionan correctamente juntos, y pruebas end-to-end para simular el comportamiento del usuario y detectar posibles problemas en la experiencia de usuario.
+24. **Documentación de la API.** Utilizar las capacidades de documentación automática de FastAPI para mantener una documentación clara y actualizada de la API, que facilite el desarrollo del frontend y cualquier integración futura.
+25. **Gestión de dependencias.** Mantener un control estricto sobre las dependencias del proyecto, utilizando un archivo `requirements.txt` o `Pipfile` para asegurar que las versiones son compatibles y que el entorno de desarrollo es reproducible.
+26. **Tras cada nueva versión generada, actualizar el changelog.** Mantener un registro claro de los cambios, mejoras y correcciones de bugs en cada versión, para facilitar la comunicación con los usuarios y la gestión del proyecto. También debemos actualizar el número de versión en el código y en la documentación. Finalmente generaremos el archivo zip con el código actualizado para su distribución.
+
 
 ## Modelo de datos (SQLite)
 
@@ -124,7 +171,7 @@ Los splits son eventos corporativos globales gestionados por el admin:
 
 ---
 
-## Estado actual (mayo 2026) — v1.4.0
+## Estado actual (mayo 2026) — v1.4.3
 
 ### Implementado y funcional
 
@@ -137,13 +184,13 @@ Los splits son eventos corporativos globales gestionados por el admin:
   indicadores; job periódico de snapshots (intervalo configurable por admin,
   5-60 min, por defecto 5 min).
 - **Services**: FIFO con normalización de splits, informe fiscal IRPF,
-  PDF WeasyPrint, indicadores de rango, backup.
-- **API**: auth, admin (usuarios + suscripciones + historial), admin_markets,
-  admin_splits, app_config (público), securities, markets, portfolio,
-  favorites, reports, backup.
+  HTML→PDF (Ctrl+P), indicadores de rango, backup.
+- **API**: auth, admin (usuarios + suscripciones + historial), admin_markets
+  (incluye catalog/export y catalog/import), admin_splits, app_config
+  (público), securities, markets, portfolio, favorites, reports, backup.
 - **Frontend**: Login, Dashboard, Markets, Portfolio, SecurityDetail,
   Utilities (con selector de tema), AdminPanel (usuarios, mercados, valores,
-  splits, configuración).
+  splits, configuración, catálogo de valores).
 - **Sistema de roles**: `is_admin` en User; admin → AdminPanel; usuario normal
   → app completa.
 - **Control de suscripciones** (v1.3.0): enable/disable, fecha de caducidad,
@@ -154,8 +201,20 @@ Los splits son eventos corporativos globales gestionados por el admin:
   Utilidades; preferencia en `localStorage`.
 - **Splits/contrasplits** (v1.4.0): gestión admin por valor, efecto global
   en todos los usuarios.
+- **Correcciones de bugs** (v1.4.1): 6 bugs corregidos con 13 tests de
+  regresión (avg_return_pct, backup USD/rate=1, precio cero, dedup fee,
+  shares_sold con splits, regla recompra dos compras mismo día).
+- **Informe fiscal PDF — página de resumen** (v1.4.2): primera página con
+  4 indicadores clave (resultado neto ventas, dividendos, comisiones, base
+  imponible) y barra de distribución por tramos IRPF.
+- **Cabecera móvil** (v1.4.2): barra fija en la parte superior en dispositivos
+  móviles con nombre de la app y versión.
+- **Catálogo de valores: import/export** (v1.4.3): `GET /admin/catalog/export`
+  y `POST /admin/catalog/import`. Deduplicación por yahoo_ticker (único global).
+  Fichero `catalogo-valores.json` con 93 valores precargados (IBEX35 + Mercado
+  Continuo + Nasdaq).
 - **PWA + Docker** configurados.
-- **Tests**: 161 en verde (pytest).
+- **Tests**: 187 en verde (pytest).
 
 ### Routers y prefijos API
 
