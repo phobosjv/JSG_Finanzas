@@ -5,7 +5,7 @@ Ejecutar desde la raiz del proyecto:
 """
 from fpdf import FPDF
 
-VERSION = "1.4.3"
+VERSION = "1.5.0"
 TITLE   = f"FJS Finanzas {VERSION} - Manual de usuario"
 
 SECTIONS = [
@@ -33,6 +33,36 @@ SECTIONS = [
         "",
         "El contenedor expone el puerto 8080. La base de datos se almacena en un volumen",
         "persistente (./data/finanzas.db).",
+    ]),
+    ("Novedades en v1.5.0", [
+        "ETFs y criptomonedas:",
+        "  - Soporte completo para ETFs (fondos cotizados) y criptomonedas como",
+        "    nuevos tipos de activos, utilizando el mecanismo de mercados dinamicos.",
+        "  - Se incluyen dos catalogos listos para importar desde el Panel de Admin:",
+        "    * catalogo-etfs-completo.json: 47 ETFs (29 en EUR, 18 en USD)",
+        "      en los mercados 'ETFs EUR' y 'ETFs USD'.",
+        "    * catalogo-crypto.json: 31 criptomonedas en el mercado 'Crypto' (USD).",
+        "  - Ventana fiscal de 1 dia para crypto: en Espana las criptos no tienen",
+        "    regla de recompra (no se aplica la norma de 2 meses).",
+        "",
+        "Orden configurable de pestanas de mercados:",
+        "  - El administrador puede reordenar las pestanas del Explorador de Mercados",
+        "    usando los botones de subir / bajar en el Panel de Administracion.",
+        "  - El orden se guarda en la base de datos y se aplica a todos los usuarios.",
+        "",
+        "Selector de idioma Espanol / Ingles:",
+        "  - En la seccion Utilidades hay un selector de idioma.",
+        "  - La preferencia se guarda en el navegador (localStorage).",
+        "  - Los textos de la interfaz cambian inmediatamente al seleccionar.",
+        "",
+        "Mejoras visuales:",
+        "  - Badge de tipo de activo (ETF / Crypto / Accion) en tabla y tarjetas.",
+        "  - Columnas ISIN, Google Ticker y Dividendo ocultas automaticamente",
+        "    si ningun valor del mercado activo tiene ese dato (ej. Crypto).",
+        "  - Precios adaptativos: 2, 4 o 6 decimales segun la magnitud del precio",
+        "    (necesario para micro-caps como SHIB cuyo precio es menor que 0,00001).",
+        "  - Las pestanas de mercado hacen scroll horizontal en lugar de envolver,",
+        "    evitando que la tabla quede desplazada hacia abajo en movil.",
     ]),
     ("Novedades en v1.4.3", [
         "Importacion y exportacion del catalogo de valores (administrador):",
