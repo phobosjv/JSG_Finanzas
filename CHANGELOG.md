@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.5.6] — 2026-05-26
+
+### Corregido
+
+- **Bloque 2: compras del mismo día a distinto precio aparecen como filas
+  independientes**: hasta ahora todas las compras de un valor en la misma
+  fecha se agrupaban en una sola fila (con precio promedio), ocultando que
+  eran operaciones distintas. Ahora la clave de agrupación incluye el
+  precio unitario de cada lote: dos compras del mismo día con el mismo precio
+  se siguen agrupando (son el mismo lote consumido parcialmente por varios
+  pares FIFO), pero dos compras del mismo día a precios distintos generan
+  dos filas separadas, mostrando su precio real. Las compras del mismo día
+  se ordenan de menor a mayor precio unitario.
+
+### Infraestructura
+
+- 196 tests en verde.
+
+---
+
 ## [1.5.5] — 2026-05-26
 
 ### Corregido

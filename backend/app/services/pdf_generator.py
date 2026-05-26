@@ -378,15 +378,25 @@ def _build_movement_lines(sale_lines: list[SaleLine], lang: str) -> list[dict]:
     """
     Agrega los pares FIFO (SaleLine) en filas de movimiento (compra/venta).
 
-    Las operaciones del mismo valor y fecha se agrupan en una sola fila.
-    Todos los importes ya están en euros; la columna "Divisa" muestra la
-    divisa nativa del valor para referencia.
+    Reglas de agrupación:
+      VENTAS  → agrupa por (valor, fecha_venta, isin, divisa).
+                Una venta que consume varios lotes FIFO se muestra como
+                una sola fila (misma operación de venta).
+      COMPRAS → agrupa por (valor, fecha_compra, precio_unitario, isin, divisa).
+                Dos compras distintas el mismo día con el MISMO precio se
+                agrupan; dos compras el mismo día con precios distintos
+                generan filas independientes.
+                Un lote de compra parcialmente consumido por varias ventas
+                se re-agrupa en una sola fila (mismo precio, misma fecha).
 
-    Columnas de importe:
+    Todos los importes en euros; "Divisa" muestra la divisa nativa del valor.
+
+    Columnas:
       Precio unit.  = precio de mercado por acción (sin comisión)
-      Subtotal      = acciones × precio unitario  (valor puro sin comisión)
-      Comisión      = comisión pagada
-      Total         = subtotal + comisión (compra) / subtotal − comisión (venta)
+      Subtotal      = acciones × precio unitario (sin comisión)
+      Comisión      = comisión pagada/cobrada
+      Total compra  = subtotal + comisión (lo que se pagó)
+      Total venta   = subtotal − comisión (lo que se recibió neto)
 
     Ordenación: nombre del valor → fecha → compras antes que ventas.
     """
@@ -394,17 +404,22 @@ def _build_movement_lines(sale_lines: list[SaleLine], lang: str) -> list[dict]:
 
     # sell: (name, sell_date, isin, currency) -> {shares, gross, net, fee}
     sells: dict = {}
-    # buy:  (name, buy_date,  isin, currency) -> {shares, cost_no_fee, cost_total, fee}
+    # buy:  (name, buy_date, unit_cost_key, isin, currency) -> {shares, cost_no_fee, cost_total, fee}
+    # La clave incluye el precio unitario (redondeado a 6 decimales) para separar
+    # lotes del mismo día comprados a distinto precio, y a la vez agrupar
+    # consumos parciales del mismo lote (tienen exactamente el mismo precio unitario).
     buys: dict = {}
 
+    _Q = Decimal("0.000001")  # precisión para la clave de precio unitario
+
     for line in sale_lines:
-        # SELL: unit_price = gross/share, subtotal = gross, total = net received
+        # SELL
         sk = (line.security_name, line.sell_date, line.isin, line.currency)
         if sk not in sells:
             sells[sk] = {
                 "shares": Decimal("0"),
-                "gross":  Decimal("0"),   # proceeds_eur + sell_fee_eur
-                "net":    Decimal("0"),   # proceeds_eur
+                "gross":  Decimal("0"),
+                "net":    Decimal("0"),
                 "fee":    Decimal("0"),
             }
         sells[sk]["shares"] += line.shares
@@ -412,44 +427,50 @@ def _build_movement_lines(sale_lines: list[SaleLine], lang: str) -> list[dict]:
         sells[sk]["net"]    += line.proceeds_eur
         sells[sk]["fee"]    += line.sell_fee_eur
 
-        # BUY: unit_price = clean_cost/share, subtotal = clean_cost, total = full_cost
-        bk = (line.security_name, line.buy_date, line.isin, line.currency)
+        # BUY — precio unitario del lote (sin comisión) como parte de la clave
+        cost_no_fee_line = line.cost_eur - line.buy_fee_eur
+        unit_cost_key = (
+            (cost_no_fee_line / line.shares).quantize(_Q)
+            if line.shares else Decimal("0")
+        )
+        bk = (line.security_name, line.buy_date, unit_cost_key, line.isin, line.currency)
         if bk not in buys:
             buys[bk] = {
                 "shares":       Decimal("0"),
                 "cost_no_fee":  Decimal("0"),
                 "cost_total":   Decimal("0"),
                 "fee":          Decimal("0"),
+                "unit_cost":    unit_cost_key,   # guardado para ordenar
             }
         buys[bk]["shares"]      += line.shares
-        buys[bk]["cost_no_fee"] += line.cost_eur - line.buy_fee_eur
+        buys[bk]["cost_no_fee"] += cost_no_fee_line
         buys[bk]["cost_total"]  += line.cost_eur
         buys[bk]["fee"]         += line.buy_fee_eur
 
     movements: list[dict] = []
 
     for (name, dt, isin, currency), data in sells.items():
-        shares   = data["shares"]
-        gross    = data["gross"]    # subtotal para ventas
-        net      = data["net"]      # total recibido (neto de comisión)
-        fee      = data["fee"]
-        unit_p   = gross / shares if shares else Decimal("0")
+        shares = data["shares"]
+        gross  = data["gross"]
+        net    = data["net"]
+        fee    = data["fee"]
+        unit_p = gross / shares if shares else Decimal("0")
         movements.append({
             "type_label":    lbl["type_sell"],
             "is_sell":       True,
-            "_sort_key":     (name, dt, True),
+            "_sort_key":     (name, dt, True, Decimal("0")),
             "date":          _fmt_date(dt),
             "security_name": name,
             "isin":          isin or "—",
             "shares":        _fmt_shares(shares),
             "unit_price":    _fmt_money(unit_p),
-            "subtotal":      _fmt_money(gross),   # acciones × precio unit.
+            "subtotal":      _fmt_money(gross),
             "fee":           _fmt_money(fee),
             "currency":      currency,
-            "total":         _fmt_money(net),      # lo que realmente se ingresó
+            "total":         _fmt_money(net),
         })
 
-    for (name, dt, isin, currency), data in buys.items():
+    for (name, dt, ukey, isin, currency), data in buys.items():
         shares      = data["shares"]
         cost_no_fee = data["cost_no_fee"]
         cost_total  = data["cost_total"]
@@ -458,22 +479,22 @@ def _build_movement_lines(sale_lines: list[SaleLine], lang: str) -> list[dict]:
         movements.append({
             "type_label":    lbl["type_buy"],
             "is_sell":       False,
-            "_sort_key":     (name, dt, False),
+            # Compras del mismo día ordenadas de menor a mayor precio unitario
+            "_sort_key":     (name, dt, False, ukey),
             "date":          _fmt_date(dt),
             "security_name": name,
             "isin":          isin or "—",
             "shares":        _fmt_shares(shares),
             "unit_price":    _fmt_money(unit_p),
-            "subtotal":      _fmt_money(cost_no_fee),  # acciones × precio unit.
+            "subtotal":      _fmt_money(cost_no_fee),
             "fee":           _fmt_money(fee),
             "currency":      currency,
-            "total":         _fmt_money(cost_total),   # lo que realmente se pagó
+            "total":         _fmt_money(cost_total),
         })
 
-    # Ordenar: nombre del valor → fecha → compras antes que ventas (False < True)
+    # Ordenar: valor → fecha → compras(False) antes que ventas(True) → precio unit. asc
     movements.sort(key=lambda m: m["_sort_key"])
 
-    # Eliminar clave interna antes de pasar a la plantilla
     for m in movements:
         del m["_sort_key"]
 
