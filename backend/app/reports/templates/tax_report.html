@@ -396,13 +396,13 @@
   <h2>{{ labels.block1_title }}</h2>
 
   {% if sale_lines %}
+  <p class="hint">{{ labels.block1_hint }}</p>
   <table>
     <thead>
       <tr>
         <th class="left">{{ labels.col_security }}</th>
         <th class="left">{{ labels.col_isin }}</th>
-        <th>{{ labels.col_buy_date }}</th>
-        <th>{{ labels.col_sell_date }}</th>
+        <th>{{ labels.col_sell_year }}</th>
         <th>{{ labels.col_shares }}</th>
         <th>{{ labels.col_cost }}</th>
         <th>{{ labels.col_proceeds }}</th>
@@ -411,22 +411,21 @@
     </thead>
     <tbody>
       {% for line in sale_lines %}
-      <tr class="{{ 'disallowed' if line.loss_disallowed else '' }}">
-        <td class="left">
-          {{ line.security_name }}
-          {% if line.loss_disallowed %}<span class="flag">{{ labels.flag_no_compute }}</span>{% endif %}
-        </td>
+      <tr class="{{ 'disallowed' if line.has_disallowed else '' }}">
+        <td class="left">{{ line.security_name }}</td>
         <td class="left">{{ line.isin or '—' }}</td>
-        <td>{{ line.buy_date }}</td>
-        <td>{{ line.sell_date }}</td>
+        <td>{{ line.sell_year }}</td>
         <td>{{ line.shares }}</td>
         <td>{{ line.cost_eur }}</td>
         <td>{{ line.proceeds_eur }}</td>
         <td class="{{ 'pos' if line.gain_positive else 'neg' }}">{{ line.gain_eur }}</td>
       </tr>
-      {% if line.disallowed_reason %}
+      {% if line.has_disallowed %}
       <tr class="disallowed">
-        <td colspan="8" class="note-disallowed">▸ {{ line.disallowed_reason }}</td>
+        <td colspan="7" class="note-disallowed">
+          <span class="flag">{{ labels.flag_no_compute }}</span>
+          {{ labels.flag_no_compute_note }}
+        </td>
       </tr>
       {% endif %}
       {% endfor %}
@@ -469,6 +468,7 @@
         <th class="left">{{ labels.col_isin }}</th>
         <th>{{ labels.col_shares }}</th>
         <th>{{ labels.col_unit_price }}</th>
+        <th>{{ labels.col_subtotal }}</th>
         <th>{{ labels.col_fee }}</th>
         <th>{{ labels.col_currency }}</th>
         <th>{{ labels.col_total }}</th>
@@ -489,6 +489,7 @@
         <td class="left">{{ m.isin }}</td>
         <td>{{ m.shares }}</td>
         <td>{{ m.unit_price }}</td>
+        <td>{{ m.subtotal }}</td>
         <td>{{ m.fee }}</td>
         <td>{{ m.currency }}</td>
         <td class="{{ 'neg' if m.is_sell else 'pos' }}">{{ m.total }}</td>

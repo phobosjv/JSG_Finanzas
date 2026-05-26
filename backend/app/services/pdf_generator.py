@@ -67,18 +67,22 @@ _LABELS: dict[str, dict[str, str]] = {
         "card_marginal":           "Tramo marginal:",
         "card_cuota":              "Cuota estimada:",
         "brackets_title":          "Distribución por tramos",
-        # Bloque 1: ganancias/pérdidas
+        # Bloque 1: ganancias/pérdidas (agrupado por valor)
         "block1_title":            "1. Ganancias y pérdidas patrimoniales (venta de acciones)",
         "block1_empty":            "No se han registrado ventas de acciones en este ejercicio.",
+        "block1_hint":             (
+            "Una fila por valor y ejercicio. El resultado incluye todas las operaciones "
+            "FIFO del valor; las comisiones ya están incorporadas en coste e importe de venta."
+        ),
         "col_security":            "Valor",
         "col_isin":                "ISIN",
-        "col_buy_date":            "F. compra",
-        "col_sell_date":           "F. venta",
+        "col_sell_year":           "Año venta",
         "col_shares":              "Acciones",
-        "col_cost":                "Coste (€)",
-        "col_proceeds":            "Venta (€)",
+        "col_cost":                "Coste total (€)",
+        "col_proceeds":            "Importe ventas (€)",
         "col_result":              "Resultado (€)",
-        "flag_no_compute":         "NO COMPUTA",
+        "flag_no_compute":         "⚠ NO COMPUTA (parcial)",
+        "flag_no_compute_note":    "Parte de las pérdidas de este valor puede no ser computable este ejercicio (regla de recompra). Ver avisos.",
         "sum_gains":               "Ganancias del ejercicio",
         "sum_losses_computable":   "Pérdidas computables",
         "sum_losses_disallowed":   "Pérdidas marcadas (no computan este ejercicio)",
@@ -86,14 +90,16 @@ _LABELS: dict[str, dict[str, str]] = {
         # Bloque 2: detalle de movimientos
         "block2_title":            "2. Detalle de movimientos (compras y ventas del ejercicio)",
         "block2_hint":             (
-            "Operaciones de compra y venta que han afectado al ejercicio. "
-            "Los importes son en euros (al tipo BCE en la fecha de la operación). "
-            "El precio unitario de compra excluye comisión; el de venta incluye comisión bruta."
+            "Operaciones de compra y venta que han afectado al ejercicio, ordenadas por valor y fecha. "
+            "Importes en euros (tipo BCE en la fecha de la operación). "
+            "Subtotal = acciones × precio unitario (sin comisión). "
+            "Total compra = subtotal + comisión. Total venta = subtotal − comisión."
         ),
         "block2_empty":            "No hay movimientos de compraventa en este ejercicio.",
         "col_type":                "Tipo",
         "col_date":                "Fecha",
         "col_unit_price":          "Precio unit. (€)",
+        "col_subtotal":            "Subtotal (€)",
         "col_fee":                 "Comisión (€)",
         "col_currency":            "Divisa",
         "col_total":               "Total (€)",
@@ -145,29 +151,35 @@ _LABELS: dict[str, dict[str, str]] = {
         "brackets_title":          "Distribution by tax bracket",
         "block1_title":            "1. Capital gains and losses (share sales)",
         "block1_empty":            "No share sales recorded for this fiscal year.",
+        "block1_hint":             (
+            "One row per security and year. Result includes all FIFO lots; "
+            "commissions are already incorporated in cost and proceeds."
+        ),
         "col_security":            "Security",
         "col_isin":                "ISIN",
-        "col_buy_date":            "Buy date",
-        "col_sell_date":           "Sell date",
+        "col_sell_year":           "Sell year",
         "col_shares":              "Shares",
-        "col_cost":                "Cost (€)",
-        "col_proceeds":            "Proceeds (€)",
+        "col_cost":                "Total cost (€)",
+        "col_proceeds":            "Total proceeds (€)",
         "col_result":              "Result (€)",
-        "flag_no_compute":         "NOT DEDUCTIBLE",
+        "flag_no_compute":         "⚠ NOT DEDUCTIBLE (partial)",
+        "flag_no_compute_note":    "Some losses for this security may not be deductible (wash-sale rule). See notices.",
         "sum_gains":               "Gains for the year",
         "sum_losses_computable":   "Deductible losses",
         "sum_losses_disallowed":   "Flagged losses (not deductible this year)",
         "sum_net_capital":         "Net taxable capital result",
         "block2_title":            "2. Transaction details (buys and sells for the year)",
         "block2_hint":             (
-            "Buy and sell transactions affecting this fiscal year. "
-            "All amounts are in euros (ECB exchange rate on transaction date). "
-            "Buy unit price excludes commission; sell unit price is gross before commission."
+            "Buy and sell transactions, sorted by security then date. "
+            "All amounts in euros (ECB rate on transaction date). "
+            "Subtotal = shares × unit price (excl. fee). "
+            "Buy total = subtotal + fee. Sell total = subtotal − fee."
         ),
         "block2_empty":            "No buy/sell transactions for this fiscal year.",
         "col_type":                "Type",
         "col_date":                "Date",
         "col_unit_price":          "Unit price (€)",
+        "col_subtotal":            "Subtotal (€)",
         "col_fee":                 "Fee (€)",
         "col_currency":            "Currency",
         "col_total":               "Total (€)",
@@ -258,40 +270,104 @@ def _fmt_disallowed_reason(fiscal_window_days: int, lang: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Movimientos agregados (Bloque 2)
+# Bloque 1: pares FIFO agrupados por valor (una fila por security)
+# ---------------------------------------------------------------------------
+
+def _build_sale_lines_grouped(sale_lines: list[SaleLine]) -> list[dict]:
+    """
+    Agrega los pares FIFO en UNA fila por valor y ejercicio.
+
+    Los bloques FIFO para el mismo valor se suman: acciones, coste total,
+    importe de venta y resultado. Se marca la fila si algún par tiene
+    'loss_disallowed' para que el usuario sepa que parte de su resultado
+    puede estar afectado por la regla de recompra.
+    """
+    # key: (security_name, isin, sell_year)
+    groups: dict = {}
+
+    for line in sale_lines:
+        key = (line.security_name, line.isin, line.sell_date.year)
+        if key not in groups:
+            groups[key] = {
+                "security_name":  line.security_name,
+                "isin":           line.isin,
+                "sell_year":      line.sell_date.year,
+                "shares":         Decimal("0"),
+                "cost_eur":       Decimal("0"),
+                "proceeds_eur":   Decimal("0"),
+                "gain_eur":       Decimal("0"),
+                "has_disallowed": False,
+            }
+        g = groups[key]
+        g["shares"]       += line.shares
+        g["cost_eur"]     += line.cost_eur
+        g["proceeds_eur"] += line.proceeds_eur
+        g["gain_eur"]     += line.gain_eur
+        if line.loss_disallowed:
+            g["has_disallowed"] = True
+
+    result = [
+        {
+            "security_name":  g["security_name"],
+            "isin":           g["isin"],
+            "sell_year":      str(g["sell_year"]),
+            "shares":         _fmt_shares(g["shares"]),
+            "cost_eur":       _fmt_money(g["cost_eur"]),
+            "proceeds_eur":   _fmt_money(g["proceeds_eur"]),
+            "gain_eur":       _fmt_money(g["gain_eur"]),
+            "gain_positive":  g["gain_eur"] >= Decimal("0"),
+            "has_disallowed": g["has_disallowed"],
+        }
+        for g in groups.values()
+    ]
+
+    result.sort(key=lambda r: (r["security_name"], r["sell_year"]))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Bloque 2: movimientos agregados por valor+fecha (Compras y Ventas)
 # ---------------------------------------------------------------------------
 
 def _build_movement_lines(sale_lines: list[SaleLine], lang: str) -> list[dict]:
     """
-    Agrega los pares FIFO (SaleLine) en filas de movimiento por fecha.
+    Agrega los pares FIFO (SaleLine) en filas de movimiento (compra/venta).
 
-    Las ventas del mismo valor y fecha se agrupan en una sola fila "Venta".
-    Las compras del mismo valor y fecha (aunque procedentes de distintos pares
-    FIFO) se agrupan en una sola fila "Compra".
-    Todos los importes ya están en euros; la columna "Divisa" muestra la divisa
-    nativa del valor (EUR o USD) para referencia.
+    Las operaciones del mismo valor y fecha se agrupan en una sola fila.
+    Todos los importes ya están en euros; la columna "Divisa" muestra la
+    divisa nativa del valor para referencia.
+
+    Columnas de importe:
+      Precio unit.  = precio de mercado por acción (sin comisión)
+      Subtotal      = acciones × precio unitario  (valor puro sin comisión)
+      Comisión      = comisión pagada
+      Total         = subtotal + comisión (compra) / subtotal − comisión (venta)
+
+    Ordenación: nombre del valor → fecha → compras antes que ventas.
     """
     lbl = _LABELS.get(lang, _LABELS["es"])
 
-    # sell: (name, sell_date, isin, currency) -> {shares, gross, fee}
+    # sell: (name, sell_date, isin, currency) -> {shares, gross, net, fee}
     sells: dict = {}
     # buy:  (name, buy_date,  isin, currency) -> {shares, cost_no_fee, cost_total, fee}
     buys: dict = {}
 
     for line in sale_lines:
-        # SELL
+        # SELL: unit_price = gross/share, subtotal = gross, total = net received
         sk = (line.security_name, line.sell_date, line.isin, line.currency)
         if sk not in sells:
             sells[sk] = {
                 "shares": Decimal("0"),
-                "gross":  Decimal("0"),
+                "gross":  Decimal("0"),   # proceeds_eur + sell_fee_eur
+                "net":    Decimal("0"),   # proceeds_eur
                 "fee":    Decimal("0"),
             }
         sells[sk]["shares"] += line.shares
         sells[sk]["gross"]  += line.proceeds_eur + line.sell_fee_eur
+        sells[sk]["net"]    += line.proceeds_eur
         sells[sk]["fee"]    += line.sell_fee_eur
 
-        # BUY
+        # BUY: unit_price = clean_cost/share, subtotal = clean_cost, total = full_cost
         bk = (line.security_name, line.buy_date, line.isin, line.currency)
         if bk not in buys:
             buys[bk] = {
@@ -308,22 +384,24 @@ def _build_movement_lines(sale_lines: list[SaleLine], lang: str) -> list[dict]:
     movements: list[dict] = []
 
     for (name, dt, isin, currency), data in sells.items():
-        shares = data["shares"]
-        gross  = data["gross"]
-        fee    = data["fee"]
-        unit_p = gross / shares if shares else Decimal("0")
+        shares   = data["shares"]
+        gross    = data["gross"]    # subtotal para ventas
+        net      = data["net"]      # total recibido (neto de comisión)
+        fee      = data["fee"]
+        unit_p   = gross / shares if shares else Decimal("0")
         movements.append({
             "type_label":    lbl["type_sell"],
             "is_sell":       True,
-            "_date_obj":     dt,          # solo para ordenar; no va a la plantilla
+            "_sort_key":     (name, dt, True),
             "date":          _fmt_date(dt),
             "security_name": name,
             "isin":          isin or "—",
             "shares":        _fmt_shares(shares),
             "unit_price":    _fmt_money(unit_p),
+            "subtotal":      _fmt_money(gross),   # acciones × precio unit.
             "fee":           _fmt_money(fee),
             "currency":      currency,
-            "total":         _fmt_money(gross),
+            "total":         _fmt_money(net),      # lo que realmente se ingresó
         })
 
     for (name, dt, isin, currency), data in buys.items():
@@ -335,23 +413,24 @@ def _build_movement_lines(sale_lines: list[SaleLine], lang: str) -> list[dict]:
         movements.append({
             "type_label":    lbl["type_buy"],
             "is_sell":       False,
-            "_date_obj":     dt,
+            "_sort_key":     (name, dt, False),
             "date":          _fmt_date(dt),
             "security_name": name,
             "isin":          isin or "—",
             "shares":        _fmt_shares(shares),
             "unit_price":    _fmt_money(unit_p),
+            "subtotal":      _fmt_money(cost_no_fee),  # acciones × precio unit.
             "fee":           _fmt_money(fee),
             "currency":      currency,
-            "total":         _fmt_money(cost_total),
+            "total":         _fmt_money(cost_total),   # lo que realmente se pagó
         })
 
-    # Ordenar: fecha asc, luego nombre, luego compras antes que ventas (False < True)
-    movements.sort(key=lambda m: (m["_date_obj"], m["security_name"], m["is_sell"]))
+    # Ordenar: nombre del valor → fecha → compras antes que ventas (False < True)
+    movements.sort(key=lambda m: m["_sort_key"])
 
     # Eliminar clave interna antes de pasar a la plantilla
     for m in movements:
-        del m["_date_obj"]
+        del m["_sort_key"]
 
     return movements
 
@@ -438,30 +517,10 @@ def _build_tax_summary(report: TaxReport) -> dict:
 def _build_context(report: TaxReport, lang: str = "es") -> dict:
     lbl = _LABELS.get(lang, _LABELS["es"])
 
-    # Bloque 1: pares FIFO formateados
-    sale_lines = [
-        {
-            "security_name":    line.security_name,
-            "isin":             line.isin,
-            "market":           line.market,
-            "buy_date":         _fmt_date(line.buy_date),
-            "sell_date":        _fmt_date(line.sell_date),
-            "shares":           _fmt_shares(line.shares),
-            "cost_eur":         _fmt_money(line.cost_eur),
-            "proceeds_eur":     _fmt_money(line.proceeds_eur),
-            "gain_eur":         _fmt_money(line.gain_eur),
-            "gain_positive":    line.gain_eur >= Decimal("0"),
-            "loss_disallowed":  line.loss_disallowed,
-            # Razón localizada: generada aquí (capa de presentación)
-            "disallowed_reason": (
-                _fmt_disallowed_reason(line.fiscal_window_days, lang)
-                if line.loss_disallowed else None
-            ),
-        }
-        for line in report.sale_lines
-    ]
+    # Bloque 1: una fila por valor (agrupado), con flag si hay pérdidas no computables
+    sale_lines = _build_sale_lines_grouped(report.sale_lines)
 
-    # Bloque 2: movimientos agregados (reemplaza el antiguo bloque de comisiones)
+    # Bloque 2: movimientos detallados (una fila por operación/fecha, con subtotal)
     movement_lines = _build_movement_lines(report.sale_lines, lang)
 
     # Bloque 3: dividendos

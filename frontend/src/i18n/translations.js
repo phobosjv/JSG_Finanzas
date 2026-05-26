@@ -109,7 +109,7 @@ export const translations = {
 
     // ── Informe fiscal ───────────────────────────────────────────────────
     'tax.title':                'Informe fiscal IRPF',
-    // Cabecera del ejercicio en curso
+    // Cabecera del ejercicio en curso (estas claves se usan en TaxReport.jsx)
     'tax.year_current':         'Ejercicio',
     'tax.in_progress':          'en curso',
     'tax.current_year_hint':    'Acumulado hasta hoy. Base imponible del ahorro estimada (plusvalías netas + dividendos netos).',

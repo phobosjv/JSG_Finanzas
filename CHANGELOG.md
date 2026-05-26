@@ -5,6 +5,35 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.5.4] — 2026-05-26
+
+### Modificado
+
+- **Informe impreso — Bloque 1 rediseñado (totalizado por valor)**:
+  - Se eliminan las columnas "F. compra" y "F. venta" (el detalle está en
+    el bloque 2).
+  - Una sola fila por valor y ejercicio, con el acumulado de todas las
+    operaciones FIFO: nº de acciones totales, coste total, importe total
+    de ventas y resultado total.
+  - Nueva columna "Año venta" (muestra solo el año, sin día/mes).
+  - Si algún par FIFO del valor tiene pérdida marcada por la regla de
+    recompra, la fila aparece atenuada con nota explicativa.
+- **Informe impreso — Bloque 2: nueva columna "Subtotal" y mejoras**:
+  - Se añade la columna "Subtotal (€)" (= nº acciones × precio unitario,
+    sin comisión) entre "Precio unit." y "Comisión".
+  - La columna "Total" muestra ahora: coste total pagado en compras
+    (subtotal + comisión) e importe neto recibido en ventas (subtotal − comisión).
+    La relación es siempre coherente: subtotal ± comisión = total.
+  - Las filas se ordenan primero por nombre del valor, luego por fecha de
+    operación (antes se ordenaba primero por fecha), de modo que todas las
+    operaciones de un mismo valor aparecen agrupadas visualmente.
+
+### Infraestructura
+
+- 196 tests en verde (sin cambios en el número).
+
+---
+
 ## [1.5.3] — 2026-05-26
 
 ### Modificado
