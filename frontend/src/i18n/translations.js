@@ -82,6 +82,10 @@ export const translations = {
     'portfolio.col_range':      'Rango 1a',
     'portfolio.delete_title':   'Eliminar posición',
     'portfolio.delete_confirm': '¿Eliminar la posición "{name}" y todas sus compras y dividendos? Esta acción no se puede deshacer.',
+    'portfolio.chart_distribution':    'Distribución de cartera',
+    'portfolio.chart_pnl_pct':         'Beneficio / Pérdida por acción (%)',
+    'portfolio.chart_history':         'Evolución del valor de cartera',
+    'portfolio.chart_history_tooltip': 'Valor cartera',
 
     // ── Utilidades ───────────────────────────────────────────────────────
     'utilities.title':          'Utilidades',
@@ -216,6 +220,10 @@ export const translations = {
     'portfolio.col_range':      '1y range',
     'portfolio.delete_title':   'Delete position',
     'portfolio.delete_confirm': 'Delete position "{name}" and all its purchases and dividends? This action cannot be undone.',
+    'portfolio.chart_distribution':    'Portfolio distribution',
+    'portfolio.chart_pnl_pct':         'Gain / Loss per security (%)',
+    'portfolio.chart_history':         'Portfolio value over time',
+    'portfolio.chart_history_tooltip': 'Portfolio value',
 
     // ── Utilities ─────────────────────────────────────────────────────────
     'utilities.title':          'Utilities',

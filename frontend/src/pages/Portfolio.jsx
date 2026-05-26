@@ -233,7 +233,7 @@ export default function Portfolio() {
 
           {/* Donut 3D: distribución de cartera */}
           <div className="card" style={{ flex: '1 1 340px', minWidth: 0 }}>
-            <h2>Distribución de cartera</h2>
+            <h2>{t('portfolio.chart_distribution')}</h2>
             <div style={{ position: 'relative' }}>
               {/* Sombra elíptica debajo del donut */}
               <div style={{
@@ -298,7 +298,7 @@ export default function Portfolio() {
 
           {/* Barras 3D: % B/P por acción */}
           <div className="card" style={{ flex: '2 1 420px', minWidth: 0 }}>
-            <h2>Beneficio / Pérdida por acción (%)</h2>
+            <h2>{t('portfolio.chart_pnl_pct')}</h2>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart
                 data={[...positions]
@@ -346,7 +346,7 @@ export default function Portfolio() {
       {history.length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <h2 style={{ margin: 0 }}>Evolución del valor de cartera</h2>
+            <h2 style={{ margin: 0 }}>{t('portfolio.chart_history')}</h2>
             <div style={{ display: 'flex', gap: 4 }}>
               {[1, 2, 5].map(y => (
                 <button
@@ -395,7 +395,7 @@ export default function Portfolio() {
               />
               <ReTooltip
                 contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.82rem' }}
-                formatter={v => [`${fmt(v)} €`, 'Valor cartera']}
+                formatter={v => [`${fmt(v)} €`, t('portfolio.chart_history_tooltip')]}
                 labelFormatter={d => d}
               />
               <Area

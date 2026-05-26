@@ -5,6 +5,33 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.5.7] — 2026-05-26
+
+### Modificado
+
+- **Informe impreso — Bloque 2: colores de fila por grupo de valor**: las
+  filas del detalle de movimientos comparten un fondo de color cuando
+  pertenecen al mismo valor; el fondo alterna (blanco / azul muy claro)
+  cada vez que cambia el valor, haciendo inmediatamente visible qué
+  operaciones corresponden a cada acción.
+- **Gráficos de cartera — títulos traducidos**: los tres títulos de los
+  gráficos de la página "Mi cartera" ("Distribución de cartera",
+  "Beneficio / Pérdida por acción (%)" y "Evolución del valor de cartera")
+  así como la etiqueta del tooltip de evolución, usaban cadenas
+  hardcodeadas en español. Ahora se obtienen de `t()` y cambian al inglés
+  cuando se selecciona ese idioma:
+  - "Distribución de cartera" → "Portfolio distribution"
+  - "Beneficio / Pérdida por acción (%)" → "Gain / Loss per security (%)"
+  - "Evolución del valor de cartera" → "Portfolio value over time"
+  - Tooltip "Valor cartera" → "Portfolio value"
+
+### Infraestructura
+
+- 4 nuevas claves `portfolio.chart_*` en `translations.js` (ES + EN).
+- 196 tests en verde (sin cambios en el número).
+
+---
+
 ## [1.5.6] — 2026-05-26
 
 ### Corregido

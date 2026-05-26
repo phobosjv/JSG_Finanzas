@@ -191,6 +191,10 @@
     padding: 2pt 6pt 6pt 6pt;
   }
 
+  /* Colores de grupo alternos en el Bloque 2 (una franja por valor) */
+  table.movement-table tr.group-0 td { background: #ffffff; }
+  table.movement-table tr.group-1 td { background: #ebf1fb; }
+
   .hint {
     font-size: 8pt;
     color: #555;
@@ -459,7 +463,7 @@
 
   {% if movement_lines %}
   <p class="hint">{{ labels.block2_hint }}</p>
-  <table>
+  <table class="movement-table">
     <thead>
       <tr>
         <th class="left">{{ labels.col_type }}</th>
@@ -475,8 +479,15 @@
       </tr>
     </thead>
     <tbody>
+      {% set ns = namespace(prev_security="", group_idx=0) %}
       {% for m in movement_lines %}
-      <tr>
+        {% if m.security_name != ns.prev_security %}
+          {% if ns.prev_security != "" %}
+            {% set ns.group_idx = (ns.group_idx + 1) % 2 %}
+          {% endif %}
+          {% set ns.prev_security = m.security_name %}
+        {% endif %}
+      <tr class="group-{{ ns.group_idx }}">
         <td class="left">
           {% if m.is_sell %}
           <span class="badge-sell">{{ m.type_label }}</span>
