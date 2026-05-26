@@ -24,10 +24,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
   - "Beneficio / Pérdida por acción (%)" → "Gain / Loss per security (%)"
   - "Evolución del valor de cartera" → "Portfolio value over time"
   - Tooltip "Valor cartera" → "Portfolio value"
+- **Detalle de valor (`SecurityDetail`) — internacionalización completa**:
+  toda la página estaba hardcodeada en español. Traducidas todas las
+  cadenas visibles: etiquetas de tarjetas (precio, var. día, mínimos,
+  máximos, acciones, B/P, dividendos, comisiones…), títulos de sección
+  (Compras, Ventas, Dividendos), cabeceras de tabla, botones (Añadir,
+  Empezar a seguir, Editar, Actualizar, Favorito), mensajes de estado
+  vacío, confirmaciones de borrado, modales de transacción, dividendo y
+  edición de valor, y mensajes de error en formularios.
+  ~70 cadenas extraídas como claves `sd.*` en `translations.js` (ES + EN).
 
 ### Infraestructura
 
-- 4 nuevas claves `portfolio.chart_*` en `translations.js` (ES + EN).
+- Regla 27 añadida a `CLAUDE.md`: todo texto visible del frontend debe
+  obtenerse con `t()`, con las dos traducciones ES + EN.
+- 4 nuevas claves `portfolio.chart_*` y ~70 claves `sd.*` en `translations.js`.
 - 196 tests en verde (sin cambios en el número).
 
 ---

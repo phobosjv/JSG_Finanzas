@@ -4,6 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import { api } from '../api/client'
+import { useAppConfig } from '../context/AppContext'
 
 function fmt(val, dec = 2) {
   if (val == null) return '—'
@@ -58,6 +59,7 @@ function DivRow({ div, onDelete, onEdit }) {
 }
 
 function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx = null }) {
+  const { t } = useAppConfig()
   const [form, setForm] = useState(editTx ? {
     type: editTx.type,
     date: editTx.date,
@@ -80,9 +82,9 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
   async function submit(e) {
     e.preventDefault()
     const errs = []
-    if (Number(form.shares) <= 0) errs.push('Las acciones deben ser > 0')
-    if (Number(form.price) <= 0) errs.push('El precio debe ser > 0')
-    if (Number(form.exchange_rate) <= 0) errs.push('El tipo de cambio debe ser > 0')
+    if (Number(form.shares) <= 0) errs.push(t('sd.tx_err_shares'))
+    if (Number(form.price) <= 0) errs.push(t('sd.tx_err_price'))
+    if (Number(form.exchange_rate) <= 0) errs.push(t('sd.tx_err_rate'))
     if (errs.length) { setError(errs.join('. ')); return }
     setBusy(true); setError(null)
     try {
@@ -106,53 +108,53 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2>{editTx ? 'Editar transacción' : 'Nueva transacción'}</h2>
+        <h2>{editTx ? t('sd.tx_modal_edit') : t('sd.tx_modal_add')}</h2>
         {error && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{error}</div>}
         <form onSubmit={submit}>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Tipo</label>
+              <label>{t('sd.tx_type')}</label>
               <select {...field('type')}>
-                <option value="buy">Compra</option>
-                <option value="sell">Venta</option>
+                <option value="buy">{t('sd.tx_buy')}</option>
+                <option value="sell">{t('sd.tx_sell')}</option>
               </select>
             </div>
             <div className="form-group" style={{ flex: 2 }}>
-              <label>Fecha</label>
+              <label>{t('sd.tx_date')}</label>
               <input type="date" {...field('date')} />
             </div>
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Acciones</label>
+              <label>{t('sd.tx_shares')}</label>
               <input type="number" step="any" min="0.000001" {...field('shares')} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Precio</label>
+              <label>{t('sd.tx_price')}</label>
               <input type="number" step="any" min="0.000001" {...field('price')} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Comisión</label>
+              <label>{t('sd.tx_fee')}</label>
               <input type="number" step="any" min="0" {...field('fee')} />
             </div>
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Divisa</label>
+              <label>{t('sd.tx_currency')}</label>
               <select {...field('currency')}>
                 <option value="EUR">EUR</option>
                 <option value="USD">USD</option>
               </select>
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Tipo EUR/USD</label>
+              <label>{t('sd.tx_exchange_rate')}</label>
               <input type="number" step="any" min="0.000001" {...field('exchange_rate')} />
             </div>
           </div>
           <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button type="button" className="btn-ghost" onClick={onClose}>{t('common.cancel')}</button>
             <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? 'Guardando…' : 'Guardar'}
+              {busy ? t('sd.saving') : t('common.save')}
             </button>
           </div>
         </form>
@@ -162,6 +164,7 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
 }
 
 function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
+  const { t } = useAppConfig()
   const [form, setForm] = useState(editDiv ? {
     date: editDiv.date,
     shares_at_date: String(editDiv.shares_at_date),
@@ -184,10 +187,10 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
   async function submit(e) {
     e.preventDefault()
     const errs = []
-    if (Number(form.shares_at_date) <= 0) errs.push('Las acciones deben ser > 0')
-    if (Number(form.gross_per_share) <= 0) errs.push('El dividendo por acción debe ser > 0')
-    if (Number(form.gross_amount) <= 0) errs.push('El total bruto debe ser > 0')
-    if (Number(form.exchange_rate) <= 0) errs.push('El tipo de cambio debe ser > 0')
+    if (Number(form.shares_at_date) <= 0) errs.push(t('sd.div_err_shares'))
+    if (Number(form.gross_per_share) <= 0) errs.push(t('sd.div_err_per_share'))
+    if (Number(form.gross_amount) <= 0) errs.push(t('sd.div_err_total'))
+    if (Number(form.exchange_rate) <= 0) errs.push(t('sd.div_err_rate'))
     if (errs.length) { setError(errs.join('. ')); return }
     setBusy(true); setError(null)
     try {
@@ -212,46 +215,46 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2>{editDiv ? 'Editar dividendo' : 'Nuevo dividendo'}</h2>
+        <h2>{editDiv ? t('sd.div_modal_edit') : t('sd.div_modal_add')}</h2>
         {error && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{error}</div>}
         <form onSubmit={submit}>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Fecha</label>
+              <label>{t('sd.tx_date')}</label>
               <input type="date" {...field('date')} />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Acciones en posesión</label>
+              <label>{t('sd.div_shares_at_date')}</label>
               <input type="number" step="any" min="0.000001" {...field('shares_at_date')} required />
             </div>
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>€/acción (bruto)</label>
+              <label>{t('sd.div_per_share')}</label>
               <input type="number" step="any" min="0.000001" {...field('gross_per_share')} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Total bruto</label>
+              <label>{t('sd.div_total_gross')}</label>
               <input type="number" step="any" min="0.000001" {...field('gross_amount')} required />
             </div>
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Divisa</label>
+              <label>{t('sd.tx_currency')}</label>
               <select {...field('currency')}>
                 <option value="EUR">EUR</option>
                 <option value="USD">USD</option>
               </select>
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Tipo EUR/USD</label>
+              <label>{t('sd.tx_exchange_rate')}</label>
               <input type="number" step="any" min="0.000001" {...field('exchange_rate')} />
             </div>
           </div>
           <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button type="button" className="btn-ghost" onClick={onClose}>{t('common.cancel')}</button>
             <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? 'Guardando…' : 'Guardar'}
+              {busy ? t('sd.saving') : t('common.save')}
             </button>
           </div>
         </form>
@@ -263,6 +266,7 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
 const CURRENCIES = ['EUR', 'USD']
 
 function EditSecurityModal({ security, onClose, onSaved }) {
+  const { t } = useAppConfig()
   const [form, setForm] = useState({
     name:          security.name,
     isin:          security.isin          ?? '',
@@ -301,47 +305,47 @@ function EditSecurityModal({ security, onClose, onSaved }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2>Editar valor</h2>
+        <h2>{t('sd.sec_modal_title')}</h2>
         {error && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{error}</div>}
         <form onSubmit={submit}>
           <div className="card-row">
             <div className="form-group" style={{ flex: 2 }}>
-              <label>Nombre *</label>
+              <label>{t('sd.sec_name')}</label>
               <input type="text" {...field('name')} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>ISIN</label>
+              <label>{t('sd.sec_isin')}</label>
               <input type="text" {...field('isin')} />
             </div>
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Yahoo Ticker *</label>
+              <label>{t('sd.sec_yahoo')}</label>
               <input type="text" {...field('yahoo_ticker')} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Google Ticker</label>
+              <label>{t('sd.sec_google')}</label>
               <input type="text" {...field('google_ticker')} />
             </div>
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Mercado *</label>
+              <label>{t('sd.sec_market')}</label>
               <select {...field('market')}>
                 {markets.map(m => <option key={m.code} value={m.code}>{m.name}</option>)}
               </select>
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Divisa *</label>
+              <label>{t('sd.sec_currency')}</label>
               <select {...field('currency')}>
                 {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
           <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button type="button" className="btn-ghost" onClick={onClose}>{t('common.cancel')}</button>
             <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? 'Guardando…' : 'Guardar y refrescar'}
+              {busy ? t('sd.saving') : t('sd.btn_save_refresh')}
             </button>
           </div>
         </form>
@@ -352,6 +356,7 @@ function EditSecurityModal({ security, onClose, onSaved }) {
 
 export default function SecurityDetail() {
   const { id } = useParams()
+  const { t } = useAppConfig()
   const secId = parseInt(id, 10)
 
   const [security, setSecurity]     = useState(null)
@@ -427,7 +432,7 @@ export default function SecurityDetail() {
   useEffect(() => { loadAll() }, [secId])
 
   async function deleteTx(txId) {
-    if (!confirm('¿Eliminar esta transacción?')) return
+    if (!confirm(t('sd.tx_confirm_delete'))) return
     setOpError(null)
     try {
       await api.delete(`/portfolio/${positionId}/transactions/${txId}`)
@@ -436,7 +441,7 @@ export default function SecurityDetail() {
   }
 
   async function deleteDiv(divId) {
-    if (!confirm('¿Eliminar este dividendo?')) return
+    if (!confirm(t('sd.div_confirm_delete'))) return
     setOpError(null)
     try {
       await api.delete(`/portfolio/${positionId}/dividends/${divId}`)
@@ -531,10 +536,10 @@ export default function SecurityDetail() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn-ghost btn-sm" onClick={toggleFav}>
-            {isFav ? '★ Favorito' : '☆ Añadir a favoritos'}
+            {isFav ? t('sd.fav_remove') : t('sd.fav_add')}
           </button>
-          <button className="btn-ghost btn-sm" onClick={() => setShowEditSec(true)}>✎ Editar</button>
-          <button className="btn-ghost btn-sm" onClick={refresh}>↺ Actualizar</button>
+          <button className="btn-ghost btn-sm" onClick={() => setShowEditSec(true)}>{t('sd.btn_edit')}</button>
+          <button className="btn-ghost btn-sm" onClick={refresh}>{t('sd.btn_refresh')}</button>
         </div>
       </div>
 
@@ -543,21 +548,21 @@ export default function SecurityDetail() {
         <div className="card-row">
           <div className="card small">
             <div className="value">{fmt(snapshot.last_price)} {security.currency}</div>
-            <div className="label">Precio actual</div>
+            <div className="label">{t('sd.price_current')}</div>
           </div>
           <div className="card small">
             <div className={`value ${pctCls}`}>
               {pct != null ? `${pct >= 0 ? '+' : ''}${fmt(pct)}%` : '—'}
             </div>
-            <div className="label">Var. día</div>
+            <div className="label">{t('sd.var_day')}</div>
           </div>
           <div className="card small">
             <div className="value">{fmt(snapshot.min_1y)}</div>
-            <div className="label">Mín. 1 año</div>
+            <div className="label">{t('sd.min_1y')}</div>
           </div>
           <div className="card small">
             <div className="value">{fmt(snapshot.max_1y)}</div>
-            <div className="label">Máx. 1 año</div>
+            <div className="label">{t('sd.max_1y')}</div>
           </div>
         </div>
       )}
@@ -567,11 +572,11 @@ export default function SecurityDetail() {
         <div className="card-row">
           <div className="card small">
             <div className="value">{posResult ? fmtShares(posResult.shares) : '0'}</div>
-            <div className="label">Acciones en posesión</div>
+            <div className="label">{t('sd.shares_owned')}</div>
           </div>
           <div className="card small">
             <div className="value">{fmt(posResult ? posResult.market_value_eur : 0)} €</div>
-            <div className="label">Valor actual</div>
+            <div className="label">{t('sd.value_current')}</div>
           </div>
           {isClosed && closedSummary && (
             <>
@@ -579,21 +584,21 @@ export default function SecurityDetail() {
                 <div className={`value ${cls(grossSaleGainEur)}`}>
                   {sign(grossSaleGainEur)}{fmt(grossSaleGainEur)} €
                 </div>
-                <div className="label">B/P Venta</div>
+                <div className="label">{t('sd.bp_sale')}</div>
               </div>
               <div className="card small">
                 <div className="value">{fmt(closedSummary.dividends_eur)} €</div>
-                <div className="label">Dividendos (bruto)</div>
+                <div className="label">{t('sd.dividends_gross')}</div>
               </div>
               <div className="card small">
                 <div className="value neg">{totalFeesEur > 0 ? `-${fmt(totalFeesEur)}` : fmt(totalFeesEur)} €</div>
-                <div className="label">Comisiones pagadas</div>
+                <div className="label">{t('sd.fees_paid')}</div>
               </div>
               <div className="card small">
                 <div className={`value ${cls(closedSummary.total_profit_eur)}`}>
                   {sign(closedSummary.total_profit_eur)}{fmt(closedSummary.total_profit_eur)} €
                 </div>
-                <div className="label">B/P Total</div>
+                <div className="label">{t('sd.bp_total')}</div>
               </div>
             </>
           )}
@@ -601,7 +606,7 @@ export default function SecurityDetail() {
             <>
               <div className="card small">
                 <div className="value">{fmt(posResult.cost_eur)} €</div>
-                <div className="label">Invertido</div>
+                <div className="label">{t('sd.invested')}</div>
               </div>
               <div className="card small">
                 <div className={`value ${cls(grossUnrealizedEur)}`}>
@@ -610,29 +615,29 @@ export default function SecurityDetail() {
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
                   {sign(posResult.unrealized_pnl_pct)}{fmt(posResult.unrealized_pnl_pct)}%
                 </div>
-                <div className="label">B/P latente</div>
+                <div className="label">{t('sd.bp_latent')}</div>
               </div>
               {openRealizedEur !== 0 && (
                 <div className="card small">
                   <div className={`value ${cls(openRealizedEur)}`}>
                     {sign(openRealizedEur)}{fmt(openRealizedEur)} €
                   </div>
-                  <div className="label">B/P Venta</div>
+                  <div className="label">{t('sd.bp_sale')}</div>
                 </div>
               )}
               <div className="card small">
                 <div className="value">{fmt(posResult.dividends_eur)} €</div>
-                <div className="label">Dividendos (bruto)</div>
+                <div className="label">{t('sd.dividends_gross')}</div>
               </div>
               <div className="card small">
                 <div className="value neg">{totalFeesEur > 0 ? `-${fmt(totalFeesEur)}` : fmt(totalFeesEur)} €</div>
-                <div className="label">Comisiones pagadas</div>
+                <div className="label">{t('sd.fees_paid')}</div>
               </div>
               <div className="card small">
                 <div className={`value ${cls(openBpTotalEur)}`}>
                   {sign(openBpTotalEur)}{fmt(openBpTotalEur)} €
                 </div>
-                <div className="label">B/P Total</div>
+                <div className="label">{t('sd.bp_total')}</div>
               </div>
             </>
           )}
@@ -643,7 +648,7 @@ export default function SecurityDetail() {
       {positionId && (
         <div className="card" style={{ padding: '10px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', minWidth: 48, paddingTop: 2 }}>Notas</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', minWidth: 48, paddingTop: 2 }}>{t('sd.notes')}</span>
             {editingNotes ? (
               <textarea
                 autoFocus
@@ -656,10 +661,10 @@ export default function SecurityDetail() {
             ) : (
               <span
                 style={{ flex: 1, fontSize: '0.85rem', color: notesVal ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer', padding: '2px 0' }}
-                title="Clic para editar"
+                title={t('sd.notes_click_edit')}
                 onClick={() => setEditingNotes(true)}
               >
-                {notesVal || '— añadir nota'}
+                {notesVal || t('sd.notes_add')}
               </span>
             )}
           </div>
@@ -669,7 +674,7 @@ export default function SecurityDetail() {
       {/* Gráfico */}
       {chartData.length > 0 && (
         <div className="card">
-          <h2>Histórico (último año)</h2>
+          <h2>{t('sd.chart_history')}</h2>
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
@@ -685,7 +690,7 @@ export default function SecurityDetail() {
                   contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6 }}
                   labelStyle={{ color: 'var(--text-muted)' }}
                   itemStyle={{ color: 'var(--accent)' }}
-                  formatter={v => [fmt(v), 'Precio']}
+                  formatter={v => [fmt(v), t('sd.chart_price')]}
                 />
                 <Line type="monotone" dataKey="close" stroke="var(--accent)" dot={false} strokeWidth={2} />
               </LineChart>
@@ -697,9 +702,9 @@ export default function SecurityDetail() {
       {/* Compras */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h2 style={{ marginBottom: 0 }}>Compras</h2>
+          <h2 style={{ marginBottom: 0 }}>{t('sd.buys')}</h2>
           {positionId
-            ? <button className="btn-primary btn-sm" onClick={() => { setTxModalType('buy'); setEditingTx(null); setTxModal(true) }}>+ Añadir</button>
+            ? <button className="btn-primary btn-sm" onClick={() => { setTxModalType('buy'); setEditingTx(null); setTxModal(true) }}>{t('sd.btn_add')}</button>
             : (
               <button
                 className="btn-ghost btn-sm"
@@ -716,26 +721,26 @@ export default function SecurityDetail() {
                   finally { setStarting(false) }
                 }}
               >
-                {startingTracking ? 'Creando…' : '+ Empezar a seguir'}
+                {startingTracking ? t('sd.btn_starting') : t('sd.btn_start_tracking')}
               </button>
             )
           }
         </div>
         {buys.length === 0 ? (
           <div className="state-empty" style={{ padding: 20 }}>
-            {positionId ? 'Sin compras registradas' : 'Haz clic en "Empezar a seguir" para registrar operaciones'}
+            {positionId ? t('sd.no_buys') : t('sd.no_buys_hint')}
           </div>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Fecha</th>
-                  <th className="num">Acciones</th>
-                  <th className="num">Precio</th>
-                  <th className="num">Comisión</th>
-                  <th className="num">Divisa</th>
-                  <th className="num">Total op.</th>
+                  <th>{t('sd.col_date')}</th>
+                  <th className="num">{t('sd.col_shares')}</th>
+                  <th className="num">{t('sd.col_price')}</th>
+                  <th className="num">{t('sd.col_fee')}</th>
+                  <th className="num">{t('sd.col_currency')}</th>
+                  <th className="num">{t('sd.col_total_op')}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -749,29 +754,29 @@ export default function SecurityDetail() {
       {(sells.length > 0 || positionId) && (
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h2 style={{ marginBottom: 0 }}>Ventas</h2>
+            <h2 style={{ marginBottom: 0 }}>{t('sd.sells')}</h2>
             {positionId && (
               <button
                 className="btn-primary btn-sm"
                 onClick={() => { setTxModalType('sell'); setEditingTx(null); setTxModal(true) }}
               >
-                + Añadir
+                {t('sd.btn_add')}
               </button>
             )}
           </div>
           {sells.length === 0 ? (
-            <div className="state-empty" style={{ padding: 20 }}>Sin ventas registradas</div>
+            <div className="state-empty" style={{ padding: 20 }}>{t('sd.no_sells')}</div>
           ) : (
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Fecha</th>
-                    <th className="num">Acciones</th>
-                    <th className="num">Precio</th>
-                    <th className="num">Comisión</th>
-                    <th className="num">Divisa</th>
-                    <th className="num">Total op.</th>
+                    <th>{t('sd.col_date')}</th>
+                    <th className="num">{t('sd.col_shares')}</th>
+                    <th className="num">{t('sd.col_price')}</th>
+                    <th className="num">{t('sd.col_fee')}</th>
+                    <th className="num">{t('sd.col_currency')}</th>
+                    <th className="num">{t('sd.col_total_op')}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -786,7 +791,7 @@ export default function SecurityDetail() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ marginBottom: 0 }}>
-            Dividendos
+            {t('sd.dividends')}
             {totalDivsGross > 0 && (
               <span style={{ marginLeft: 10, fontSize: '0.85rem', color: 'var(--green)', fontFamily: 'var(--mono)' }}>
                 +{fmt(totalDivsGross)} €
@@ -794,21 +799,21 @@ export default function SecurityDetail() {
             )}
           </h2>
           {positionId && (
-            <button className="btn-ghost btn-sm" onClick={() => { setEditingDiv(null); setDivModal(true) }}>+ Añadir</button>
+            <button className="btn-ghost btn-sm" onClick={() => { setEditingDiv(null); setDivModal(true) }}>{t('sd.btn_add')}</button>
           )}
         </div>
         {dividends.length === 0 ? (
-          <div className="state-empty" style={{ padding: 20 }}>Sin dividendos registrados</div>
+          <div className="state-empty" style={{ padding: 20 }}>{t('sd.no_dividends')}</div>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Fecha</th>
-                  <th className="num">Acciones</th>
-                  <th className="num">€/acc.</th>
-                  <th className="num">Bruto</th>
-                  <th className="num">Divisa</th>
+                  <th>{t('sd.col_date')}</th>
+                  <th className="num">{t('sd.col_shares')}</th>
+                  <th className="num">{t('sd.col_per_share')}</th>
+                  <th className="num">{t('sd.col_gross')}</th>
+                  <th className="num">{t('sd.col_currency')}</th>
                   <th></th>
                 </tr>
               </thead>

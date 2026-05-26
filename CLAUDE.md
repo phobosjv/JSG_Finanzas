@@ -80,6 +80,16 @@ con login por contraseña. Inspiración funcional: snowball-analytics.
 24. **Documentación de la API.** Utilizar las capacidades de documentación automática de FastAPI para mantener una documentación clara y actualizada de la API, que facilite el desarrollo del frontend y cualquier integración futura.
 25. **Gestión de dependencias.** Mantener un control estricto sobre las dependencias del proyecto, utilizando un archivo `requirements.txt` o `Pipfile` para asegurar que las versiones son compatibles y que el entorno de desarrollo es reproducible.
 26. **Tras cada nueva versión generada, actualizar el changelog.** Mantener un registro claro de los cambios, mejoras y correcciones de bugs en cada versión, para facilitar la comunicación con los usuarios y la gestión del proyecto. También debemos actualizar el número de versión en el código y en la documentación. Finalmente generaremos el archivo zip con el código actualizado para su distribución.
+27. **Internacionalización obligatoria en el frontend (ES/EN).** Todo texto
+    visible al usuario en el frontend — etiquetas, títulos, cabeceras de tabla,
+    mensajes de estado vacío, confirmaciones, textos de botones, mensajes de
+    error en formularios, tooltips — debe obtenerse mediante `t('clave')` desde
+    `AppContext`, **nunca hardcodeado**. Las únicas excepciones permitidas son
+    nombres propios (Yahoo Ticker, ISIN, Google Ticker, "EUR", "USD") y
+    literales técnicos que el usuario no lee como texto natural.
+    El diccionario `frontend/src/i18n/translations.js` debe mantener las
+    versiones ES e EN de cada clave. Al añadir cualquier nuevo componente o
+    texto, se añaden simultáneamente las dos traducciones.
 
 
 ## Modelo de datos (SQLite)
