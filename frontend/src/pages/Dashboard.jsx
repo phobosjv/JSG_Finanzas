@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -258,10 +258,11 @@ function MoverCard({ market, t, navigate }) {
 }
 
 function MoversSection({ allMarkets, moversMarkets, t, navigate }) {
+  const markets = Array.isArray(allMarkets) ? allMarkets : []
   // null = todos; array = solo los seleccionados
   const visible = moversMarkets === null
-    ? allMarkets
-    : allMarkets.filter(m => moversMarkets.includes(m.code))
+    ? markets
+    : markets.filter(m => moversMarkets.includes(m.code))
 
   if (visible.length === 0) return null
 
@@ -313,9 +314,11 @@ function DashboardConfigModal({ config, onSave, onClose, allMarkets, t }) {
   const [moversMarkets, setMoversMarkets]   = useState(config.moversMarkets)
   const [chartsVisible, setChartsVisible]   = useState(config.chartsVisible)
 
+  const safeMarkets = Array.isArray(allMarkets) ? allMarkets : []
+
   // Cuando allMarkets carga, inicializar moversMarkets si es null (mostrar todos)
   const effectiveMoverMarkets = moversMarkets === null
-    ? allMarkets.map(m => m.code)
+    ? safeMarkets.map(m => m.code)
     : moversMarkets
 
   function toggleSection(id) {
@@ -339,7 +342,7 @@ function DashboardConfigModal({ config, onSave, onClose, allMarkets, t }) {
       ? current.filter(c => c !== code)
       : [...current, code]
     // si todos seleccionados → volver a null (todos por defecto)
-    setMoversMarkets(next.length === allMarkets.length ? null : next)
+    setMoversMarkets(next.length === safeMarkets.length ? null : next)
   }
 
   function toggleChart(id) {
@@ -387,10 +390,10 @@ function DashboardConfigModal({ config, onSave, onClose, allMarkets, t }) {
         </div>
 
         {/* Mercados para movers */}
-        {allMarkets.length > 0 && (
+        {safeMarkets.length > 0 && (
           <div className="db-modal-section">
             <div className="db-modal-label">{t('dashboard.config_movers_markets')}</div>
-            {allMarkets.map(m => (
+            {safeMarkets.map(m => (
               <label key={m.code} className="db-config-check" style={{ marginBottom: 6, display: 'flex', gap: 8 }}>
                 <input
                   type="checkbox"
@@ -446,7 +449,7 @@ export default function Dashboard() {
     Promise.all([
       api.get('/portfolio'),
       api.get('/favorites'),
-      api.get('/markets'),
+      api.get('/markets/list'),
       api.get('/portfolio/history'),
     ])
       .then(([pos, favs, mkts, hist]) => {
