@@ -19,10 +19,28 @@ export const translations = {
     'nav.logout':      'Cerrar sesión',
 
     // ── Dashboard ────────────────────────────────────────────────────────
-    'dashboard.title':          'Dashboard',
-    'dashboard.top_movers':     'Mayores movimientos del día',
-    'dashboard.up':             'Subidas',
-    'dashboard.down':           'Bajadas',
+    'dashboard.title':                 'Dashboard',
+    'dashboard.hello':                 'Hola, {name}',
+    'dashboard.logout':                'Salir',
+    'dashboard.top_movers':            'Mayores movimientos del día',
+    'dashboard.up':                    'Subidas',
+    'dashboard.down':                  'Bajadas',
+    'dashboard.movers_title':          'Movimientos del día',
+    'dashboard.movers_none':           'Sin movimientos',
+    'dashboard.empty_msg':             'No hay datos aún.',
+    'dashboard.empty_hint':            'Añade valores en Utilidades y registra tus transacciones en Cartera.',
+    // Configuración del dashboard
+    'dashboard.configure':             'Configurar Dashboard',
+    'dashboard.config_sections':       'Secciones',
+    'dashboard.config_movers_markets': 'Mercados para movimientos',
+    'dashboard.config_charts':         'Gráficos a mostrar',
+    'dashboard.config_save':           'Guardar',
+    // Nombres de secciones
+    'dashboard.section_kpis':          'Resumen',
+    'dashboard.section_positions':     'Posiciones abiertas',
+    'dashboard.section_favorites':     'Favoritos',
+    'dashboard.section_movers':        'Mayores movimientos',
+    'dashboard.section_charts':        'Gráficos de cartera',
 
     // ── Mercados ─────────────────────────────────────────────────────────
     'markets.title':            'Mercados',
@@ -232,10 +250,28 @@ export const translations = {
     'nav.logout':      'Log out',
 
     // ── Dashboard ────────────────────────────────────────────────────────
-    'dashboard.title':          'Dashboard',
-    'dashboard.top_movers':     'Top movers today',
-    'dashboard.up':             'Gainers',
-    'dashboard.down':           'Losers',
+    'dashboard.title':                 'Dashboard',
+    'dashboard.hello':                 'Hello, {name}',
+    'dashboard.logout':                'Log out',
+    'dashboard.top_movers':            'Top movers today',
+    'dashboard.up':                    'Gainers',
+    'dashboard.down':                  'Losers',
+    'dashboard.movers_title':          'Movers today',
+    'dashboard.movers_none':           'No movers',
+    'dashboard.empty_msg':             'No data yet.',
+    'dashboard.empty_hint':            'Add securities in Utilities and record your transactions in Portfolio.',
+    // Dashboard configuration
+    'dashboard.configure':             'Configure Dashboard',
+    'dashboard.config_sections':       'Sections',
+    'dashboard.config_movers_markets': 'Markets for movers',
+    'dashboard.config_charts':         'Charts to show',
+    'dashboard.config_save':           'Save',
+    // Section names
+    'dashboard.section_kpis':          'Summary',
+    'dashboard.section_positions':     'Open positions',
+    'dashboard.section_favorites':     'Favourites',
+    'dashboard.section_movers':        'Top movers',
+    'dashboard.section_charts':        'Portfolio charts',
 
     // ── Markets ───────────────────────────────────────────────────────────
     'markets.title':            'Markets',

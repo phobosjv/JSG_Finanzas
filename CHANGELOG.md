@@ -5,6 +5,49 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.0] — 2026-05-26
+
+### Añadido
+
+- **Dashboard personalizable**: el usuario puede activar/desactivar cada
+  sección y reordenarlas con los botones ▲/▼ del modal de configuración
+  (⚙ en la cabecera). La configuración se persiste en `localStorage`.
+  Secciones disponibles:
+  - **Resumen (KPIs)**: tarjetas de valor total, B/P latente, variación
+    del día y número de posiciones abiertas.
+  - **Posiciones abiertas**: tabla simplificada de posiciones.
+  - **Favoritos**: tabla con barra de desplazamiento vertical (máx. 360 px)
+    para listas largas.
+  - **Mayores movimientos**: para cada mercado seleccionado, muestra las
+    5 mayores subidas y las 5 mayores bajadas del día. Activada por defecto.
+  - **Gráficos de cartera**: los tres gráficos de "Mi Cartera"
+    (distribución, B/P por acción, evolución del valor). Desactivada por
+    defecto (opt-in).
+- **Selector de mercados para movimientos**: en el modal ⚙ se puede
+  elegir de qué mercados se muestran las subidas/bajadas. Por defecto
+  se muestran todos los mercados disponibles.
+- **Selector de gráficos para el dashboard**: permite elegir cuáles de
+  los tres gráficos de cartera se muestran en el dashboard.
+
+### Modificado
+
+- **Top movers — filtro estricto**: `direction=up` devuelve solo valores
+  con `daily_change_pct > 0`; `direction=down` solo los de `< 0`.
+  Antes, si había menos de 5 bajadas reales, se rellenaba con los valores
+  que menos subían. Ahora se muestran los huecos vacíos con el mensaje
+  "Sin movimientos".
+- **Gráficos de cartera extraídos** a `PortfolioChartsPanel.jsx`
+  (componente compartido entre `Portfolio.jsx` y `Dashboard.jsx`).
+  `Portfolio.jsx` se simplifica delegando los tres gráficos al componente.
+
+### Infraestructura
+
+- Nuevo fichero `frontend/src/components/PortfolioChartsPanel.jsx`.
+- 18 nuevas claves `dashboard.*` en `translations.js` (ES + EN).
+- 196 tests en verde (sin cambios en el número).
+
+---
+
 ## [1.5.7] — 2026-05-26
 
 ### Modificado

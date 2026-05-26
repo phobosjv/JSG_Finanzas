@@ -97,7 +97,10 @@
       "Bash(xxd \"j:/DESARROLLO WEB/PROYECTOS/finanzas/entrypoint.sh\")",
       "Bash(grep -c \"\\\\\\\\\\\\\\\\r\")",
       "Bash(git commit -m 'fix: eliminar BOM UTF-8 de entrypoint.sh \\(causa crash del contenedor\\) *)",
-      "Bash(git commit -m 'docs: añadir directrices de generación del zip de distribución en CLAUDE.md *)"
+      "Bash(git commit -m 'docs: añadir directrices de generación del zip de distribución en CLAUDE.md *)",
+      "Bash(cat)",
+      "Bash(git commit *)",
+      "Bash(git reset *)"
     ]
   }
 }

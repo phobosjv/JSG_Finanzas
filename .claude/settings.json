@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Start-Sleep -Seconds 5; try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/api/auth/me\" -UseBasicParsing -ErrorAction Stop; $r.StatusCode } catch { $_.Exception.Response.StatusCode.value__ })",
+      "Bash(git commit -m ' *)",
+      "PowerShell(Get-Process -Name \"uvicorn\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "PowerShell(Get-Process -Name \"node\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Start-Process -FilePath \"powershell\" -ArgumentList \"-NoExit\", \"-Command\", \"cd 'j:\\\\DESARROLLO WEB\\\\PROYECTOS\\\\finanzas\\\\backend'; .\\\\venv\\\\Scripts\\\\uvicorn app.main:app --reload --port 8000\" -WindowStyle Normal)",
+      "Bash(echo \"Backend PID: $!\")",
+      "PowerShell(Stop-Process -Id 31336 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Name uvicorn -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Process uvicorn -ErrorAction SilentlyContinue)",
+      "Bash(./venv/Scripts/uvicorn app.main:app --port 8000)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8000/)",
+      "PowerShell(Set-Location \"j:\\\\DESARROLLO WEB\\\\PROYECTOS\\\\finanzas\\\\backend\"; $proc = Start-Process -FilePath \".\\\\venv\\\\Scripts\\\\uvicorn.exe\" -ArgumentList \"app.main:app\",\"--port\",\"8000\" -WorkingDirectory \"j:\\\\DESARROLLO WEB\\\\PROYECTOS\\\\finanzas\\\\backend\" -PassThru -NoNewWindow -RedirectStandardError \"$env:TEMP\\\\uvi_err.txt\" -RedirectStandardOutput \"$env:TEMP\\\\uvi_out.txt\"; Start-Sleep -Seconds 5; Get-Content \"$env:TEMP\\\\uvi_out.txt\" -ErrorAction SilentlyContinue; Get-Content \"$env:TEMP\\\\uvi_err.txt\" -ErrorAction SilentlyContinue; $proc.Id; $proc.HasExited)",
+      "PowerShell(Start-Sleep -Seconds 3; \\(Invoke-WebRequest -Uri \"http://localhost:8000/\" -UseBasicParsing -ErrorAction SilentlyContinue\\).StatusCode)",
+      "PowerShell(Get-Content \"$env:TEMP\\\\uvi_out.txt\" | Select-Object -First 5; Get-Content \"$env:TEMP\\\\uvi_err.txt\" | Select-Object -First 10)",
+      "PowerShell(Stop-Process -Id 31504 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Id 29788 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Id 29084 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell($proc = Start-Process -FilePath \"j:\\\\DESARROLLO WEB\\\\PROYECTOS\\\\finanzas\\\\backend\\\\venv\\\\Scripts\\\\uvicorn.exe\" -ArgumentList \"app.main:app\",\"--port\",\"8000\" -WorkingDirectory \"j:\\\\DESARROLLO WEB\\\\PROYECTOS\\\\finanzas\\\\backend\" -PassThru -NoNewWindow -RedirectStandardOutput \"$env:TEMP\\\\uvi_out2.txt\" -RedirectStandardError \"$env:TEMP\\\\uvi_err2.txt\"; Start-Sleep -Seconds 5; Get-Content \"$env:TEMP\\\\uvi_out2.txt\"; Get-Content \"$env:TEMP\\\\uvi_err2.txt\"; \"PID: $\\($proc.Id\\)  HasExited: $\\($proc.HasExited\\)\")",
+      "PowerShell(Start-Sleep -Seconds 3; \\(Invoke-WebRequest -Uri \"http://localhost:8000/\" -UseBasicParsing -ErrorAction SilentlyContinue\\).StatusCode; Get-Content \"$env:TEMP\\\\uvi_out2.txt\"; Get-Content \"$env:TEMP\\\\uvi_err2.txt\")",
+      "Bash(curl -s -c /tmp/cookies.txt -b /tmp/cookies.txt -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"javier\",\"password\":\"javier\"}' -w \"\\\\nHTTP %{http_code}\")",
+      "Bash(curl -s -c /tmp/cookies.txt -b /tmp/cookies.txt -X POST http://localhost:8000/auth/login -d \"username=javier&password=javier\" -w \"\\\\nHTTP %{http_code}\")",
+      "Bash(curl -s http://localhost:8000/openapi.json)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(m.upper\\(\\),p\\) for p,ops in d['paths'].items\\(\\) for m in ops if 'login' in p.lower\\(\\) or 'auth' in p.lower\\(\\)]\")",
+      "Bash(curl -s -c /tmp/cookies.txt -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"javier\",\"password\":\"javier\"}' -w \"\\\\nHTTP %{http_code}\")",
+      "Bash(curl -s -b /tmp/cookies.txt \"http://localhost:8000/api/reports/tax/2025/html\" -w \"\\\\nHTTP %{http_code}\")",
+      "PowerShell(Start-Sleep -Seconds 5; \\(Invoke-WebRequest -Uri \"http://localhost:8000/\" -UseBasicParsing -ErrorAction SilentlyContinue\\).StatusCode; Get-Content \"$env:TEMP\\\\uvi_err3.txt\" | Select-Object -Last 5)",
+      "Bash(Get-ChildItem -Path \"J:\\\\DESARROLLO WEB\\\\PROYECTOS\\\\finanzas\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)"
+    ]
+  }
+}

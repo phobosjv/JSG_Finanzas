@@ -215,6 +215,11 @@ def get_top_movers(
     rows = _load_securities_with_snapshots(db, user.id, market=market)
     # Excluir los que no tienen variación diaria
     rows = [r for r in rows if r.daily_change_pct is not None]
+    # Filtro estricto: solo subidas reales (>0) o bajadas reales (<0)
+    if direction == "up":
+        rows = [r for r in rows if float(r.daily_change_pct) > 0]
+    else:
+        rows = [r for r in rows if float(r.daily_change_pct) < 0]
     reverse = direction != "down"
     rows.sort(key=lambda r: float(r.daily_change_pct), reverse=reverse)
     return rows[:n]

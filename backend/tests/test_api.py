@@ -541,28 +541,39 @@ def test_markets_top_movers_sin_snapshots(admin_client, seed_markets):
 
 
 def test_markets_top_movers_con_snapshot(admin_client, seed_markets, engine):
-    """Con snapshots, top-movers ordena correctamente."""
+    """Con snapshots, top-movers filtra estrictamente por signo (v1.6.0).
+
+    direction=up  → solo daily_change_pct > 0 (excluye negativos y cero).
+    direction=down → solo daily_change_pct < 0 (excluye positivos y cero).
+    """
     from sqlalchemy.orm import Session
     from app.models import PriceSnapshot
 
     san_id = _crear_security(admin_client, ticker="SAN.MC")
     ibe_id = _crear_security(admin_client, ticker="IBE.MC")
+    rep_id = _crear_security(admin_client, ticker="REP.MC")
 
-    # Insertar snapshots directamente en la BD de test
+    # SAN y REP suben; IBE baja
     with Session(engine) as s:
-        s.add(PriceSnapshot(security_id=san_id, last_price=4.0, daily_change_pct=2.5))
+        s.add(PriceSnapshot(security_id=san_id, last_price=4.0,  daily_change_pct=2.5))
         s.add(PriceSnapshot(security_id=ibe_id, last_price=10.0, daily_change_pct=-1.0))
+        s.add(PriceSnapshot(security_id=rep_id, last_price=15.0, daily_change_pct=0.8))
         s.commit()
 
-    # Mayores subidas: SAN primero (2.5 > -1.0)
+    # Mayores subidas: solo pct > 0, ordenados de mayor a menor
     up = admin_client.get("/api/markets/top-movers?market=ibex35&direction=up&n=5").json()
-    assert up[0]["yahoo_ticker"] == "SAN.MC"
-    assert up[1]["yahoo_ticker"] == "IBE.MC"
+    tickers_up = [x["yahoo_ticker"] for x in up]
+    assert "SAN.MC" in tickers_up      # +2.5 %
+    assert "REP.MC" in tickers_up      # +0.8 %
+    assert "IBE.MC" not in tickers_up  # -1.0 % → excluido
+    assert up[0]["yahoo_ticker"] == "SAN.MC"  # mayor subida primero
 
-    # Mayores bajadas: IBE primero (-1.0 < 2.5)
+    # Mayores bajadas: solo pct < 0
     down = admin_client.get("/api/markets/top-movers?market=ibex35&direction=down&n=5").json()
-    assert down[0]["yahoo_ticker"] == "IBE.MC"
-    assert down[1]["yahoo_ticker"] == "SAN.MC"
+    tickers_down = [x["yahoo_ticker"] for x in down]
+    assert "IBE.MC" in tickers_down      # -1.0 %
+    assert "SAN.MC" not in tickers_down  # +2.5 % → excluido
+    assert "REP.MC" not in tickers_down  # +0.8 % → excluido
 
 
 def test_markets_top_movers_n_limita_resultados(admin_client, seed_markets, engine):
