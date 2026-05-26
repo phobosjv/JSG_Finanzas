@@ -325,6 +325,51 @@ def _build_sale_lines_grouped(sale_lines: list[SaleLine]) -> list[dict]:
     return result
 
 
+def _compute_adjusted_totals(sale_lines: list[SaleLine]) -> dict:
+    """
+    Calcula ganancias y pérdidas clasificando el resultado NETO de cada valor,
+    en lugar de hacerlo par a par FIFO.
+
+    Motivación: si un valor se vendió dos veces en el ejercicio (una con
+    pérdida de -2,84 € y otra con ganancia de +19,35 €), la visión por valor
+    muestra un único resultado neto de +16,51 €.  Si se contabilizaran de
+    forma independiente se mostraría una ganancia (+19,35) Y una pérdida
+    (-2,84) que se contradicen con la fila única del Bloque 1.
+
+    Algoritmo:
+      1. Para los pares NO afectados por la regla de recompra, agrupa por
+         valor y acumula el resultado neto.
+      2. Cada valor contribuye al total de ganancias (si net > 0) o al total
+         de pérdidas (si net < 0) con su resultado NETO.
+      3. Los pares afectados por la regla de recompra se acumulan aparte
+         (no cambia respecto al cálculo original).
+
+    La suma `adj_gains + adj_losses_computable` == `net_capital_result_eur`
+    es matemáticamente idéntica a la suma original, solo cambia la separación.
+    """
+    # Agrupa pares computables por valor
+    sec_net: dict = {}
+    dis_total = Decimal("0")
+
+    for line in sale_lines:
+        if line.loss_disallowed:
+            dis_total += line.gain_eur
+        else:
+            key = (line.security_name, line.isin, line.sell_date.year)
+            sec_net.setdefault(key, Decimal("0"))
+            sec_net[key] += line.gain_eur
+
+    adj_gains  = sum((v for v in sec_net.values() if v > Decimal("0")), Decimal("0"))
+    adj_losses = sum((v for v in sec_net.values() if v < Decimal("0")), Decimal("0"))
+
+    return {
+        "gains":             adj_gains,
+        "losses_computable": adj_losses,
+        "losses_disallowed": dis_total,
+        "net_capital":       adj_gains + adj_losses,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Bloque 2: movimientos agregados por valor+fecha (Compras y Ventas)
 # ---------------------------------------------------------------------------
@@ -548,10 +593,9 @@ def _build_context(report: TaxReport, lang: str = "es") -> dict:
         "dividend_lines":       dividend_lines,
         "net_capital_positive": report.net_capital_result_eur >= Decimal("0"),
         "totals": {
-            "gains":              _fmt_money(report.total_gains_eur),
-            "losses_computable":  _fmt_money(report.total_losses_computable_eur),
-            "losses_disallowed":  _fmt_money(report.total_losses_disallowed_eur),
-            "net_capital":        _fmt_money(report.net_capital_result_eur),
+            # Totales usando el resultado NETO por valor (coherente con la tabla del Bloque 1).
+            # Si un valor tuvo pérdida y ganancia, el neto positivo cuenta solo como ganancia.
+            **{k: _fmt_money(v) for k, v in _compute_adjusted_totals(report.sale_lines).items()},
             "div_gross":          _fmt_money(report.total_dividends_gross_eur),
             "div_withholding":    _fmt_money(report.total_dividends_withholding_eur),
             "div_net":            _fmt_money(report.total_dividends_net_eur),

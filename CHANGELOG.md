@@ -5,6 +5,36 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.5.5] — 2026-05-26
+
+### Corregido
+
+- **Resumen del Bloque 1 coherente con la vista agrupada por valor**: el
+  cuadro "Ganancias / Pérdidas computables / Saldo computable" que aparece
+  bajo la tabla de ganancias/pérdidas ahora usa el resultado NETO de cada
+  valor para clasificarlo como ganancia o pérdida, en lugar de clasificar
+  cada par FIFO individualmente.
+
+  Ejemplo: Acciona Energía tuvo dos ventas en el ejercicio, una con
+  resultado -2,84 € y otra con +19,35 €. El resultado neto del valor es
+  +16,51 €, que se contabiliza íntegramente como ganancia.
+  En el sistema anterior aparecía una ganancia de +19,35 y una pérdida de
+  -2,84 de forma separada, siendo inconsistente con la fila única que ya
+  muestra +16,51 en la tabla.
+
+  El saldo computable final (`ganancias + pérdidas computables`) es
+  matemáticamente idéntico; solo cambia cómo se desglosa entre las dos
+  líneas del resumen.
+
+### Infraestructura
+
+- Nueva función `_compute_adjusted_totals()` en `pdf_generator.py`:
+  agrupa los pares FIFO por valor antes de clasificar, separando los pares
+  afectados por la regla de recompra que se acumulan sin cambios.
+- 196 tests en verde.
+
+---
+
 ## [1.5.4] — 2026-05-26
 
 ### Modificado
