@@ -109,6 +109,28 @@ export const translations = {
 
     // ── Informe fiscal ───────────────────────────────────────────────────
     'tax.title':                'Informe fiscal IRPF',
+    // Cabecera del ejercicio en curso
+    'tax.year_current':         'Ejercicio',
+    'tax.in_progress':          'en curso',
+    'tax.current_year_hint':    'Acumulado hasta hoy. Base imponible del ahorro estimada (plusvalías netas + dividendos netos).',
+    // Tarjetas resumen
+    'tax.card_net_sales':       'Resultado neto ventas',
+    'tax.card_net_sales_sub':   'Comisiones ya incluidas en el cálculo',
+    'tax.disallowed_losses':    'Pérd. no computables:',
+    'tax.card_dividends':       'Dividendos netos',
+    'tax.gross':                'Bruto',
+    'tax.withholding_short':    'Ret.',
+    'tax.card_commissions':     'Comisiones pagadas',
+    'tax.commissions_sub':      'Ya descontadas del coste de adquisición',
+    'tax.card_taxbase':         'Base imponible estimada',
+    'tax.marginal_rate':        'Tramo marginal:',
+    'tax.estimated_tax':        'Cuota estimada:',
+    // Gráfico de tramos
+    'tax.brackets_title':       'Distribución por tramos',
+    // Informe completo
+    'tax.full_report_title':    'Informe completo por ejercicio',
+    'tax.full_report_hint':     'Abre el informe detallado del año seleccionado en una pestaña nueva. Usa Ctrl+P → "Guardar como PDF" para descargarlo.',
+    'tax.open_report':          'Ver informe fiscal',
 
     // ── Genéricos ────────────────────────────────────────────────────────
     'common.loading':    'Cargando…',
@@ -221,6 +243,28 @@ export const translations = {
 
     // ── Tax report ────────────────────────────────────────────────────────
     'tax.title':                'Tax report (IRPF)',
+    // Current year header
+    'tax.year_current':         'Fiscal year',
+    'tax.in_progress':          'in progress',
+    'tax.current_year_hint':    'Accumulated to date. Estimated taxable savings base (net capital gains + net dividends).',
+    // Summary cards
+    'tax.card_net_sales':       'Net capital result',
+    'tax.card_net_sales_sub':   'Commissions already included in the calculation',
+    'tax.disallowed_losses':    'Non-deductible losses:',
+    'tax.card_dividends':       'Net dividends',
+    'tax.gross':                'Gross',
+    'tax.withholding_short':    'Withh.',
+    'tax.card_commissions':     'Commissions paid',
+    'tax.commissions_sub':      'Already deducted from acquisition cost',
+    'tax.card_taxbase':         'Estimated taxable base',
+    'tax.marginal_rate':        'Marginal rate:',
+    'tax.estimated_tax':        'Estimated tax:',
+    // Bracket chart
+    'tax.brackets_title':       'Distribution by tax bracket',
+    // Full report section
+    'tax.full_report_title':    'Full report by fiscal year',
+    'tax.full_report_hint':     'Opens the detailed report for the selected year in a new tab. Use Ctrl+P → "Save as PDF" to download it.',
+    'tax.open_report':          'View tax report',
 
     // ── Common ────────────────────────────────────────────────────────────
     'common.loading':    'Loading…',

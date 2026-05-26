@@ -115,6 +115,7 @@ def _to_security_ref(sec: Security, fiscal_window_days: int = 60) -> SecurityRef
         isin=sec.isin,
         market=sec.market,
         fiscal_window_days=fiscal_window_days,
+        currency=sec.currency,
     )
 
 

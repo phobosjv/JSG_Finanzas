@@ -5,6 +5,46 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.5.3] — 2026-05-26
+
+### Modificado
+
+- **Cabecera resumen fiscal — aclaración sobre comisiones**: la tarjeta
+  "Resultado neto ventas" (tanto en la pantalla del ejercicio en curso como
+  en el informe impreso) añade ahora un subtexto que aclara que las
+  comisiones ya están incluidas en el cálculo, evitando confusión con la
+  tarjeta "Comisiones pagadas".
+- **Informe impreso — Bloque 2 reemplazado**: la sección "Gastos en
+  comisiones" se sustituye por "Detalle de movimientos", que lista cada
+  operación de compra y venta (por fecha y valor) con: tipo, fecha, nº de
+  acciones, precio unitario, comisión, divisa y total de la operación.
+  Las operaciones del mismo valor y fecha se agregan en una sola fila.
+  Las compras muestran el precio neto de comisión y el total con comisión;
+  las ventas muestran el precio bruto y el importe total bruto.
+- **Internacionalización completa del informe fiscal** (ES/EN):
+  - Todos los textos de `TaxReport.jsx` (tarjetas, gráfico de tramos,
+    sección de informe completo) usan ahora `t('tax.*')` desde `AppContext`.
+  - El informe HTML impreso recibe el parámetro `?lang=es|en` y usa un
+    diccionario `labels` para todos sus textos (títulos de bloques, cabeceras
+    de columnas, avisos, pie de página).
+  - Los avisos del informe impreso se generan en el idioma solicitado.
+  - El texto de la regla de recompra ("NO COMPUTA") se localiza en el
+    informe impreso según el idioma.
+  - Traducciones añadidas en `translations.js`: 18 nuevas claves `tax.*`
+    en español e inglés.
+
+### Infraestructura
+
+- `SaleLine` enriquecida: nuevos campos `buy_fee_eur`, `sell_fee_eur`,
+  `currency` y `fiscal_window_days` (usados por el generador de movimientos).
+- `SecurityRef` enriquecida: nuevo campo `currency` propagado desde
+  `portfolio_repository._to_security_ref`.
+- `pdf_generator.render_tax_report_html` acepta `lang: str = "es"`.
+- `GET /reports/tax/{year}/html` acepta `?lang=es|en`.
+- 196 tests en verde (sin cambios en el número).
+
+---
+
 ## [1.5.2] — 2026-05-25
 
 ### Corregido

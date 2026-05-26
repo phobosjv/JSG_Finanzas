@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { useAppConfig } from '../context/AppContext'
 import './TaxReport.css'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -55,10 +56,9 @@ function SummaryCard({ label, value, sub, positive }) {
   )
 }
 
-function BracketBar({ base }) {
+function BracketBar({ base, t }) {
   if (base <= 0) return null
 
-  // Construir segmentos coloreados
   const segments = []
   let remaining = base
   let prev = 0
@@ -74,7 +74,7 @@ function BracketBar({ base }) {
 
   return (
     <div className="bracket-wrap">
-      <div className="bracket-title">Distribución por tramos</div>
+      <div className="bracket-title">{t('tax.brackets_title')}</div>
       <div className="bracket-bar">
         {segments.map((s, i) => (
           <div
@@ -98,6 +98,7 @@ function BracketBar({ base }) {
 }
 
 export default function TaxReport() {
+  const { t, locale } = useAppConfig()
   const [summary, setSummary]   = useState(null)
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
@@ -113,7 +114,7 @@ export default function TaxReport() {
   }, [])
 
   function openReport() {
-    window.open(`/api/reports/tax/${taxYear}/html`, '_blank')
+    window.open(`/api/reports/tax/${taxYear}/html?lang=${locale}`, '_blank')
   }
 
   const base = summary
@@ -124,11 +125,8 @@ export default function TaxReport() {
     <div>
       {/* ── Año en curso ── */}
       <div style={{ marginBottom: 24 }}>
-        <h1>Ejercicio {CURRENT_YEAR} <span className="year-badge">en curso</span></h1>
-        <p className="section-hint">
-          Acumulado hasta hoy. Base imponible del ahorro estimada
-          (plusvalías netas + dividendos netos).
-        </p>
+        <h1>{t('tax.year_current')} {CURRENT_YEAR} <span className="year-badge">{t('tax.in_progress')}</span></h1>
+        <p className="section-hint">{t('tax.current_year_hint')}</p>
       </div>
 
       {loading && <div className="state-loading"><div className="spinner" /></div>}
@@ -138,38 +136,41 @@ export default function TaxReport() {
         <>
           <div className="tax-cards">
             <SummaryCard
-              label="Resultado neto ventas"
+              label={t('tax.card_net_sales')}
               value={summary.net_capital_result_eur}
               sub={
-                summary.total_losses_disallowed_eur < 0
-                  ? `Pérd. no computables: ${eur(summary.total_losses_disallowed_eur)}`
-                  : null
+                <span>
+                  {t('tax.card_net_sales_sub')}
+                  {summary.total_losses_disallowed_eur < 0 && (
+                    <><br />{t('tax.disallowed_losses')} {eur(summary.total_losses_disallowed_eur)}</>
+                  )}
+                </span>
               }
               positive
             />
             <SummaryCard
-              label="Dividendos netos"
+              label={t('tax.card_dividends')}
               value={summary.total_dividends_net_eur}
-              sub={`Bruto ${eur(summary.total_dividends_gross_eur)} · Ret. ${eur(summary.total_dividends_withholding_eur)}`}
+              sub={`${t('tax.gross')} ${eur(summary.total_dividends_gross_eur)} · ${t('tax.withholding_short')} ${eur(summary.total_dividends_withholding_eur)}`}
               positive
             />
             <SummaryCard
-              label="Comisiones pagadas"
+              label={t('tax.card_commissions')}
               value={summary.total_commission_eur}
-              sub="Ya descontadas del coste de adquisición"
+              sub={t('tax.commissions_sub')}
               positive={false}
             />
             <div className="tax-card tax-card-accent">
-              <div className="tax-card-label">Base imponible estimada</div>
+              <div className="tax-card-label">{t('tax.card_taxbase')}</div>
               <div className="tax-card-value pos">{eur(base)}</div>
               <div className="tax-card-sub">
-                Tramo marginal: <strong>{marginalRate(base)}%</strong>
-                &nbsp;·&nbsp;Cuota estimada: <strong>{eur(computeTax(base))}</strong>
+                {t('tax.marginal_rate')} <strong>{marginalRate(base)}%</strong>
+                &nbsp;·&nbsp;{t('tax.estimated_tax')} <strong>{eur(computeTax(base))}</strong>
               </div>
             </div>
           </div>
 
-          <BracketBar base={base} />
+          <BracketBar base={base} t={t} />
 
           {summary.warnings.length > 0 && (
             <div className="tax-warnings">
@@ -183,10 +184,9 @@ export default function TaxReport() {
 
       {/* ── Informe completo de ejercicios pasados ── */}
       <div className="card" style={{ marginTop: 32 }}>
-        <h2>Informe completo por ejercicio</h2>
+        <h2>{t('tax.full_report_title')}</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
-          Abre el informe detallado del año seleccionado en una pestaña nueva.
-          Usa <strong>Ctrl+P</strong> → &ldquo;Guardar como PDF&rdquo; para descargarlo.
+          {t('tax.full_report_hint')}
         </p>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <select
@@ -199,7 +199,7 @@ export default function TaxReport() {
             ))}
           </select>
           <button className="btn-primary btn-sm" onClick={openReport}>
-            Ver informe fiscal
+            {t('tax.open_report')}
           </button>
         </div>
       </div>

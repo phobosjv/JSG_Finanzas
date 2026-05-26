@@ -9,7 +9,7 @@ GET /reports/tax/{year}/html     — informe completo en HTML (Ctrl+P → PDF).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
@@ -46,10 +46,11 @@ def get_tax_report_summary(
 @router.get("/tax/{year}/html")
 def get_tax_report_html(
     year: int,
+    lang: str = Query(default="es", pattern="^(es|en)$"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     sales, dividends = build_tax_report_input(db, user.id)
     report = build_tax_report(year, sales, dividends)
-    html = render_tax_report_html(report)
+    html = render_tax_report_html(report, lang=lang)
     return Response(content=html, media_type="text/html")

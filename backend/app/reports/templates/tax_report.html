@@ -2,10 +2,12 @@
   reports/templates/tax_report.html
   =================================
   Plantilla del informe fiscal anual. La renderiza pdf_generator.py con
-  Jinja2 y se sirve como HTML al navegador (Ctrl+P → PDF).
+  Jinja2 y se sirve como HTML al navegador (Ctrl+P -> PDF).
 
   Variables que recibe (del objeto TaxReport, ya formateadas a str por el
   generador para controlar el formato de numeros y fechas):
+    lang                : "es" | "en"
+    labels              : dict con todas las cadenas UI localizadas
     year, generated_at
     summary             : resumen ejecutivo (página 1)
       .net_capital, .net_capital_positive
@@ -16,29 +18,41 @@
     sale_lines[]        : security_name, isin, market, sell_date, buy_date,
                           shares, cost_eur, proceeds_eur, gain_eur,
                           loss_disallowed (bool), disallowed_reason
-    commission_lines[]  : security_name, isin, buy_fee_eur, sell_fee_eur, total_fee_eur
+    movement_lines[]    : type_label, is_sell, date, security_name, isin,
+                          shares, unit_price, fee, currency, total
     dividend_lines[]    : security_name, isin, market, pay_date,
                           gross_eur, withholding_eur, net_eur
     totals              : gains, losses_computable, losses_disallowed, net_capital,
-                          commission_buy, commission_sell, commission_total,
                           div_gross, div_withholding, div_net
     warnings[]
 -->
 <!DOCTYPE html>
-<html lang="es">
+<html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
 <style>
   /* ---- Configuracion de pagina ---- */
+  {% if lang == "en" %}
   @page {
     size: A4;
     margin: 2cm 1.8cm 2.5cm 1.8cm;
     @bottom-center {
-      content: "Pagina " counter(page) " de " counter(pages);
+      content: "{{ labels.page_num }} " counter(page) " {{ labels.page_of }} " counter(pages);
       font-size: 8pt;
       color: #888;
     }
   }
+  {% else %}
+  @page {
+    size: A4;
+    margin: 2cm 1.8cm 2.5cm 1.8cm;
+    @bottom-center {
+      content: "{{ labels.page_num }} " counter(page) " {{ labels.page_of }} " counter(pages);
+      font-size: 8pt;
+      color: #888;
+    }
+  }
+  {% endif %}
 
   /* ---- Tipografia base ---- */
   body {
@@ -108,6 +122,26 @@
     vertical-align: middle;
   }
 
+  /* Badge de tipo de movimiento (Compra/Venta) */
+  .badge-buy {
+    display: inline-block;
+    background: #1a7a3a;
+    color: #fff;
+    font-size: 7pt;
+    font-weight: 700;
+    padding: 1pt 5pt;
+    border-radius: 2pt;
+  }
+  .badge-sell {
+    display: inline-block;
+    background: #c0392b;
+    color: #fff;
+    font-size: 7pt;
+    font-weight: 700;
+    padding: 1pt 5pt;
+    border-radius: 2pt;
+  }
+
   /* Fila de totales */
   tr.total td {
     font-weight: 700;
@@ -155,6 +189,12 @@
     color: #999;
     font-style: italic;
     padding: 2pt 6pt 6pt 6pt;
+  }
+
+  .hint {
+    font-size: 8pt;
+    color: #555;
+    margin: 0 0 6pt 0;
   }
 
   .empty {
@@ -287,9 +327,9 @@
 
   <!-- ============ CABECERA ============ -->
   <div class="header">
-    <h1>Informe para la declaración de la renta</h1>
-    <div class="subtitle">Ejercicio fiscal {{ year }}</div>
-    <div class="subtitle">Generado el {{ generated_at }}</div>
+    <h1>{{ labels.page_header }}</h1>
+    <div class="subtitle">{{ labels.fiscal_year }} {{ year }}</div>
+    <div class="subtitle">{{ labels.generated_at }} {{ generated_at }}</div>
   </div>
 
   <!-- ============ RESUMEN EJECUTIVO (página 1) ============ -->
@@ -297,42 +337,43 @@
 
     <div class="s-cards">
       <div class="s-card">
-        <div class="s-label">Resultado neto ventas</div>
+        <div class="s-label">{{ labels.card_net_sales }}</div>
         <div class="s-value {{ 'pos' if summary.net_capital_positive else 'neg' }}">
           {{ summary.net_capital }} €
         </div>
+        <div class="s-sub">{{ labels.card_net_sales_sub }}</div>
       </div>
 
       <div class="s-card">
-        <div class="s-label">Dividendos netos</div>
+        <div class="s-label">{{ labels.card_dividends }}</div>
         <div class="s-value {{ 'pos' if summary.div_net_positive else 'neg' }}">
           {{ summary.div_net }} €
         </div>
         <div class="s-sub">
-          Bruto {{ summary.div_gross }} € &nbsp;·&nbsp; Ret. {{ summary.div_withholding }} €
+          {{ labels.card_gross }} {{ summary.div_gross }} € &nbsp;·&nbsp; {{ labels.card_withholding }} {{ summary.div_withholding }} €
         </div>
       </div>
 
       <div class="s-card">
-        <div class="s-label">Comisiones pagadas</div>
+        <div class="s-label">{{ labels.card_commissions }}</div>
         <div class="s-value">{{ summary.commission_total }} €</div>
-        <div class="s-sub">Ya descontadas del coste de adquisición</div>
+        <div class="s-sub">{{ labels.card_commissions_sub }}</div>
       </div>
 
       <div class="s-card s-card-accent">
-        <div class="s-label">Base imponible estimada</div>
+        <div class="s-label">{{ labels.card_taxbase }}</div>
         <div class="s-value pos">{{ summary.base_imponible }} €</div>
         <div class="s-sub">
-          Tramo marginal: <strong>{{ summary.marginal_rate }}%</strong>
+          {{ labels.card_marginal }} <strong>{{ summary.marginal_rate }}%</strong>
           &nbsp;·&nbsp;
-          Cuota estimada: <strong>{{ summary.estimated_tax }} €</strong>
+          {{ labels.card_cuota }} <strong>{{ summary.estimated_tax }} €</strong>
         </div>
       </div>
     </div>
 
     {% if summary.base_positive %}
     <div class="bracket-section">
-      <div class="bracket-title">Distribución por tramos</div>
+      <div class="bracket-title">{{ labels.brackets_title }}</div>
       <div class="bracket-bar">
         {% for s in summary.segments %}
         <div class="bracket-seg" style="width:{{ s.pct }}%; background:{{ s.color }}"></div>
@@ -352,20 +393,20 @@
   </div><!-- /page-break-after -->
 
   <!-- ============ BLOQUE 1: GANANCIAS Y PÉRDIDAS PATRIMONIALES ============ -->
-  <h2>1. Ganancias y pérdidas patrimoniales (venta de acciones)</h2>
+  <h2>{{ labels.block1_title }}</h2>
 
   {% if sale_lines %}
   <table>
     <thead>
       <tr>
-        <th class="left">Valor</th>
-        <th class="left">ISIN</th>
-        <th>F. compra</th>
-        <th>F. venta</th>
-        <th>Acciones</th>
-        <th>Coste (€)</th>
-        <th>Venta (€)</th>
-        <th>Resultado (€)</th>
+        <th class="left">{{ labels.col_security }}</th>
+        <th class="left">{{ labels.col_isin }}</th>
+        <th>{{ labels.col_buy_date }}</th>
+        <th>{{ labels.col_sell_date }}</th>
+        <th>{{ labels.col_shares }}</th>
+        <th>{{ labels.col_cost }}</th>
+        <th>{{ labels.col_proceeds }}</th>
+        <th>{{ labels.col_result }}</th>
       </tr>
     </thead>
     <tbody>
@@ -373,7 +414,7 @@
       <tr class="{{ 'disallowed' if line.loss_disallowed else '' }}">
         <td class="left">
           {{ line.security_name }}
-          {% if line.loss_disallowed %}<span class="flag">NO COMPUTA</span>{% endif %}
+          {% if line.loss_disallowed %}<span class="flag">{{ labels.flag_no_compute }}</span>{% endif %}
         </td>
         <td class="left">{{ line.isin or '—' }}</td>
         <td>{{ line.buy_date }}</td>
@@ -394,80 +435,84 @@
 
   <div class="summary">
     <div class="summary-row">
-      <span>Ganancias del ejercicio</span>
+      <span>{{ labels.sum_gains }}</span>
       <span class="pos">{{ totals.gains }} €</span>
     </div>
     <div class="summary-row">
-      <span>Pérdidas computables</span>
+      <span>{{ labels.sum_losses_computable }}</span>
       <span class="neg">{{ totals.losses_computable }} €</span>
     </div>
     <div class="summary-row">
-      <span>Pérdidas marcadas (no computan este ejercicio)</span>
+      <span>{{ labels.sum_losses_disallowed }}</span>
       <span>{{ totals.losses_disallowed }} €</span>
     </div>
     <div class="summary-row highlight">
-      <span>Saldo computable del ejercicio</span>
+      <span>{{ labels.sum_net_capital }}</span>
       <span class="{{ 'pos' if net_capital_positive else 'neg' }}">{{ totals.net_capital }} €</span>
     </div>
   </div>
   {% else %}
-  <p class="empty">No se han registrado ventas de acciones en este ejercicio.</p>
+  <p class="empty">{{ labels.block1_empty }}</p>
   {% endif %}
 
-  <!-- ============ BLOQUE 2: COMISIONES ============ -->
-  <h2>2. Gastos en comisiones (posiciones vendidas en el ejercicio)</h2>
+  <!-- ============ BLOQUE 2: DETALLE DE MOVIMIENTOS ============ -->
+  <h2>{{ labels.block2_title }}</h2>
 
-  {% if commission_lines %}
-  <p style="font-size:8pt; color:#555; margin:0 0 6pt 0;">
-    Comisiones de compra y venta correspondientes a las acciones vendidas en {{ year }}.
-    Las de compra ya están incluidas en el coste de adquisición de la tabla anterior;
-    las de venta, en el importe neto de venta. Esta sección las desglosa para referencia.
-  </p>
+  {% if movement_lines %}
+  <p class="hint">{{ labels.block2_hint }}</p>
   <table>
     <thead>
       <tr>
-        <th class="left">Valor</th>
-        <th class="left">ISIN</th>
-        <th>Comisiones de compra (€)</th>
-        <th>Comisiones de venta (€)</th>
-        <th>Total comisiones (€)</th>
+        <th class="left">{{ labels.col_type }}</th>
+        <th>{{ labels.col_date }}</th>
+        <th class="left">{{ labels.col_security }}</th>
+        <th class="left">{{ labels.col_isin }}</th>
+        <th>{{ labels.col_shares }}</th>
+        <th>{{ labels.col_unit_price }}</th>
+        <th>{{ labels.col_fee }}</th>
+        <th>{{ labels.col_currency }}</th>
+        <th>{{ labels.col_total }}</th>
       </tr>
     </thead>
     <tbody>
-      {% for line in commission_lines %}
+      {% for m in movement_lines %}
       <tr>
-        <td class="left">{{ line.security_name }}</td>
-        <td class="left">{{ line.isin or '—' }}</td>
-        <td>{{ line.buy_fee_eur }}</td>
-        <td>{{ line.sell_fee_eur }}</td>
-        <td>{{ line.total_fee_eur }}</td>
+        <td class="left">
+          {% if m.is_sell %}
+          <span class="badge-sell">{{ m.type_label }}</span>
+          {% else %}
+          <span class="badge-buy">{{ m.type_label }}</span>
+          {% endif %}
+        </td>
+        <td>{{ m.date }}</td>
+        <td class="left">{{ m.security_name }}</td>
+        <td class="left">{{ m.isin }}</td>
+        <td>{{ m.shares }}</td>
+        <td>{{ m.unit_price }}</td>
+        <td>{{ m.fee }}</td>
+        <td>{{ m.currency }}</td>
+        <td class="{{ 'neg' if m.is_sell else 'pos' }}">{{ m.total }}</td>
       </tr>
       {% endfor %}
-      <tr class="total">
-        <td class="left" colspan="2">TOTAL</td>
-        <td>{{ totals.commission_buy }}</td>
-        <td>{{ totals.commission_sell }}</td>
-        <td>{{ totals.commission_total }}</td>
-      </tr>
     </tbody>
   </table>
   {% else %}
-  <p class="empty">No se registraron comisiones en ventas de este ejercicio.</p>
+  <p class="empty">{{ labels.block2_empty }}</p>
   {% endif %}
 
   <!-- ============ BLOQUE 3: RENDIMIENTOS DEL CAPITAL MOBILIARIO ============ -->
-  <h2>3. Rendimientos del capital mobiliario (dividendos)</h2>
+  <h2>{{ labels.block3_title }}</h2>
 
   {% if dividend_lines %}
   <table>
     <thead>
       <tr>
-        <th class="left">Valor</th>
-        <th class="left">ISIN</th>
-        <th>Fecha de cobro</th>
-        <th>Bruto (€)</th>
-        <th>Retención origen (€)</th>
-        <th>Neto (€)</th>
+        <th class="left">{{ labels.col_security }}</th>
+        <th class="left">{{ labels.col_isin }}</th>
+        <th>{{ labels.col_pay_date }}</th>
+        <th>{{ labels.col_gross }}</th>
+        <th>{{ labels.col_withholding }}</th>
+        <th>{{ labels.col_net }}</th>
       </tr>
     </thead>
     <tbody>
@@ -482,7 +527,7 @@
       </tr>
       {% endfor %}
       <tr class="total">
-        <td class="left" colspan="3">TOTAL</td>
+        <td class="left" colspan="3">{{ labels.total }}</td>
         <td>{{ totals.div_gross }}</td>
         <td>{{ totals.div_withholding }}</td>
         <td>{{ totals.div_net }}</td>
@@ -490,12 +535,12 @@
     </tbody>
   </table>
   {% else %}
-  <p class="empty">No se han registrado dividendos en este ejercicio.</p>
+  <p class="empty">{{ labels.block3_empty }}</p>
   {% endif %}
 
   <!-- ============ AVISOS ============ -->
   <div class="warnings">
-    <div class="title">Avisos importantes</div>
+    <div class="title">{{ labels.warnings_title }}</div>
     <ul>
       {% for w in warnings %}
       <li>{{ w }}</li>

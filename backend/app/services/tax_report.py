@@ -56,6 +56,7 @@ class SecurityRef:
     isin: str | None
     market: str
     fiscal_window_days: int = 60  # tomado de markets.fiscal_window_days
+    currency: str = "EUR"         # divisa nativa del valor (EUR o USD)
 
     @property
     def recapture_window(self) -> timedelta:
@@ -104,6 +105,13 @@ class SaleLine:
     cost_eur: Decimal           # coste de adquisicion (con comision de compra)
     proceeds_eur: Decimal       # importe de venta (neto de comision de venta)
     gain_eur: Decimal           # resultado de este tramo
+    # Comisiones de este tramo (proporcionales a las acciones emparejadas)
+    buy_fee_eur: Decimal = Decimal("0")
+    sell_fee_eur: Decimal = Decimal("0")
+    # Divisa nativa del valor (EUR o USD); los importes siempre en EUR
+    currency: str = "EUR"
+    # Ventana fiscal del mercado (días); para generar texto localizado en la capa de presentación
+    fiscal_window_days: int = 60
     # Marca de la regla de recompra
     loss_disallowed: bool = False       # True si es perdida y NO computa este ano
     disallowed_reason: str | None = None
@@ -277,6 +285,10 @@ def build_tax_report(
                 cost_eur=match.cost_eur,
                 proceeds_eur=match.proceeds_eur,
                 gain_eur=match.gain_eur,
+                buy_fee_eur=match.buy_fee_eur,
+                sell_fee_eur=match.sell_fee_eur,
+                currency=sec.currency,
+                fiscal_window_days=sec.fiscal_window_days,
                 loss_disallowed=disallowed,
                 disallowed_reason=reason,
             )
