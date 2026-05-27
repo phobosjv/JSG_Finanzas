@@ -86,6 +86,7 @@ export default function Markets() {
   const [tabs, setTabs]             = useState([])
   const [activeTab, setActiveTab]   = useState(null)
   const [securities, setSecurities] = useState([])
+  const [search, setSearch]         = useState('')
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
   const isMobile = useMediaQuery('(max-width: 767px)')
@@ -124,7 +125,17 @@ export default function Markets() {
 
   function handleTabChange(tab) {
     setActiveTab(tab)
+    setSearch('')           // limpiar buscador al cambiar de pestaña
   }
+
+  // Filtro local: ticker o nombre, case-insensitive
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? securities.filter(s =>
+        s.yahoo_ticker.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q)
+      )
+    : securities
 
   // Most recent updated_at among displayed securities
   const lastUpdated = securities.reduce((best, s) => {
@@ -181,12 +192,55 @@ export default function Markets() {
       {/* Cabecera del índice */}
       {activeTab && <IndexHeader market={activeTab} />}
 
-      {/* Última actualización */}
-      {lastUpdated && (
-        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8, textAlign: 'right' }}>
-          {t('markets.updated')} {fmtDateTime(lastUpdated)}
+      {/* Fila: última actualización + buscador */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+        {lastUpdated && (
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flex: '0 0 auto' }}>
+            {t('markets.updated')} {fmtDateTime(lastUpdated)}
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 180, position: 'relative' }}>
+          <span style={{
+            position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+            color: 'var(--text-muted)', fontSize: '0.85rem', pointerEvents: 'none',
+          }}>🔍</span>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={t('markets.search_placeholder')}
+            style={{
+              width: '100%',
+              padding: '6px 32px 6px 30px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: 'var(--text)',
+              fontSize: '0.88rem',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: 'var(--text-muted)',
+                cursor: 'pointer', fontSize: '0.9rem', padding: '0 2px', lineHeight: 1,
+              }}
+              title={t('markets.search_clear')}
+            >✕</button>
+          )}
         </div>
-      )}
+        {q && (
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flex: '0 0 auto' }}>
+            {t('markets.search_results')
+              .replace('{n}', filtered.length)
+              .replace('{total}', securities.length)}
+          </div>
+        )}
+      </div>
 
       {/* Contenido */}
       {error ? (
@@ -199,8 +253,10 @@ export default function Markets() {
             ? t('markets.no_favorites')
             : t('markets.no_securities')}
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="state-empty">{t('markets.search_no_results')}</div>
       ) : isMobile ? (
-        securities.map(s => (
+        filtered.map(s => (
           <SecurityCard
             key={s.id}
             sec={s}
@@ -212,7 +268,7 @@ export default function Markets() {
       ) : (
         <div className="card">
           <SecurityTable
-            securities={securities}
+            securities={filtered}
             favoritesTab={activeTab === 'favoritos'}
             onToggleFav={handleToggleFav}
             onTargetUpdate={handleTargetUpdate}

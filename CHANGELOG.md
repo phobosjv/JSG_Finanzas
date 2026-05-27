@@ -5,6 +5,29 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.1] — 2026-05-27
+
+### Añadido
+
+- **Buscador en Mercados**: campo de búsqueda en tiempo real sobre la lista
+  de valores de la pestaña activa. Filtra simultáneamente por ticker (Yahoo
+  Ticker) y por nombre del valor, sin distinción de mayúsculas/minúsculas.
+  - El filtro es local (sin petición al backend) y funciona sobre los datos
+    ya cargados de la pestaña.
+  - Se limpia automáticamente al cambiar de pestaña.
+  - Botón ✕ para borrar la búsqueda con un clic.
+  - Contador "X de Y" visible cuando hay un filtro activo.
+  - Mensaje "Ningún valor coincide con la búsqueda" si no hay resultados.
+  - Funciona tanto en la vista escritorio (tabla) como en móvil (tarjetas).
+  - Internacionalizado (ES/EN).
+
+### Infraestructura
+
+- 4 nuevas claves `markets.search_*` en `translations.js`.
+- 196 tests en verde (sin cambios).
+
+---
+
 ## [1.6.0] — 2026-05-27
 
 ### Añadido
