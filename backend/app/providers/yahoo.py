@@ -67,8 +67,16 @@ class YahooProvider(PriceProvider):
 
     def fetch_live_quote(self, ticker: str) -> LiveQuote:
         t = yf.Ticker(ticker)
-        # 5 dias garantiza al menos 2 sesiones aunque caiga un festivo.
-        df = t.history(period="5d", auto_adjust=True)
+        # auto_adjust=False para obtener el precio REAL de mercado.
+        # auto_adjust=True ajustaría retroactivamente los precios por dividendos
+        # y splits, lo que distorsiona el precio absoluto mostrado al usuario
+        # (ej: si SAB.MC acaba de pagar un dividendo de 0,50 €, todos los
+        # cierres de la ventana de 5 días aparecerían ~14 % más bajos).
+        # El porcentaje diario se calcula como ratio y no se ve afectado por
+        # el ajuste, pero el precio absoluto sí: se mostraría 2,94 en lugar
+        # de 3,44. Para el histórico (fetch_history) sí se usa auto_adjust=True
+        # para que el gráfico no muestre "caídas artificiales" en el ex-date.
+        df = t.history(period="5d", auto_adjust=False)
         # Descartar filas con Close NaN (pre-mercado, festivos sin datos)
         df = df.dropna(subset=["Close"])
         if len(df) < 2:

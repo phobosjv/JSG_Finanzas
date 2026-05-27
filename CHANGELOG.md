@@ -5,7 +5,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
-## [1.6.0] — 2026-05-26
+## [1.6.0] — 2026-05-27
 
 ### Añadido
 
@@ -39,6 +39,17 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 - **Gráficos de cartera extraídos** a `PortfolioChartsPanel.jsx`
   (componente compartido entre `Portfolio.jsx` y `Dashboard.jsx`).
   `Portfolio.jsx` se simplifica delegando los tres gráficos al componente.
+
+### Corregido
+
+- **Precio en tiempo real distorsionado en días de dividendo**: `fetch_live_quote`
+  usaba `auto_adjust=True` en la ventana de 5 días de yfinance. Cuando un valor
+  ha pagado un dividendo recientemente, yfinance ajusta retroactivamente todos los
+  precios de esa ventana por el factor del dividendo (ej: SAB.MC mostraba 2,94 €
+  en lugar de 3,44 €). El porcentaje diario permanecía correcto (es un cociente
+  y el factor se cancela), pero el precio absoluto quedaba desplazado. Cambiado a
+  `auto_adjust=False` en `fetch_live_quote` para obtener el precio real de mercado.
+  `fetch_history` (gráfico histórico) mantiene `auto_adjust=True` correctamente.
 
 ### Infraestructura
 
