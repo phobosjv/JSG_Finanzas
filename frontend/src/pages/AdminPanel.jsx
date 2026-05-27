@@ -606,6 +606,121 @@ function ConfigSection() {
 
 
 // ---------------------------------------------------------------------------
+//  Actualización forzada del historial de precios
+// ---------------------------------------------------------------------------
+
+function ForceHistoryUpdateSection() {
+  const [jobStatus, setJobStatus] = useState(null)   // objeto { running, started_at, finished_at, result }
+  const [confirming, setConfirming] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [err, setErr] = useState(null)
+
+  // Carga el estado inicial al montar (por si hay un job en curso tras F5)
+  useEffect(() => {
+    api.get('/admin/force-history-update/status').then(setJobStatus).catch(() => {})
+  }, [])
+
+  // Polling automático mientras running === true
+  useEffect(() => {
+    if (!jobStatus?.running) return
+    const id = setInterval(async () => {
+      try {
+        const s = await api.get('/admin/force-history-update/status')
+        setJobStatus(s)
+        if (!s.running) {
+          clearInterval(id)
+          if (s.result === 'ok') setMsg('Historial actualizado correctamente. Los precios del gráfico son ahora exactos.')
+          else setErr(s.result ?? 'Error desconocido')
+        }
+      } catch { /* red caída: reintentamos en el siguiente tick */ }
+    }, 3000)
+    return () => clearInterval(id)
+  }, [jobStatus?.running])
+
+  async function start() {
+    setConfirming(false)
+    setMsg(null); setErr(null)
+    try {
+      await api.post('/admin/force-history-update')
+      // Refresca el estado para que el polling vea running=true
+      const s = await api.get('/admin/force-history-update/status')
+      setJobStatus(s)
+    } catch (e) { setErr(e.message) }
+  }
+
+  const running = jobStatus?.running ?? false
+
+  return (
+    <div className="card" style={{ marginTop: 24 }}>
+      <h2>Actualización manual del historial</h2>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 12 }}>
+        Descarga los últimos 7 días de historial de precios para todos los valores y
+        sobrescribe cualquier precio incorrecto almacenado (p.&nbsp;ej. tras un ex-date de dividendo).
+        Al terminar también actualiza los snapshots de precios en vivo.
+      </p>
+
+      {err && (
+        <div className="state-error" style={{ padding: 8, marginBottom: 12, cursor: 'pointer' }} onClick={() => setErr(null)}>
+          {err} <span style={{ float: 'right' }}>✕</span>
+        </div>
+      )}
+      {msg && (
+        <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12 }}>{msg}</div>
+      )}
+
+      {running ? (
+        /* Estado: en curso */
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+          <div className="spinner" style={{ width: 18, height: 18, flexShrink: 0 }} />
+          <span>Actualizando historial… puede tardar varios minutos (0,5&nbsp;s por valor).</span>
+        </div>
+      ) : confirming ? (
+        /* Estado: esperando confirmación */
+        <div style={{ background: 'var(--bg-input)', borderRadius: 8, padding: 16 }}>
+          <p style={{ fontWeight: 600, marginBottom: 10 }}>⚠ Antes de continuar:</p>
+          <ul style={{ paddingLeft: 20, marginBottom: 14, fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
+            <li>Se descargará el historial de <strong>todos</strong> los valores del catálogo desde Yahoo Finance.</li>
+            <li>La operación tarda ~0,5&nbsp;s por valor para evitar rate-limiting. Con 50 valores, unos 25&nbsp;seg.</li>
+            <li><strong>No se puede cancelar</strong> una vez iniciada.</li>
+            <li>Puedes seguir usando la aplicación mientras se ejecuta en segundo plano.</li>
+            <li>Al terminar, los snapshots de precios también se actualizarán.</li>
+          </ul>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn-primary btn-sm" onClick={start}>
+              Iniciar actualización
+            </button>
+            <button className="btn-ghost btn-sm" onClick={() => setConfirming(false)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Estado: idle */
+        <button
+          className="btn-ghost btn-sm"
+          onClick={() => { setMsg(null); setErr(null); setConfirming(true) }}
+        >
+          ⚠ Forzar actualización del historial
+        </button>
+      )}
+
+      {/* Pie: resultado de la última ejecución */}
+      {jobStatus?.finished_at && !running && (
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 10 }}>
+          Última ejecución: {new Date(jobStatus.finished_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+          {' · '}
+          {jobStatus.result === 'ok'
+            ? <span style={{ color: 'var(--green)' }}>✓ completada</span>
+            : <span style={{ color: 'var(--red)' }}>{jobStatus.result}</span>
+          }
+        </p>
+      )}
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
 //  Gestión de mercados (catálogo dinámico)
 // ---------------------------------------------------------------------------
 
@@ -1364,6 +1479,7 @@ export default function AdminPanel() {
       </div>
 
       <ConfigSection />
+      <ForceHistoryUpdateSection />
       <MarketsSection />
       <SecuritiesSection />
 

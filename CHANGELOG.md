@@ -5,6 +5,32 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.3] — 2026-05-27
+
+### Añadido
+
+- **Actualización manual del historial** (AdminPanel): nueva sección
+  "Actualización manual del historial" en la página de administración.
+  - Botón "⚠ Forzar actualización del historial" con panel de confirmación
+    que detalla las consecuencias antes de ejecutar (tiempo estimado,
+    imposibilidad de cancelar, ejecución en segundo plano).
+  - El proceso lanza `update_price_history` + `update_snapshots` en un
+    hilo separado para no bloquear la UI.
+  - Protección contra ejecuciones concurrentes: si ya hay una actualización
+    en curso devuelve 409 e informa al usuario.
+  - Spinner y mensaje "Actualizando…" mientras se ejecuta.
+  - Polling automático cada 3 s hasta completar; muestra "✓ completada"
+    o el mensaje de error al terminar.
+  - Pie de sección con fecha/hora y resultado de la última ejecución.
+  - Endpoints: `POST /api/admin/force-history-update` (202 / 409) y
+    `GET /api/admin/force-history-update/status`.
+
+### Infraestructura
+
+- 204 tests en verde (sin cambios en tests existentes).
+
+---
+
 ## [1.6.2] — 2026-05-27
 
 ### Corregido

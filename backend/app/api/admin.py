@@ -3,16 +3,20 @@ api/admin.py
 ============
 Gestión de usuarios. Solo accesible para administradores (is_admin=True).
 
-GET    /admin/users                — lista todos los usuarios.
-POST   /admin/users                — crea un usuario (normal o admin).
-PATCH  /admin/users/{id}/password  — cambia la contraseña de un usuario.
-PATCH  /admin/users/{id}/role      — cambia el rol (admin/usuario). No sobre sí mismo.
-DELETE /admin/users/{id}           — elimina un usuario (no puede ser el propio admin).
+GET    /admin/users                       — lista todos los usuarios.
+POST   /admin/users                       — crea un usuario (normal o admin).
+PATCH  /admin/users/{id}/password         — cambia la contraseña de un usuario.
+PATCH  /admin/users/{id}/role             — cambia el rol (admin/usuario). No sobre sí mismo.
+DELETE /admin/users/{id}                  — elimina un usuario (no puede ser el propio admin).
+POST   /admin/force-history-update        — lanza update_price_history en segundo plano.
+GET    /admin/force-history-update/status — estado del job en curso o del último ejecutado.
 """
 
 from __future__ import annotations
 
 import json
+import logging
+import threading as _threading
 from datetime import date as date_type, datetime, timezone
 from decimal import Decimal, InvalidOperation
 
@@ -35,10 +39,25 @@ from app.services.backup import (
 )
 
 
+log = logging.getLogger(__name__)
+
+
 class ChangeRoleRequest(BaseModel):
     is_admin: bool
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+# ---------------------------------------------------------------------------
+#  Estado compartido del job de actualización forzada de historial
+# ---------------------------------------------------------------------------
+
+_history_job: dict = {
+    "running": False,
+    "started_at": None,
+    "finished_at": None,
+    "result": None,   # None | "ok" | "error: <mensaje>"
+}
+_history_job_lock = _threading.Lock()
 
 
 def _now() -> datetime:
@@ -214,6 +233,64 @@ def _require_user(db: Session, user_id: int) -> User:
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
     return user
+
+
+# ---------------------------------------------------------------------------
+#  Actualización forzada del historial de precios
+# ---------------------------------------------------------------------------
+
+@router.post("/force-history-update", status_code=status.HTTP_202_ACCEPTED)
+def force_history_update(_admin: User = Depends(require_admin)):
+    """Lanza update_price_history + update_snapshots en un hilo en segundo plano.
+
+    Devuelve 409 si ya hay una actualización en curso.
+    El frontend puede consultar /admin/force-history-update/status para
+    hacer polling hasta que 'running' sea False.
+    """
+    with _history_job_lock:
+        if _history_job["running"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya hay una actualización en curso. Espera a que termine.",
+            )
+        _history_job.update(
+            running=True,
+            started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            finished_at=None,
+            result=None,
+        )
+
+    def _run() -> None:
+        from app.database import SessionLocal
+        from app.scheduler.jobs import update_price_history, update_snapshots
+        db = SessionLocal()
+        try:
+            update_price_history(db)
+            update_snapshots(db)
+            with _history_job_lock:
+                _history_job["result"] = "ok"
+            log.info("force-history-update completado correctamente")
+        except Exception as exc:
+            log.exception("Error en force-history-update")
+            with _history_job_lock:
+                _history_job["result"] = f"error: {exc}"
+        finally:
+            db.close()
+            with _history_job_lock:
+                _history_job["running"] = False
+                _history_job["finished_at"] = datetime.now(timezone.utc).isoformat(
+                    timespec="seconds"
+                )
+
+    _threading.Thread(target=_run, daemon=True, name="force-history-update").start()
+    return {"detail": "Actualización iniciada en segundo plano"}
+
+
+@router.get("/force-history-update/status")
+def get_history_update_status(_admin: User = Depends(require_admin)):
+    """Estado del job de actualización forzada (en curso o último ejecutado)."""
+    with _history_job_lock:
+        return dict(_history_job)
 
 
 # ---------------------------------------------------------------------------
