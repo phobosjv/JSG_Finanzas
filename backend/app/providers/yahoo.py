@@ -42,10 +42,18 @@ class YahooProvider(PriceProvider):
         self, ticker: str, from_date: date, to_date: date
     ) -> list[PriceBar]:
         t = yf.Ticker(ticker)
+        # auto_adjust=False: precios reales de mercado en cada fecha.
+        # Con auto_adjust=True, cuando se paga un dividendo yfinance ajusta
+        # retroactivamente TODOS los precios de la ventana (incluyendo el más
+        # reciente), lo que distorsiona el precio absoluto. Para el gráfico
+        # histórico esto provoca una caída artificial el día del dividendo
+        # porque las fechas previas (almacenadas antes del ajuste) tienen
+        # precios más altos. Los precios reales son suficientemente correctos
+        # para el gráfico de evolución de cartera.
         df = t.history(
             start=from_date.isoformat(),
             end=(to_date + timedelta(days=1)).isoformat(),
-            auto_adjust=True,
+            auto_adjust=False,
         )
         bars: list[PriceBar] = []
         for dt, row in df.iterrows():

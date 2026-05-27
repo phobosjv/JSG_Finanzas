@@ -88,7 +88,14 @@ def _update_history_for_security(
         )
     )
     if last_date_str:
-        from_date = date.fromisoformat(last_date_str) + timedelta(days=1)
+        last_date = date.fromisoformat(last_date_str)
+        # Retrocedemos 6 días para refrescar la ventana reciente.
+        # Motivo: si un día anterior se almacenó con auto_adjust=True
+        # (yfinance ajustaba retroactivamente por dividendo) y ahora usamos
+        # auto_adjust=False, el valor incorrecto quedaría congelado con
+        # on_conflict_do_nothing. Al usar on_conflict_do_update para los
+        # últimos 7 días sobreescribimos cualquier precio incorrecto.
+        from_date = last_date - timedelta(days=6)
     else:
         # Sin historico: descargar 5 anos
         from_date = today - timedelta(days=5 * 365)
@@ -109,7 +116,13 @@ def _update_history_for_security(
                 close=bar.close,
                 volume=bar.volume,
             )
-            .on_conflict_do_nothing()
+            .on_conflict_do_update(
+                index_elements=["security_id", "date"],
+                set_={
+                    "close": bar.close,
+                    "volume": bar.volume,
+                },
+            )
         )
         db.execute(stmt)
 

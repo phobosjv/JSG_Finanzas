@@ -5,6 +5,33 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.2] — 2026-05-27
+
+### Corregido
+
+- **Gráfico de cartera — caída artificial al final**: el gráfico de
+  "Evolución del valor" mostraba una caída brusca en el último punto
+  cuando un valor pagaba un dividendo. La causa era que `fetch_history`
+  usaba `auto_adjust=True` en yfinance, que ajusta retroactivamente
+  *todos* los cierres de la ventana descargada, incluyendo el más reciente
+  (el del mismo día del ex-date). El precio así obtenido (p.ej. 2,94 €
+  para SAB.MC cuando el real era 3,44 €) se almacenaba en `price_history`
+  como dato correcto; al reconstruir la evolución de cartera con ese cierre
+  el valor aparecía mucho más bajo ese día.
+  - `fetch_history` ahora usa `auto_adjust=False` (precios reales de
+    mercado, sin ajuste por dividendo).
+  - El job nocturno `_update_history_for_security` re-descarga los últimos
+    7 días (en lugar de solo desde `last_date + 1`) y usa
+    `on_conflict_do_update` para sobrescribir cualquier entrada incorrecta
+    almacenada previamente.
+
+### Infraestructura
+
+- Limpieza: eliminado `finanzas-v1.6.0.zip` superado por v1.6.1 y v1.6.2.
+- 196 tests en verde (sin cambios).
+
+---
+
 ## [1.6.1] — 2026-05-27
 
 ### Añadido
