@@ -233,6 +233,28 @@ export const translations = {
     'tax.full_report_hint':     'Abre el informe detallado del año seleccionado en una pestaña nueva. Usa Ctrl+P → "Guardar como PDF" para descargarlo.',
     'tax.open_report':          'Ver informe fiscal',
 
+    // ── Admin — tramos IRPF ──────────────────────────────────────────────
+    'admin.tax_brackets':         'Tramos IRPF del ahorro',
+    'admin.bracket_from':         'Desde (€)',
+    'admin.bracket_to':           'Hasta (€)',
+    'admin.bracket_unlimited':    'Sin límite',
+    'admin.bracket_rate':         'Tipo (%)',
+    'admin.bracket_add':          'Añadir tramo',
+    'admin.bracket_edit':         'Editar',
+    'admin.bracket_delete':       'Eliminar',
+    'admin.bracket_saved':        'Tramos actualizados correctamente',
+    'admin.bracket_confirm_delete': '¿Eliminar este tramo?',
+    'admin.bracket_no_limit':     'Sin techo',
+
+    // ── SecurityDetail — retención dividendos ────────────────────────────
+    'sd.div_withholding_tax':     'Retención (€)',
+    'sd.div_apply_rate':          'Aplicar',
+
+    // ── SecurityDetail — tipo de cambio automático ───────────────────────
+    'sd.rate_fetching':           'Obteniendo tipo…',
+    'sd.rate_auto':               'Tipo obtenido automáticamente',
+    'sd.rate_not_found':          'Tipo no disponible para esta fecha',
+
     // ── Genéricos ────────────────────────────────────────────────────────
     'common.loading':    'Cargando…',
     'common.error':      'Error',
@@ -467,6 +489,28 @@ export const translations = {
     'tax.full_report_title':    'Full report by fiscal year',
     'tax.full_report_hint':     'Opens the detailed report for the selected year in a new tab. Use Ctrl+P → "Save as PDF" to download it.',
     'tax.open_report':          'View tax report',
+
+    // ── Admin — IRPF tax brackets ─────────────────────────────────────────
+    'admin.tax_brackets':         'IRPF Tax Brackets',
+    'admin.bracket_from':         'From (€)',
+    'admin.bracket_to':           'Up to (€)',
+    'admin.bracket_unlimited':    'No limit',
+    'admin.bracket_rate':         'Rate (%)',
+    'admin.bracket_add':          'Add bracket',
+    'admin.bracket_edit':         'Edit',
+    'admin.bracket_delete':       'Delete',
+    'admin.bracket_saved':        'Brackets updated successfully',
+    'admin.bracket_confirm_delete': 'Delete this bracket?',
+    'admin.bracket_no_limit':     'No upper limit',
+
+    // ── SecurityDetail — dividend withholding ─────────────────────────────
+    'sd.div_withholding_tax':     'Withholding (€)',
+    'sd.div_apply_rate':          'Apply',
+
+    // ── SecurityDetail — exchange rate auto-fill ──────────────────────────
+    'sd.rate_fetching':           'Fetching rate…',
+    'sd.rate_auto':               'Rate auto-filled',
+    'sd.rate_not_found':          'Rate not available for this date',
 
     // ── Common ────────────────────────────────────────────────────────────
     'common.loading':    'Loading…',

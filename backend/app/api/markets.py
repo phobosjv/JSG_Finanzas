@@ -23,7 +23,7 @@ from sqlalchemy import outerjoin, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_admin
-from app.models import Favorite, MarketRow, PriceHistory, PriceSnapshot, Security, User
+from app.models import EcbRate, Favorite, MarketRow, PriceHistory, PriceSnapshot, Security, User
 from app.schemas.market import (
     IndexQuote, PriceHistoryPoint, SecurityOverview, SnapshotOut,
 )
@@ -295,3 +295,58 @@ def _require_security(db: Session, security_id: int) -> Security:
     if sec is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Valor no encontrado")
     return sec
+
+
+# ---------------------------------------------------------------------------
+#  Tipo de cambio EUR/USD para una fecha concreta
+# ---------------------------------------------------------------------------
+
+@router.get("/exchange-rate")
+def get_exchange_rate(
+    date_str: str = Query(..., alias="date", pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """
+    Devuelve el tipo de cambio EUR/USD para la fecha indicada.
+
+    Estrategia:
+      1. Busca en ecb_rates el registro más reciente con fecha <= date.
+      2. Si no hay dato en BD, intenta obtenerlo de Yahoo Finance (EURUSD=X).
+      3. Si tampoco hay dato en Yahoo, devuelve rate=null.
+
+    Respuesta: {rate, date, source}  donde source es "ecb"|"yahoo"|"not_found".
+    """
+    # 1. Buscar en la caché BCE
+    row = db.scalar(
+        select(EcbRate)
+        .where(EcbRate.date <= date_str)
+        .order_by(EcbRate.date.desc())
+        .limit(1)
+    )
+    if row is not None:
+        return {"rate": float(row.rate), "date": row.date, "source": "ecb"}
+
+    # 2. Fallback: Yahoo Finance EURUSD=X
+    try:
+        from datetime import date as date_type, timedelta
+        from decimal import Decimal
+        import yfinance as yf
+        import math
+
+        d = date_type.fromisoformat(date_str)
+        df = yf.Ticker("EURUSD=X").history(
+            start=d.isoformat(),
+            end=(d + timedelta(days=5)).isoformat(),
+            auto_adjust=False,
+        )
+        df = df.dropna(subset=["Close"])
+        if not df.empty:
+            rate_val = float(df["Close"].iloc[0])
+            yahoo_date = df.index[0].date().isoformat()
+            if not math.isnan(rate_val) and rate_val > 0:
+                return {"rate": round(rate_val, 6), "date": yahoo_date, "source": "yahoo"}
+    except Exception:
+        pass
+
+    return {"rate": None, "source": "not_found"}

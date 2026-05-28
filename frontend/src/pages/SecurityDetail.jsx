@@ -74,6 +74,23 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [rateStatus, setRateStatus] = useState('idle') // 'idle'|'fetching'|'auto'|'not_found'
+
+  // Auto-rellenar tipo de cambio cuando la divisa es USD y cambia la fecha
+  useEffect(() => {
+    if (form.currency !== 'USD' || !form.date) return
+    setRateStatus('fetching')
+    api.get(`/markets/exchange-rate?date=${form.date}`)
+      .then(data => {
+        if (data?.rate != null) {
+          setForm(f => ({ ...f, exchange_rate: String(data.rate) }))
+          setRateStatus('auto')
+        } else {
+          setRateStatus('not_found')
+        }
+      })
+      .catch(() => setRateStatus('not_found'))
+  }, [form.date, form.currency])
 
   function field(name) {
     return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
@@ -148,7 +165,17 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.tx_exchange_rate')}</label>
-              <input type="number" step="any" min="0.000001" {...field('exchange_rate')} />
+              <input type="number" step="any" min="0.000001" {...field('exchange_rate')}
+                onChange={e => { setRateStatus('idle'); setForm(f => ({ ...f, exchange_rate: e.target.value })) }} />
+              {form.currency === 'USD' && rateStatus === 'fetching' && (
+                <small style={{ color: 'var(--text-muted)' }}>{t('sd.rate_fetching')}</small>
+              )}
+              {form.currency === 'USD' && rateStatus === 'auto' && (
+                <small style={{ color: 'var(--green)' }}>✓ {t('sd.rate_auto')}</small>
+              )}
+              {form.currency === 'USD' && rateStatus === 'not_found' && (
+                <small style={{ color: 'var(--text-muted)' }}>{t('sd.rate_not_found')}</small>
+              )}
             </div>
           </div>
           <div className="modal-actions">
@@ -170,18 +197,51 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
     shares_at_date: String(editDiv.shares_at_date),
     gross_per_share: String(editDiv.gross_per_share),
     gross_amount: String(editDiv.gross_amount),
+    withholding_tax: String(editDiv.withholding_tax ?? '0'),
     currency: editDiv.currency,
     exchange_rate: String(editDiv.exchange_rate),
   } : {
     date: new Date().toISOString().slice(0, 10),
     shares_at_date: '', gross_per_share: '', gross_amount: '',
+    withholding_tax: '0',
     currency: 'EUR', exchange_rate: '1',
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [firstBracket, setFirstBracket] = useState(null) // {rate} del primer tramo
+  const [rateStatus, setRateStatus] = useState('idle')
+
+  // Cargar primer tramo para el botón "Aplicar -X%"
+  useEffect(() => {
+    api.get('/config/tax-brackets')
+      .then(data => { if (data?.length) setFirstBracket(data[0]) })
+      .catch(() => {})
+  }, [])
+
+  // Auto-rellenar tipo de cambio cuando la divisa es USD y cambia la fecha
+  useEffect(() => {
+    if (form.currency !== 'USD' || !form.date) return
+    setRateStatus('fetching')
+    api.get(`/markets/exchange-rate?date=${form.date}`)
+      .then(data => {
+        if (data?.rate != null) {
+          setForm(f => ({ ...f, exchange_rate: String(data.rate) }))
+          setRateStatus('auto')
+        } else {
+          setRateStatus('not_found')
+        }
+      })
+      .catch(() => setRateStatus('not_found'))
+  }, [form.date, form.currency])
 
   function field(name) {
     return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
+  }
+
+  function applyWithholding() {
+    if (!firstBracket || !form.gross_amount) return
+    const wh = (parseFloat(form.gross_amount) * parseFloat(firstBracket.rate) / 100).toFixed(2)
+    setForm(f => ({ ...f, withholding_tax: wh }))
   }
 
   async function submit(e) {
@@ -191,6 +251,7 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
     if (Number(form.gross_per_share) <= 0) errs.push(t('sd.div_err_per_share'))
     if (Number(form.gross_amount) <= 0) errs.push(t('sd.div_err_total'))
     if (Number(form.exchange_rate) <= 0) errs.push(t('sd.div_err_rate'))
+    if (Number(form.withholding_tax) < 0) errs.push(t('sd.div_err_total'))
     if (errs.length) { setError(errs.join('. ')); return }
     setBusy(true); setError(null)
     try {
@@ -199,7 +260,7 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
         shares_at_date: Number(form.shares_at_date),
         gross_per_share: Number(form.gross_per_share),
         gross_amount: Number(form.gross_amount),
-        withholding_tax: 0,
+        withholding_tax: Number(form.withholding_tax) || 0,
         exchange_rate: Number(form.exchange_rate),
       }
       if (editDiv) {
@@ -240,6 +301,20 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
+              <label>{t('sd.div_withholding_tax')}</label>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input type="number" step="any" min="0" style={{ flex: 1 }} {...field('withholding_tax')} />
+                {firstBracket && (
+                  <button type="button" className="btn-ghost btn-sm" onClick={applyWithholding}
+                    title={t('sd.div_apply_rate')}>
+                    {t('sd.div_apply_rate')} -{Number(firstBracket.rate)}%
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="card-row">
+            <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.tx_currency')}</label>
               <select {...field('currency')}>
                 <option value="EUR">EUR</option>
@@ -248,7 +323,17 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.tx_exchange_rate')}</label>
-              <input type="number" step="any" min="0.000001" {...field('exchange_rate')} />
+              <input type="number" step="any" min="0.000001" {...field('exchange_rate')}
+                onChange={e => { setRateStatus('idle'); setForm(f => ({ ...f, exchange_rate: e.target.value })) }} />
+              {form.currency === 'USD' && rateStatus === 'fetching' && (
+                <small style={{ color: 'var(--text-muted)' }}>{t('sd.rate_fetching')}</small>
+              )}
+              {form.currency === 'USD' && rateStatus === 'auto' && (
+                <small style={{ color: 'var(--green)' }}>✓ {t('sd.rate_auto')}</small>
+              )}
+              {form.currency === 'USD' && rateStatus === 'not_found' && (
+                <small style={{ color: 'var(--text-muted)' }}>{t('sd.rate_not_found')}</small>
+              )}
             </div>
           </div>
           <div className="modal-actions">

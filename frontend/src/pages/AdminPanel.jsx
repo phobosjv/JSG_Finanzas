@@ -500,6 +500,135 @@ function SplitsModal({ security, onClose }) {
 
 
 // ---------------------------------------------------------------------------
+//  Subsección: Tramos IRPF
+// ---------------------------------------------------------------------------
+
+function TaxBracketsSubsection() {
+  const { t } = useAppConfig()
+  const [brackets, setBrackets] = useState([])
+  const [editing, setEditing]   = useState(null)  // null | {id?, min_amount, max_amount, rate, sort_order}
+  const [busy, setBusy]         = useState(false)
+  const [err, setErr]           = useState(null)
+  const [msg, setMsg]           = useState(null)
+
+  function load() {
+    api.get('/admin/config/tax-brackets').then(setBrackets).catch(() => {})
+  }
+
+  useEffect(() => { load() }, [])
+
+  function startAdd() {
+    const nextOrder = brackets.length > 0 ? Math.max(...brackets.map(b => b.sort_order)) + 1 : 0
+    setEditing({ min_amount: '', max_amount: '', rate: '', sort_order: nextOrder })
+    setErr(null); setMsg(null)
+  }
+
+  function startEdit(b) {
+    setEditing({ ...b, max_amount: b.max_amount ?? '' })
+    setErr(null); setMsg(null)
+  }
+
+  async function saveEditing(e) {
+    e.preventDefault()
+    setBusy(true); setErr(null); setMsg(null)
+    try {
+      const payload = {
+        min_amount: Number(editing.min_amount),
+        max_amount: editing.max_amount === '' || editing.max_amount === null ? null : Number(editing.max_amount),
+        rate: Number(editing.rate),
+        sort_order: Number(editing.sort_order),
+      }
+      if (editing.id) {
+        await api.put(`/admin/config/tax-brackets/${editing.id}`, payload)
+      } else {
+        await api.post('/admin/config/tax-brackets', payload)
+      }
+      setMsg(t('admin.bracket_saved'))
+      setEditing(null)
+      load()
+    } catch (e) { setErr(e.message) }
+    finally { setBusy(false) }
+  }
+
+  async function deleteBracket(id) {
+    if (!window.confirm(t('admin.bracket_confirm_delete'))) return
+    try {
+      await api.delete(`/admin/config/tax-brackets/${id}`)
+      load()
+    } catch (e) { setErr(e.message) }
+  }
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+        <h3 style={{ margin: 0, fontSize: '1rem' }}>{t('admin.tax_brackets')}</h3>
+        <button className="btn-ghost btn-sm" onClick={startAdd}>{t('admin.bracket_add')}</button>
+      </div>
+
+      {err && <div className="state-error" style={{ padding: 6, marginBottom: 8 }}>{err}</div>}
+      {msg && <div style={{ color: 'var(--green)', padding: 6, marginBottom: 8 }}>{msg}</div>}
+
+      <table className="table" style={{ marginBottom: 0 }}>
+        <thead>
+          <tr>
+            <th>{t('admin.bracket_from')}</th>
+            <th>{t('admin.bracket_to')}</th>
+            <th>{t('admin.bracket_rate')}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {brackets.map(b => (
+            <tr key={b.id}>
+              <td>{Number(b.min_amount).toLocaleString('es-ES')} €</td>
+              <td>{b.max_amount !== null && b.max_amount !== undefined ? `${Number(b.max_amount).toLocaleString('es-ES')} €` : t('admin.bracket_unlimited')}</td>
+              <td>{Number(b.rate)} %</td>
+              <td style={{ display: 'flex', gap: 6 }}>
+                <button className="btn-ghost btn-sm" onClick={() => startEdit(b)}>{t('admin.bracket_edit')}</button>
+                <button className="btn-ghost btn-sm" style={{ color: 'var(--red, #e53935)' }} onClick={() => deleteBracket(b.id)}>{t('admin.bracket_delete')}</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {editing !== null && (
+        <form onSubmit={saveEditing} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 12, padding: 12, background: 'var(--bg-alt, var(--bg-card))', borderRadius: 6 }}>
+          <div className="form-group" style={{ flex: '0 0 auto', marginBottom: 0 }}>
+            <label>{t('admin.bracket_from')}</label>
+            <input type="number" min="0" step="any" style={{ width: 100 }}
+              value={editing.min_amount}
+              onChange={e => setEditing(v => ({ ...v, min_amount: e.target.value }))} required />
+          </div>
+          <div className="form-group" style={{ flex: '0 0 auto', marginBottom: 0 }}>
+            <label>{t('admin.bracket_to')} ({t('admin.bracket_no_limit')})</label>
+            <input type="number" min="0" step="any" style={{ width: 100 }}
+              value={editing.max_amount}
+              placeholder="∞"
+              onChange={e => setEditing(v => ({ ...v, max_amount: e.target.value }))} />
+          </div>
+          <div className="form-group" style={{ flex: '0 0 auto', marginBottom: 0 }}>
+            <label>{t('admin.bracket_rate')}</label>
+            <input type="number" min="0.01" max="99.99" step="0.01" style={{ width: 80 }}
+              value={editing.rate}
+              onChange={e => setEditing(v => ({ ...v, rate: e.target.value }))} required />
+          </div>
+          <div className="form-group" style={{ flex: '0 0 auto', marginBottom: 0 }}>
+            <label>Orden</label>
+            <input type="number" min="0" step="1" style={{ width: 70 }}
+              value={editing.sort_order}
+              onChange={e => setEditing(v => ({ ...v, sort_order: e.target.value }))} required />
+          </div>
+          <button type="submit" className="btn-primary btn-sm" disabled={busy}>{busy ? '…' : t('common.save')}</button>
+          <button type="button" className="btn-ghost btn-sm" onClick={() => setEditing(null)}>{t('common.cancel')}</button>
+        </form>
+      )}
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
 //  Configuración del sistema
 // ---------------------------------------------------------------------------
 
@@ -600,6 +729,10 @@ function ConfigSection() {
       <button className="btn-ghost btn-sm" disabled={refreshBusy} onClick={refreshAll}>
         {refreshBusy ? 'Actualizando…' : '↺ Actualizar todos los valores ahora'}
       </button>
+
+      {/* ── Tramos IRPF ─────────────────────────────── */}
+      <hr style={{ margin: '24px 0', borderColor: 'var(--border-color, #333)' }} />
+      <TaxBracketsSubsection />
     </div>
   )
 }

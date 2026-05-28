@@ -5,6 +5,60 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.5] — 2026-05-29
+
+### Añadido
+
+- **Tramos IRPF configurables** (AdminPanel → Configuración):
+  - Nueva tabla `tax_brackets` en la BD. El admin puede editar los tramos del
+    IRPF del ahorro (desde/hasta/tipo %) sin tocar el código.
+  - Valores por defecto: los 5 tramos vigentes en España (19/21/23/27/28 %).
+  - El informe fiscal HTML usa los tramos de la BD en lugar de los hardcodeados.
+  - Endpoint público `GET /api/config/tax-brackets` para la UI de dividendos.
+  - Endpoints admin CRUD `GET/POST/PUT/DELETE /api/admin/config/tax-brackets`.
+
+- **Campo de retención y botón "Aplicar -X%" en formulario de dividendos**:
+  - El campo `withholding_tax` ahora es visible y editable en el formulario.
+  - El botón "Aplicar -X%" calcula automáticamente la retención aplicando el
+    tipo del primer tramo (el menor) sobre el importe bruto.
+  - La etiqueta del botón refleja el tipo actual del primer tramo configurado.
+
+- **Tipo de cambio automático al seleccionar fecha** (transacciones y dividendos):
+  - Al seleccionar una fecha en un formulario con divisa USD, la app busca el
+    tipo EUR/USD de esa fecha en la BD (tabla `ecb_rates`) y lo rellena
+    automáticamente. Si no hay dato local, consulta Yahoo Finance como
+    fallback. El campo queda editable para corrección manual.
+  - Nuevo endpoint `GET /api/markets/exchange-rate?date=YYYY-MM-DD`.
+
+### Infraestructura
+
+- Migración Alembic `f1a2b3c4d5e6` — tabla `tax_brackets` con seed data.
+- 224 tests en verde (20 tests nuevos: CRUD tramos, permisos, tipo de cambio).
+
+---
+
+## [1.6.4] — 2026-05-28
+
+### Añadido
+
+- **Proxy inverso Caddy con HTTPS automático**: se añade un servicio `caddy`
+  al `docker-compose.yml`. Caddy obtiene y renueva el certificado Let's Encrypt
+  automáticamente; no requiere ninguna configuración manual de SSL.
+- **`Caddyfile`**: nuevo fichero de configuración de Caddy, incluido en el
+  paquete de distribución. Lee el dominio de la variable de entorno `DOMAIN`.
+- **Guía de despliegue HTTPS**: nueva sección en el manual de instrucciones
+  con los 7 pasos para poner la app en producción con HTTPS en un VPS.
+
+### Cambiado
+
+- `docker-compose.yml`: el contenedor `finanzas` ya no expone puertos al host;
+  el acceso externo pasa por Caddy vía la red Docker interna (`finanzas:8000`).
+- `docker-compose.yml`: añadidas variables `DOMAIN` y `COOKIE_SECURE`.
+- `.env.example`: nuevas variables `DOMAIN` (dominio para Caddy) y
+  `COOKIE_SECURE=true` (obligatorio con HTTPS).
+
+---
+
 ## [1.6.3] — 2026-05-27
 
 ### Añadido

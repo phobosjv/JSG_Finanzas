@@ -9,11 +9,14 @@ GET /reports/tax/{year}/html     — informe completo en HTML (Ctrl+P → PDF).
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, Query, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
-from app.models import User
+from app.models import TaxBracketRow, User
 from app.repositories.tax_report_input import build_tax_report_input
 from app.services.tax_report import build_tax_report
 from app.services.pdf_generator import render_tax_report_html
@@ -52,5 +55,15 @@ def get_tax_report_html(
 ):
     sales, dividends = build_tax_report_input(db, user.id)
     report = build_tax_report(year, sales, dividends)
-    html = render_tax_report_html(report, lang=lang)
+
+    # Cargar tramos configurados en BD; si la tabla está vacía usar los hardcodeados (fallback)
+    bracket_rows = db.scalars(
+        select(TaxBracketRow).order_by(TaxBracketRow.sort_order, TaxBracketRow.id)
+    ).all()
+    brackets = (
+        [(r.max_amount, Decimal(str(r.rate))) for r in bracket_rows]
+        if bracket_rows else None
+    )
+
+    html = render_tax_report_html(report, lang=lang, brackets=brackets)
     return Response(content=html, media_type="text/html")

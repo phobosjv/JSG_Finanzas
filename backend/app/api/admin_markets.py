@@ -22,11 +22,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
-from app.models import AppConfig, MarketRow, Security, User
+from app.models import AppConfig, MarketRow, Security, TaxBracketRow, User
 from app.schemas.market_admin import (
     AppNameUpdate, CatalogImportBody,
     MarketCreate, MarketOut, MarketReorderItem, MarketUpdate, SnapshotIntervalUpdate,
 )
+from app.schemas.tax_bracket import TaxBracketCreate, TaxBracketOut, TaxBracketUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -365,3 +366,73 @@ def set_snapshot_interval(
             pass  # El job no existe aún o el scheduler está parado; no es crítico
 
     return {"snapshot_interval_minutes": body.minutes}
+
+
+# ---------------------------------------------------------------------------
+#  Tramos IRPF
+# ---------------------------------------------------------------------------
+
+def _require_bracket(db: Session, bracket_id: int) -> TaxBracketRow:
+    b = db.get(TaxBracketRow, bracket_id)
+    if b is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Tramo id={bracket_id} no encontrado")
+    return b
+
+
+@router.get("/config/tax-brackets", response_model=list[TaxBracketOut])
+def list_tax_brackets(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    return db.scalars(
+        select(TaxBracketRow).order_by(TaxBracketRow.sort_order, TaxBracketRow.id)
+    ).all()
+
+
+@router.post("/config/tax-brackets", response_model=TaxBracketOut,
+             status_code=status.HTTP_201_CREATED)
+def create_tax_bracket(
+    body: TaxBracketCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    bracket = TaxBracketRow(
+        min_amount=body.min_amount,
+        max_amount=body.max_amount,
+        rate=body.rate,
+        sort_order=body.sort_order,
+    )
+    db.add(bracket)
+    db.commit()
+    db.refresh(bracket)
+    return bracket
+
+
+@router.put("/config/tax-brackets/{bracket_id}", response_model=TaxBracketOut)
+def update_tax_bracket(
+    bracket_id: int,
+    body: TaxBracketCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    bracket = _require_bracket(db, bracket_id)
+    bracket.min_amount = body.min_amount
+    bracket.max_amount = body.max_amount
+    bracket.rate = body.rate
+    bracket.sort_order = body.sort_order
+    db.commit()
+    db.refresh(bracket)
+    return bracket
+
+
+@router.delete("/config/tax-brackets/{bracket_id}",
+               status_code=status.HTTP_204_NO_CONTENT)
+def delete_tax_bracket(
+    bracket_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    bracket = _require_bracket(db, bracket_id)
+    db.delete(bracket)
+    db.commit()

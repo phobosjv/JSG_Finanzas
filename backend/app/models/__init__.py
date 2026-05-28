@@ -13,6 +13,7 @@ from app.models.market import MarketRow
 from app.models.config import AppConfig
 from app.models.price import EcbRate, PriceHistory, PriceSnapshot
 from app.models.portfolio import DividendRow, Favorite, Position, TransactionRow
+from app.models.tax_bracket import TaxBracketRow
 
 __all__ = [
     "Base",
@@ -30,4 +31,5 @@ __all__ = [
     "Favorite",
     "Position",
     "TransactionRow",
+    "TaxBracketRow",
 ]
