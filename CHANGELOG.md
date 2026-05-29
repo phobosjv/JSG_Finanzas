@@ -5,6 +5,39 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.7] — 2026-05-29
+
+### Cambiado
+
+- **Rediseño completo de Mi Cartera**: nueva estructura de secciones con orden
+  mejorado y gráficas de distribución y evolución en la misma línea horizontal
+  (responsive: apiladas en móvil).
+
+### Añadido
+
+- **Gráfico scatter de posiciones cerradas**: eje X = días en cartera (media
+  ponderada por lote FIFO), eje Y = rentabilidad (%), tamaño del punto proporcional
+  al capital invertido, color gradiente rojo→amarillo→verde por % de ganancia.
+  Etiqueta en cada punto con nombre y fecha de la última venta.
+
+- **Tabla de dividendos por acción**: agrupa todos los dividendos cobrados por
+  valor (cualquier posición, abierta o cerrada). Columnas: cobros, meses en
+  cartera activos, yield medio (%), media por acción, total €.
+
+- **Gráfico de barras horizontal de dividendos**: total cobrado por acción,
+  ordenado de mayor a menor.
+
+- **Gráfico scatter yield on cost**: eje X = años con acciones en posesión,
+  eje Y = yield anualizado (%), tamaño = total dividendos cobrados. Objetivo:
+  identificar posiciones maduras y compras rentables en dividendos.
+
+- Dos nuevos endpoints de backend:
+  - `GET /portfolio/closed-analytics` — posiciones cerradas con días medios y % rentabilidad.
+  - `GET /portfolio/dividends-by-security` — dividendos agrupados por acción con
+    cálculo de months_held (solo periodos activos) y yield on cost.
+
+---
+
 ## [1.6.6] — 2026-05-29
 
 ### Añadido

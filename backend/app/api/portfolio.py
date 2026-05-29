@@ -29,14 +29,16 @@ from collections import defaultdict
 from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, Security, SecuritySplit, TransactionRow, User
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.schemas.portfolio import (
+    ClosedPositionAnalytics,
     ClosedPositionSummary,
     DividendCreate, DividendOut,
     NotesUpdate, TargetSellUpdate,
     PositionCreate, PositionOut,
     PositionSummary,
+    SecurityDividendSummary,
     TransactionCreate, TransactionOut,
 )
-from app.services.calculations import Transaction, compute_position, daily_change, value_position
+from app.services.calculations import Transaction, compute_position, daily_change, normalize_splits, value_position
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -350,6 +352,220 @@ def get_closed_positions(
         ))
 
     return result
+
+
+# ---------------------------------------------------------------------------
+#  Posiciones cerradas enriquecidas (para scatter plot)
+# ---------------------------------------------------------------------------
+
+@router.get("/closed-analytics", response_model=list[ClosedPositionAnalytics])
+def get_closed_analytics(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Como /closed pero añade avg_days_held (media ponderada por lote FIFO) y pnl_pct.
+    Usado por el scatter plot de posiciones cerradas en Portfolio.
+    """
+    positions = db.scalars(
+        select(Position).where(Position.user_id == user.id)
+    ).all()
+    repo = PortfolioRepository(db)
+    result = []
+
+    for pos in positions:
+        sec: Security = pos.security
+        txs    = repo.transactions_for_position(pos.id)
+        divs   = repo.dividends_for_position(pos.id)
+        splits = repo.splits_for_security(sec.id)
+        computed = compute_position(txs, divs, splits)
+
+        if not computed.is_closed or not computed.sale_matches:
+            continue
+
+        matches = computed.sale_matches
+        shares_sold  = sum((m.shares       for m in matches), Decimal("0"))
+        cost_eur     = sum((m.cost_eur     for m in matches), Decimal("0"))
+        proceeds_eur = sum((m.proceeds_eur for m in matches), Decimal("0"))
+        fees_eur     = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
+
+        # Media ponderada de días por lote FIFO
+        if shares_sold > Decimal("0"):
+            weighted_days = sum(
+                m.shares * Decimal((m.sell_date - m.buy_date).days)
+                for m in matches
+            )
+            avg_days = float(weighted_days / shares_sold)
+        else:
+            avg_days = 0.0
+
+        pnl_pct = float(computed.realized_gain_eur / cost_eur * 100) if cost_eur > 0 else 0.0
+
+        last_sell_date = max(m.sell_date for m in matches).isoformat()
+
+        result.append(ClosedPositionAnalytics(
+            position_id=pos.id,
+            security_id=sec.id,
+            yahoo_ticker=sec.yahoo_ticker,
+            name=sec.name,
+            market_code=sec.market,
+            shares_sold=shares_sold,
+            cost_eur=cost_eur,
+            proceeds_eur=proceeds_eur,
+            realized_pnl_eur=computed.realized_gain_eur,
+            dividends_eur=computed.dividends_net_eur,
+            total_profit_eur=computed.realized_gain_eur + computed.dividends_net_eur,
+            fees_eur=fees_eur,
+            avg_days_held=avg_days,
+            pnl_pct=pnl_pct,
+            last_sell_date=last_sell_date,
+        ))
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+#  Dividendos agrupados por acción (para tabla + gráficas)
+# ---------------------------------------------------------------------------
+
+def _months_held_active(txs: list) -> int:
+    """
+    Meses con ≥1 acción en posesión, contando solo periodos activos.
+    'txs' son Transaction (calculations) ordenadas por fecha.
+    """
+    import math
+    from datetime import date as dt_type
+
+    events = sorted(txs, key=lambda t: t.date)
+    shares = Decimal("0")
+    prev_date = None
+    total_days = 0
+
+    for tx in events:
+        if prev_date is not None and shares > Decimal("0"):
+            total_days += (tx.date - prev_date).days
+        shares += tx.shares if tx.type == "buy" else -tx.shares
+        prev_date = tx.date
+
+    # Si todavía tiene acciones (posición abierta), contar hasta hoy
+    if shares > Decimal("0") and prev_date is not None:
+        total_days += (dt_type.today() - prev_date).days
+
+    return math.ceil(total_days / 30.44) if total_days > 0 else 0
+
+
+@router.get("/dividends-by-security", response_model=list[SecurityDividendSummary])
+def get_dividends_by_security(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Agrega todos los dividendos del usuario agrupados por valor (security).
+    Solo incluye valores con ≥1 dividendo cobrado.
+    Consolida posiciones múltiples del mismo valor (compra, venta, recompra, etc.)
+    """
+
+    # Obtener todas las posiciones del usuario
+    positions = db.scalars(
+        select(Position).where(Position.user_id == user.id)
+    ).all()
+
+    # Agrupar posiciones por security_id
+    pos_by_sec: dict[int, list[Position]] = defaultdict(list)
+    for pos in positions:
+        pos_by_sec[pos.security.id].append(pos)
+
+    repo = PortfolioRepository(db)
+    summaries: list[SecurityDividendSummary] = []
+
+    for sec_id, sec_positions in pos_by_sec.items():
+        sec: Security = sec_positions[0].security
+
+        # Consolidar todas las transacciones y dividendos de TODAS las posiciones
+        all_txs: list = []
+        all_divs_rows: list = []
+        for pos in sec_positions:
+            all_txs.extend(repo.transactions_for_position(pos.id))
+            div_rows = db.scalars(
+                select(DivRow).where(DivRow.position_id == pos.id)
+            ).all()
+            all_divs_rows.extend(div_rows)
+
+        if not all_divs_rows:
+            continue  # Sin dividendos → no incluir
+
+        splits = repo.splits_for_security(sec_id)
+
+        # Normalizar transacciones por splits
+        txs_sorted = sorted(all_txs, key=lambda t: t.date)
+        if splits:
+            txs_sorted = normalize_splits(txs_sorted, splits)
+
+        # Meses activos (con ≥1 acción)
+        months_held = _months_held_active(txs_sorted)
+        years_held = months_held / 12.0 if months_held > 0 else 0.0
+
+        # Capital total invertido (todas las compras en EUR)
+        total_cost_eur = sum(
+            float(tx.price * tx.shares / tx.exchange_rate) + float(tx.fee / tx.exchange_rate)
+            for tx in all_txs if tx.type == "buy"
+        )
+
+        # Yield por dividendo: gross_eur / capital_en_fecha
+        yield_pcts: list[float] = []
+        per_shares_eur: list[float] = []
+        total_eur = 0.0
+
+        divs_sorted = sorted(all_divs_rows, key=lambda d: d.date)
+
+        for div_row in divs_sorted:
+            gross_eur = float(div_row.gross_amount / div_row.exchange_rate)
+            total_eur += gross_eur
+            per_shares_eur.append(float(div_row.gross_per_share / div_row.exchange_rate))
+
+            # Calcular el capital en la fecha del dividendo
+            # Usar compute_position con transacciones hasta esa fecha
+            txs_until = [t for t in txs_sorted if t.date <= date_type.fromisoformat(div_row.date)]
+            if txs_until:
+                divs_until: list = []  # sin dividendos para avg_cost
+                cp = compute_position(txs_until, divs_until, splits)
+                shares_then = float(div_row.shares_at_date)
+                if cp.current_shares > Decimal("0"):
+                    avg_cost_eur = float(cp.invested_eur / cp.current_shares)
+                else:
+                    avg_cost_eur = 0.0
+                capital_at_date = shares_then * avg_cost_eur
+            else:
+                capital_at_date = 0.0
+
+            if capital_at_date > 0:
+                yield_pcts.append(gross_eur / capital_at_date * 100)
+
+        avg_yield_pct = sum(yield_pcts) / len(yield_pcts) if yield_pcts else 0.0
+        avg_per_share = sum(per_shares_eur) / len(per_shares_eur) if per_shares_eur else 0.0
+
+        # Yield on cost anualizado
+        if years_held > 0 and total_cost_eur > 0:
+            yield_on_cost = (total_eur / years_held) / total_cost_eur * 100
+        else:
+            yield_on_cost = 0.0
+
+        summaries.append(SecurityDividendSummary(
+            security_id=sec_id,
+            yahoo_ticker=sec.yahoo_ticker,
+            name=sec.name,
+            count=len(all_divs_rows),
+            months_held=months_held,
+            years_held=round(years_held, 2),
+            avg_yield_pct=round(avg_yield_pct, 4),
+            avg_per_share=round(avg_per_share, 4),
+            total_eur=round(total_eur, 2),
+            total_cost_eur=round(total_cost_eur, 2),
+            yield_on_cost=round(yield_on_cost, 4),
+        ))
+
+    summaries.sort(key=lambda s: s.total_eur, reverse=True)
+    return summaries
 
 
 # ---------------------------------------------------------------------------

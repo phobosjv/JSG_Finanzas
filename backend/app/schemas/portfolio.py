@@ -207,3 +207,25 @@ class ClosedPositionSummary(BaseModel):
     dividends_eur: Decimal
     total_profit_eur: Decimal    # realized_pnl + dividends
     fees_eur: Decimal
+
+
+class ClosedPositionAnalytics(ClosedPositionSummary):
+    """ClosedPositionSummary enriquecido con métricas para el scatter plot."""
+    avg_days_held: float   # media ponderada de (sell_date - buy_date).days por lote FIFO
+    pnl_pct: float         # realized_pnl_eur / cost_eur × 100
+    last_sell_date: str    # fecha de la última venta (YYYY-MM-DD), para la etiqueta
+
+
+class SecurityDividendSummary(BaseModel):
+    """Agregado de dividendos cobrados de una acción, para tabla y gráficas."""
+    security_id: int
+    yahoo_ticker: str
+    name: str
+    count: int             # número de cobros de dividendo
+    months_held: int       # meses con ≥1 acción (ceil), solo periodos activos
+    years_held: float      # months_held / 12
+    avg_yield_pct: float   # media de (gross_eur / capital_en_fecha × 100) por cobro
+    avg_per_share: float   # media de gross_per_share en EUR por cobro
+    total_eur: float       # suma de gross_amount_eur de todos los cobros
+    total_cost_eur: float  # capital total invertido (suma de todas las compras en EUR)
+    yield_on_cost: float   # (total_eur / years_held) / total_cost_eur × 100 (anualizado)

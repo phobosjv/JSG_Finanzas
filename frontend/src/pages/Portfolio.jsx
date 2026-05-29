@@ -2,9 +2,15 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
-import PortfolioChartsPanel from '../components/PortfolioChartsPanel'
+import PortfolioChartsPanel, {
+  DistributionChart,
+  HistoryChart,
+  PnLChart,
+  ClosedScatterChart,
+  DividendBarChart,
+  DividendScatterChart,
+} from '../components/PortfolioChartsPanel'
 
-/** Misma lógica que SecurityTable: tipo de activo desde el código de mercado. */
 function assetTypeKey(marketCode) {
   const c = (marketCode ?? '').toLowerCase()
   if (c.includes('etf'))    return 'etf'
@@ -35,7 +41,6 @@ function Card({ label, value, sub, clsName }) {
   )
 }
 
-/** Celda de precio objetivo de venta editable en línea. */
 function TargetSellCell({ pos, onUpdate }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(pos.target_sell_price != null ? String(pos.target_sell_price) : '')
@@ -51,7 +56,7 @@ function TargetSellCell({ pos, onUpdate }) {
       return
     }
     const num = Number(trimmed)
-    if (isNaN(num) || num <= 0) return   // valor inválido: ignorar silenciosamente
+    if (isNaN(num) || num <= 0) return
     try {
       await api.patch(`/portfolio/${pos.position_id}/target-sell`, { target_sell_price: num })
       onUpdate(pos.position_id, num)
@@ -96,11 +101,13 @@ function TargetSellCell({ pos, onUpdate }) {
 
 export default function Portfolio() {
   const { t } = useAppConfig()
-  const [positions, setPositions]   = useState(null)
-  const [closed, setClosed]         = useState([])
-  const [history, setHistory]       = useState([])
-  const [error, setError]           = useState(null)
-  const [deleting, setDeleting]     = useState(null)   // position_id en curso de borrado
+  const [positions, setPositions]         = useState(null)
+  const [closed, setClosed]               = useState([])
+  const [history, setHistory]             = useState([])
+  const [closedAnalytics, setClosedAn]    = useState([])
+  const [dividendsBySec, setDivsBySec]    = useState([])
+  const [error, setError]                 = useState(null)
+  const [deleting, setDeleting]           = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -108,8 +115,16 @@ export default function Portfolio() {
       api.get('/portfolio'),
       api.get('/portfolio/closed'),
       api.get('/portfolio/history'),
+      api.get('/portfolio/closed-analytics').catch(() => []),
+      api.get('/portfolio/dividends-by-security').catch(() => []),
     ])
-      .then(([open, cls, hist]) => { setPositions(open); setClosed(cls); setHistory(hist) })
+      .then(([open, cls, hist, analytics, divsBySec]) => {
+        setPositions(open)
+        setClosed(cls)
+        setHistory(hist)
+        setClosedAn(analytics)
+        setDivsBySec(divsBySec)
+      })
       .catch(err => setError(err.message))
   }, [])
 
@@ -132,10 +147,9 @@ export default function Portfolio() {
     }
   }
 
-  if (error)     return <div className="state-error">{error}</div>
+  if (error)      return <div className="state-error">{error}</div>
   if (!positions) return <div className="state-loading"><div className="spinner" /></div>
 
-  // Totales
   const totalValue    = positions.reduce((s, p) => s + Number(p.market_value_eur), 0)
   const totalCost     = positions.reduce((s, p) => s + Number(p.cost_eur), 0)
   const totalPnL      = positions.reduce((s, p) => s + Number(p.unrealized_pnl_eur), 0)
@@ -146,56 +160,38 @@ export default function Portfolio() {
                       + closed.reduce((s, p) => s + Number(p.realized_pnl_eur), 0)
   const totalFees     = positions.reduce((s, p) => s + Number(p.fees_eur), 0)
                       + closed.reduce((s, p) => s + Number(p.fees_eur), 0)
-  // Beneficio ventas sin comisiones: realized neto + comisiones (precios puros)
   const grossRealized = realizedNet + totalFees
-  // B/P Total = latente + ventas_bruto + dividendos - comisiones = latente + realized_neto + divs
   const bpTotal       = totalPnL + realizedNet + totalDivs
+
   return (
     <div>
       <h1>{t('portfolio.title')}</h1>
 
-      {/* Tarjetas resumen */}
+      {/* 1. Tarjetas resumen */}
       <div className="card-row">
         <Card label={t('portfolio.invested')}  value={`${fmt(totalCost)} €`} />
         <Card label={t('portfolio.value')}     value={`${fmt(totalValue)} €`} />
-        <Card
-          label={t('portfolio.unrealized')}
-          value={`${sign(totalPnL)}${fmt(totalPnL)} €`}
-          clsName={cls(totalPnL)}
-        />
-        <Card
-          label={t('portfolio.today')}
-          value={`${sign(totalDayEur)}${fmt(totalDayEur)} €`}
-          clsName={cls(totalDayEur)}
-        />
-        <Card
-          label={t('portfolio.realized')}
-          value={`${sign(grossRealized)}${fmt(grossRealized)} €`}
-          clsName={cls(grossRealized)}
-        />
+        <Card label={t('portfolio.unrealized')} value={`${sign(totalPnL)}${fmt(totalPnL)} €`} clsName={cls(totalPnL)} />
+        <Card label={t('portfolio.today')}     value={`${sign(totalDayEur)}${fmt(totalDayEur)} €`} clsName={cls(totalDayEur)} />
+        <Card label={t('portfolio.realized')}  value={`${sign(grossRealized)}${fmt(grossRealized)} €`} clsName={cls(grossRealized)} />
         <Card label={t('portfolio.dividends')} value={`${fmt(totalDivs)} €`} />
-        <Card
-          label={t('portfolio.fees')}
-          value={`-${fmt(totalFees)} €`}
-          clsName="neg"
-        />
-        <Card
-          label={t('portfolio.total')}
-          value={`${sign(bpTotal)}${fmt(bpTotal)} €`}
-          clsName={cls(bpTotal)}
-        />
+        <Card label={t('portfolio.fees')}      value={`-${fmt(totalFees)} €`} clsName="neg" />
+        <Card label={t('portfolio.total')}     value={`${sign(bpTotal)}${fmt(bpTotal)} €`} clsName={cls(bpTotal)} />
       </div>
 
-      {/* Gráficos de cartera (componente compartido con Dashboard) */}
-      <PortfolioChartsPanel
-        positions={positions}
-        history={history}
-        chartsVisible={['distribution', 'pnl_pct', 'history']}
-        t={t}
-        navigate={navigate}
-      />
+      {/* 2. Distribución + Evolución (flex, lado a lado en ancho / apiladas en estrecho) */}
+      {positions.length > 0 && (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+          <div style={{ flex: '1 1 340px', minWidth: 0 }}>
+            <DistributionChart positions={positions} t={t} navigate={navigate} />
+          </div>
+          <div style={{ flex: '2 1 420px', minWidth: 0 }}>
+            <HistoryChart history={history} t={t} />
+          </div>
+        </div>
+      )}
 
-      {/* Tabla posiciones abiertas */}
+      {/* 3. Tabla posiciones abiertas */}
       {positions.length === 0 ? (
         <div className="state-empty">{t('portfolio.open')}</div>
       ) : (
@@ -235,11 +231,7 @@ export default function Portfolio() {
                     : null
 
                   return (
-                    <tr
-                      key={p.position_id}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => navigate(`/securities/${p.security_id}`)}
-                    >
+                    <tr key={p.position_id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/securities/${p.security_id}`)}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <div className="ticker">{p.yahoo_ticker}</div>
@@ -257,12 +249,8 @@ export default function Portfolio() {
                         )}
                       </td>
                       <td className="num">{fmt(p.market_value_eur)}</td>
-                      <td className={`num ${cls(p.unrealized_pnl_eur)}`}>
-                        {sign(p.unrealized_pnl_eur)}{fmt(p.unrealized_pnl_eur)}
-                      </td>
-                      <td className={`num ${cls(p.unrealized_pnl_pct)}`}>
-                        {sign(p.unrealized_pnl_pct)}{fmt(p.unrealized_pnl_pct)}%
-                      </td>
+                      <td className={`num ${cls(p.unrealized_pnl_eur)}`}>{sign(p.unrealized_pnl_eur)}{fmt(p.unrealized_pnl_eur)}</td>
+                      <td className={`num ${cls(p.unrealized_pnl_pct)}`}>{sign(p.unrealized_pnl_pct)}{fmt(p.unrealized_pnl_pct)}%</td>
                       <td className={`num ${p.daily_change_eur != null ? cls(p.daily_change_eur) : 'neu'}`}>
                         {p.daily_change_eur != null ? `${sign(p.daily_change_eur)}${fmt(p.daily_change_eur)}` : '—'}
                       </td>
@@ -270,9 +258,7 @@ export default function Portfolio() {
                         {p.daily_change_pct != null ? `${sign(p.daily_change_pct)}${fmt(p.daily_change_pct)}%` : '—'}
                       </td>
                       <td className="num">{fmt(p.dividends_eur)}</td>
-                      <td className={`num ${cls(p.total_profit_eur)}`}>
-                        {sign(p.total_profit_eur)}{fmt(p.total_profit_eur)}
-                      </td>
+                      <td className={`num ${cls(p.total_profit_eur)}`}>{sign(p.total_profit_eur)}{fmt(p.total_profit_eur)}</td>
                       <td className="num">
                         {fmt(p.max_1y)}
                         {p.currency === 'USD' && p.max_1y != null && (
@@ -294,9 +280,7 @@ export default function Portfolio() {
                             disabled={deleting === p.position_id}
                             onClick={() => handleDeletePosition(p)}
                             style={{ color: 'var(--red, #ef4444)', padding: '2px 6px', fontSize: '0.8rem' }}
-                          >
-                            🗑
-                          </button>
+                          >🗑</button>
                         )}
                       </td>
                     </tr>
@@ -308,7 +292,15 @@ export default function Portfolio() {
         </div>
       )}
 
-      {/* Tabla posiciones cerradas */}
+      {/* 4. Gráfico B/P por acción — subtítulo indica que son posiciones abiertas */}
+      {positions.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <h2 style={{ marginBottom: 4 }}>{t('portfolio.pnl_open_positions')}</h2>
+          <PnLChart positions={positions} t={t} navigate={navigate} />
+        </div>
+      )}
+
+      {/* 5. Tabla posiciones cerradas */}
       {closed.length > 0 && (
         <div className="card">
           <h2>{t('portfolio.closed')}</h2>
@@ -327,11 +319,7 @@ export default function Portfolio() {
               </thead>
               <tbody>
                 {closed.map(p => (
-                  <tr
-                    key={p.position_id}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/securities/${p.security_id}`)}
-                  >
+                  <tr key={p.position_id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/securities/${p.security_id}`)}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <div className="ticker">{p.yahoo_ticker}</div>
@@ -342,18 +330,63 @@ export default function Portfolio() {
                     <td className="num">{fmt(p.shares_sold, 4)}</td>
                     <td className="num">{fmt(p.cost_eur)}</td>
                     <td className="num">{fmt(p.proceeds_eur)}</td>
-                    <td className={`num ${cls(p.realized_pnl_eur)}`}>
-                      {sign(p.realized_pnl_eur)}{fmt(p.realized_pnl_eur)}
-                    </td>
+                    <td className={`num ${cls(p.realized_pnl_eur)}`}>{sign(p.realized_pnl_eur)}{fmt(p.realized_pnl_eur)}</td>
                     <td className="num">{fmt(p.dividends_eur)}</td>
-                    <td className={`num ${cls(p.total_profit_eur)}`}>
-                      {sign(p.total_profit_eur)}{fmt(p.total_profit_eur)}
-                    </td>
+                    <td className={`num ${cls(p.total_profit_eur)}`}>{sign(p.total_profit_eur)}{fmt(p.total_profit_eur)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* 6. Scatter plot posiciones cerradas */}
+      {closedAnalytics.length > 0 && (
+        <ClosedScatterChart data={closedAnalytics} t={t} />
+      )}
+
+      {/* 7. Tabla dividendos por acción */}
+      {dividendsBySec.length > 0 && (
+        <div className="card" style={{ marginTop: 24 }}>
+          <h2>{t('portfolio.div_by_security_title')}</h2>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('portfolio.col_security')}</th>
+                  <th className="num">{t('portfolio.div_count')}</th>
+                  <th className="num">{t('portfolio.div_months')}</th>
+                  <th className="num">{t('portfolio.div_avg_yield')}</th>
+                  <th className="num">{t('portfolio.div_avg_per_share')}</th>
+                  <th className="num">{t('portfolio.div_total')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dividendsBySec.map(d => (
+                  <tr key={d.security_id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/securities/${d.security_id}`)}>
+                    <td>
+                      <div className="ticker">{d.yahoo_ticker}</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{d.name}</div>
+                    </td>
+                    <td className="num">{d.count}</td>
+                    <td className="num">{d.months_held}</td>
+                    <td className="num pos">{fmt(d.avg_yield_pct, 2)} %</td>
+                    <td className="num">{fmt(d.avg_per_share, 4)}</td>
+                    <td className="num pos">{fmt(d.total_eur)} €</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Gráficas dividendos: bar chart + scatter yield on cost */}
+      {dividendsBySec.length > 0 && (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16 }}>
+          <DividendBarChart data={dividendsBySec} t={t} />
+          <DividendScatterChart data={dividendsBySec} t={t} />
         </div>
       )}
     </div>

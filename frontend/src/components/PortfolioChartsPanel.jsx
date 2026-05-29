@@ -18,6 +18,7 @@ import {
   PieChart, Pie, Cell, Tooltip as ReTooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
   AreaChart, Area,
+  ScatterChart, Scatter, ZAxis,
 } from 'recharts'
 
 // ─── Colores y utilidades ────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ function Bar3D({ x, y, width, height, value }) {
 
 // ─── Gráfico 1: Donut distribución ──────────────────────────────────────────
 
-function DistributionChart({ positions, t, navigate }) {
+export function DistributionChart({ positions, t, navigate }) {
   const totalValue = positions.reduce((s, p) => s + Number(p.market_value_eur), 0)
   return (
     <div className="card" style={{ flex: '1 1 340px', minWidth: 0 }}>
@@ -135,7 +136,7 @@ function DistributionChart({ positions, t, navigate }) {
 
 // ─── Gráfico 2: Barras 3D B/P por acción ────────────────────────────────────
 
-function PnLChart({ positions, t, navigate }) {
+export function PnLChart({ positions, t, navigate }) {
   return (
     <div className="card" style={{ flex: '2 1 420px', minWidth: 0 }}>
       <h2>{t('portfolio.chart_pnl_pct')}</h2>
@@ -183,7 +184,7 @@ function PnLChart({ positions, t, navigate }) {
 
 // ─── Gráfico 3: Área evolución del valor ────────────────────────────────────
 
-function HistoryChart({ history, t }) {
+export function HistoryChart({ history, t }) {
   const [histYears, setHistYears] = useState(2)
   const cutoff = new Date()
   cutoff.setFullYear(cutoff.getFullYear() - histYears)
@@ -277,6 +278,204 @@ export default function PortfolioChartsPanel({ positions, history, chartsVisible
         </div>
       )}
       {showHistory && <HistoryChart history={history} t={t} />}
+    </div>
+  )
+}
+
+// ─── Utilidad: color por % de rentabilidad ───────────────────────────────────
+
+function pnlColor(pct) {
+  // Gradiente: rojo (≤-30%) → amarillo (0%) → verde (≥+50%)
+  if (pct <= -30) return '#ef4444'
+  if (pct >= 50)  return '#22c55e'
+  if (pct < 0) {
+    // -30 → 0 : rojo → amarillo
+    const t = (pct + 30) / 30  // 0..1
+    const r = Math.round(239 + (234 - 239) * t)
+    const g = Math.round(68  + (179 - 68)  * t)
+    const b = Math.round(68  + (8   - 68)  * t)
+    return `rgb(${r},${g},${b})`
+  }
+  // 0 → 50 : amarillo → verde
+  const t = pct / 50  // 0..1
+  const r = Math.round(234 + (34  - 234) * t)
+  const g = Math.round(179 + (197 - 179) * t)
+  const b = Math.round(8   + (94  - 8)   * t)
+  return `rgb(${r},${g},${b})`
+}
+
+function fmtDate(iso) {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+// ─── Scatter posiciones cerradas ─────────────────────────────────────────────
+
+export function ClosedScatterChart({ data, t }) {
+  if (!data || data.length === 0) return null
+
+  const maxCost = Math.max(...data.map(d => Number(d.cost_eur)), 1)
+
+  const CustomDot = (props) => {
+    const { cx, cy, payload } = props
+    const r = Math.max(6, Math.sqrt(Number(payload.cost_eur) / maxCost) * 24)
+    const color = pnlColor(payload.pnl_pct)
+    const label = `${payload.name} - ${fmtDate(payload.last_sell_date)}`
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={r} fill={color} fillOpacity={0.85} stroke="#fff" strokeWidth={1} />
+        <text x={cx} y={cy - r - 4} textAnchor="middle" fontSize={10}
+          fill="var(--text-muted)" style={{ pointerEvents: 'none' }}>
+          {label}
+        </text>
+      </g>
+    )
+  }
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null
+    const d = payload[0].payload
+    return (
+      <div style={{ background: '#1e1b2e', border: '1px solid #6366f1', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#e2e8f0' }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>{d.name}</div>
+        <div>Venta: {fmtDate(d.last_sell_date)}</div>
+        <div>Días: {Math.round(d.avg_days_held)}</div>
+        <div style={{ color: pnlColor(d.pnl_pct) }}>
+          {d.pnl_pct >= 0 ? '+' : ''}{Number(d.pnl_pct).toFixed(2)} %
+        </div>
+        <div>Resultado: {d.realized_pnl_eur >= 0 ? '+' : ''}{Number(d.realized_pnl_eur).toFixed(2)} €</div>
+        <div style={{ color: 'var(--text-muted)' }}>Capital: {Number(d.cost_eur).toFixed(0)} €</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 24 }}>
+      <h2 style={{ marginBottom: 16 }}>{t('portfolio.closed_scatter_title')}</h2>
+      <ResponsiveContainer width="100%" height={340}>
+        <ScatterChart margin={{ top: 30, right: 30, bottom: 20, left: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis
+            type="number" dataKey="avg_days_held" name={t('portfolio.closed_scatter_days')}
+            label={{ value: t('portfolio.closed_scatter_days'), position: 'insideBottom', offset: -8, fill: 'var(--text-muted)', fontSize: 12 }}
+            tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+          />
+          <YAxis
+            type="number" dataKey="pnl_pct" name={t('portfolio.closed_scatter_pnl')}
+            tickFormatter={v => `${v}%`}
+            label={{ value: t('portfolio.closed_scatter_pnl'), angle: -90, position: 'insideLeft', fill: 'var(--text-muted)', fontSize: 12 }}
+            tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+          />
+          <ZAxis type="number" dataKey="cost_eur" range={[40, 900]} />
+          <ReTooltip content={<CustomTooltip />} />
+          <Scatter data={data} shape={<CustomDot />} />
+        </ScatterChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ─── Bar chart horizontal — dividendos por acción ────────────────────────────
+
+export function DividendBarChart({ data, t }) {
+  if (!data || data.length === 0) return null
+
+  const sorted = [...data].sort((a, b) => b.total_eur - a.total_eur)
+  const chartData = sorted.map(d => ({
+    label: d.yahoo_ticker,
+    name: d.name,
+    value: Number(d.total_eur),
+    count: d.count,
+  }))
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null
+    const d = payload[0].payload
+    return (
+      <div style={{ background: '#1e1b2e', border: '1px solid #6366f1', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#e2e8f0' }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>{d.name}</div>
+        <div>Total: {d.value.toFixed(2)} €</div>
+        <div style={{ color: 'var(--text-muted)' }}>{d.count} cobros</div>
+      </div>
+    )
+  }
+
+  const barH = Math.max(240, chartData.length * 32)
+
+  return (
+    <div className="card" style={{ flex: '1 1 320px', minWidth: 0 }}>
+      <h3 style={{ marginBottom: 12, fontSize: '1rem' }}>{t('portfolio.div_bar_title')}</h3>
+      <ResponsiveContainer width="100%" height={barH}>
+        <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+          <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} tickFormatter={v => `${v}€`} />
+          <YAxis type="category" dataKey="label" width={60} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+          <ReTooltip content={<CustomTooltip />} />
+          <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ─── Scatter yield on cost vs. antigüedad ────────────────────────────────────
+
+export function DividendScatterChart({ data, t }) {
+  if (!data || data.length === 0) return null
+
+  const maxTotal = Math.max(...data.map(d => d.total_eur), 1)
+
+  const CustomDot = (props) => {
+    const { cx, cy, payload } = props
+    const r = Math.max(6, Math.sqrt(payload.total_eur / maxTotal) * 20)
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={r} fill="#10b981" fillOpacity={0.8} stroke="#fff" strokeWidth={1} />
+        <text x={cx} y={cy - r - 4} textAnchor="middle" fontSize={10}
+          fill="var(--text-muted)" style={{ pointerEvents: 'none' }}>
+          {payload.yahoo_ticker}
+        </text>
+      </g>
+    )
+  }
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null
+    const d = payload[0].payload
+    return (
+      <div style={{ background: '#1e1b2e', border: '1px solid #10b981', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#e2e8f0' }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>{d.name}</div>
+        <div>Años en cartera: {Number(d.years_held).toFixed(1)}</div>
+        <div style={{ color: '#10b981' }}>Yield anualizado: {Number(d.yield_on_cost).toFixed(2)} %</div>
+        <div>Total dividendos: {Number(d.total_eur).toFixed(2)} €</div>
+        <div style={{ color: 'var(--text-muted)' }}>{d.count} cobros</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card" style={{ flex: '1 1 320px', minWidth: 0 }}>
+      <h3 style={{ marginBottom: 12, fontSize: '1rem' }}>{t('portfolio.div_scatter_title')}</h3>
+      <ResponsiveContainer width="100%" height={260}>
+        <ScatterChart margin={{ top: 24, right: 24, bottom: 20, left: 10 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis
+            type="number" dataKey="years_held"
+            label={{ value: t('portfolio.div_scatter_years'), position: 'insideBottom', offset: -8, fill: 'var(--text-muted)', fontSize: 12 }}
+            tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+          />
+          <YAxis
+            type="number" dataKey="yield_on_cost"
+            tickFormatter={v => `${v}%`}
+            label={{ value: t('portfolio.div_scatter_yield'), angle: -90, position: 'insideLeft', fill: 'var(--text-muted)', fontSize: 12 }}
+            tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+          />
+          <ZAxis type="number" dataKey="total_eur" range={[30, 600]} />
+          <ReTooltip content={<CustomTooltip />} />
+          <Scatter data={data} shape={<CustomDot />} />
+        </ScatterChart>
+      </ResponsiveContainer>
     </div>
   )
 }

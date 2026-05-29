@@ -233,6 +233,23 @@ export const translations = {
     'tax.full_report_hint':     'Abre el informe detallado del año seleccionado en una pestaña nueva. Usa Ctrl+P → "Guardar como PDF" para descargarlo.',
     'tax.open_report':          'Ver informe fiscal',
 
+    // ── Portfolio — nuevas secciones y gráficos ─────────────────────────
+    'portfolio.pnl_open_positions':    'Beneficio / Pérdida por valor (posiciones abiertas)',
+    'portfolio.closed_scatter_title':  'Rentabilidad vs. tiempo en cartera (posiciones cerradas)',
+    'portfolio.closed_scatter_days':   'Días en cartera',
+    'portfolio.closed_scatter_pnl':    'Rentabilidad (%)',
+    'portfolio.div_by_security_title': 'Dividendos cobrados por acción',
+    'portfolio.div_count':             'Cobros',
+    'portfolio.div_months':            'Meses en cartera',
+    'portfolio.div_avg_yield':         'Yield medio (%)',
+    'portfolio.div_avg_per_share':     'Media/acción (€)',
+    'portfolio.div_total':             'Total (€)',
+    'portfolio.div_bar_title':         'Total dividendos por acción',
+    'portfolio.div_scatter_title':     'Yield on Cost vs. antigüedad',
+    'portfolio.div_scatter_years':     'Años en cartera',
+    'portfolio.div_scatter_yield':     'Yield anualizado (%)',
+    'portfolio.div_empty':             'No hay dividendos cobrados aún.',
+
     // ── Admin — tramos IRPF ──────────────────────────────────────────────
     'admin.tax_brackets':         'Tramos IRPF del ahorro',
     'admin.bracket_from':         'Desde (€)',
@@ -490,6 +507,23 @@ export const translations = {
     'tax.full_report_title':    'Full report by fiscal year',
     'tax.full_report_hint':     'Opens the detailed report for the selected year in a new tab. Use Ctrl+P → "Save as PDF" to download it.',
     'tax.open_report':          'View tax report',
+
+    // ── Portfolio — new sections and charts ──────────────────────────────
+    'portfolio.pnl_open_positions':    'Gain / Loss by security (open positions)',
+    'portfolio.closed_scatter_title':  'Return vs. time held (closed positions)',
+    'portfolio.closed_scatter_days':   'Days held',
+    'portfolio.closed_scatter_pnl':    'Return (%)',
+    'portfolio.div_by_security_title': 'Dividends collected by stock',
+    'portfolio.div_count':             'Payments',
+    'portfolio.div_months':            'Months held',
+    'portfolio.div_avg_yield':         'Avg yield (%)',
+    'portfolio.div_avg_per_share':     'Avg/share (€)',
+    'portfolio.div_total':             'Total (€)',
+    'portfolio.div_bar_title':         'Total dividends by stock',
+    'portfolio.div_scatter_title':     'Yield on Cost vs. seniority',
+    'portfolio.div_scatter_years':     'Years held',
+    'portfolio.div_scatter_yield':     'Annualized yield (%)',
+    'portfolio.div_empty':             'No dividends collected yet.',
 
     // ── Admin — IRPF tax brackets ─────────────────────────────────────────
     'admin.tax_brackets':         'IRPF Tax Brackets',
