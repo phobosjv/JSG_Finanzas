@@ -249,6 +249,7 @@ export const translations = {
     // ── SecurityDetail — retención dividendos ────────────────────────────
     'sd.div_withholding_tax':     'Retención (€)',
     'sd.div_apply_rate':          'Aplicar',
+    'sd.div_err_coherence':       'Acciones × dividendo/acción no coincide con el total bruto',
 
     // ── SecurityDetail — tipo de cambio automático ───────────────────────
     'sd.rate_fetching':           'Obteniendo tipo…',
@@ -506,6 +507,7 @@ export const translations = {
     // ── SecurityDetail — dividend withholding ─────────────────────────────
     'sd.div_withholding_tax':     'Withholding (€)',
     'sd.div_apply_rate':          'Apply',
+    'sd.div_err_coherence':       'Shares × dividend per share does not match the gross total',
 
     // ── SecurityDetail — exchange rate auto-fill ──────────────────────────
     'sd.rate_fetching':           'Fetching rate…',

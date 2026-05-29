@@ -5,6 +5,30 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.6] — 2026-05-29
+
+### Añadido
+
+- **PWA instalable**: creados los iconos `icon-192.png` e `icon-512.png`
+  en `frontend/public/icons/`. Sin ellos los navegadores no mostraban el botón
+  de instalación aunque VitePWA estaba correctamente configurado.
+
+### Cambiado
+
+- **Formulario de dividendos — cálculo automático**:
+  - Al abrir el formulario de nuevo dividendo, el campo "Acciones" se pre-rellena
+    con las acciones actuales de la posición (editable).
+  - Cálculo bidireccional entre los tres campos: al modificar cualquiera de
+    `shares_at_date`, `gross_per_share` o `gross_amount`, los demás se
+    recalculan automáticamente.
+  - Validación de coherencia al guardar: `shares × per_share` debe coincidir
+    con `gross_amount` (tolerancia de 1 céntimo).
+
+- **Botón "Editar" en detalle de valor**: ya no se muestra para usuarios
+  normales. Solo los administradores ven y pueden usar ese botón.
+
+---
+
 ## [1.6.5] — 2026-05-29
 
 ### Añadido

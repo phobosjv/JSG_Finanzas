@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 
 function fmt(val, dec = 2) {
   if (val == null) return '—'
@@ -190,7 +191,7 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
   )
 }
 
-function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
+function AddDivModal({ positionId, onClose, onAdded, editDiv = null, currentShares = null }) {
   const { t } = useAppConfig()
   const [form, setForm] = useState(editDiv ? {
     date: editDiv.date,
@@ -202,16 +203,17 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
     exchange_rate: String(editDiv.exchange_rate),
   } : {
     date: new Date().toISOString().slice(0, 10),
-    shares_at_date: '', gross_per_share: '', gross_amount: '',
+    shares_at_date: currentShares != null ? String(currentShares) : '',
+    gross_per_share: '',
+    gross_amount: '',
     withholding_tax: '0',
     currency: 'EUR', exchange_rate: '1',
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [firstBracket, setFirstBracket] = useState(null) // {rate} del primer tramo
+  const [firstBracket, setFirstBracket] = useState(null)
   const [rateStatus, setRateStatus] = useState('idle')
 
-  // Cargar primer tramo para el botón "Aplicar -X%"
   useEffect(() => {
     api.get('/config/tax-brackets')
       .then(data => { if (data?.length) setFirstBracket(data[0]) })
@@ -234,8 +236,42 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
       .catch(() => setRateStatus('not_found'))
   }, [form.date, form.currency])
 
-  function field(name) {
-    return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
+  // Cálculo bidireccional: shares × per_share ↔ gross_amount
+  function onSharesChange(val) {
+    setForm(f => {
+      const shares = parseFloat(val)
+      const perShare = parseFloat(f.gross_per_share)
+      const gross = parseFloat(f.gross_amount)
+      if (!isNaN(shares) && shares > 0 && !isNaN(perShare) && perShare > 0) {
+        return { ...f, shares_at_date: val, gross_amount: (shares * perShare).toFixed(4) }
+      }
+      if (!isNaN(shares) && shares > 0 && !isNaN(gross) && gross > 0) {
+        return { ...f, shares_at_date: val, gross_per_share: (gross / shares).toFixed(6) }
+      }
+      return { ...f, shares_at_date: val }
+    })
+  }
+
+  function onPerShareChange(val) {
+    setForm(f => {
+      const perShare = parseFloat(val)
+      const shares = parseFloat(f.shares_at_date)
+      if (!isNaN(perShare) && perShare > 0 && !isNaN(shares) && shares > 0) {
+        return { ...f, gross_per_share: val, gross_amount: (shares * perShare).toFixed(4) }
+      }
+      return { ...f, gross_per_share: val }
+    })
+  }
+
+  function onGrossChange(val) {
+    setForm(f => {
+      const gross = parseFloat(val)
+      const shares = parseFloat(f.shares_at_date)
+      if (!isNaN(gross) && gross > 0 && !isNaN(shares) && shares > 0) {
+        return { ...f, gross_amount: val, gross_per_share: (gross / shares).toFixed(6) }
+      }
+      return { ...f, gross_amount: val }
+    })
   }
 
   function applyWithholding() {
@@ -244,22 +280,33 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
     setForm(f => ({ ...f, withholding_tax: wh }))
   }
 
+  function field(name) {
+    return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
+  }
+
   async function submit(e) {
     e.preventDefault()
     const errs = []
-    if (Number(form.shares_at_date) <= 0) errs.push(t('sd.div_err_shares'))
-    if (Number(form.gross_per_share) <= 0) errs.push(t('sd.div_err_per_share'))
-    if (Number(form.gross_amount) <= 0) errs.push(t('sd.div_err_total'))
+    const shares = Number(form.shares_at_date)
+    const perShare = Number(form.gross_per_share)
+    const gross = Number(form.gross_amount)
+    if (shares <= 0) errs.push(t('sd.div_err_shares'))
+    if (perShare <= 0) errs.push(t('sd.div_err_per_share'))
+    if (gross <= 0) errs.push(t('sd.div_err_total'))
     if (Number(form.exchange_rate) <= 0) errs.push(t('sd.div_err_rate'))
     if (Number(form.withholding_tax) < 0) errs.push(t('sd.div_err_total'))
+    // Coherencia: shares × per_share debe coincidir con gross_amount (tolerancia 1 céntimo)
+    if (shares > 0 && perShare > 0 && gross > 0 && Math.abs(shares * perShare - gross) > 0.01) {
+      errs.push(t('sd.div_err_coherence'))
+    }
     if (errs.length) { setError(errs.join('. ')); return }
     setBusy(true); setError(null)
     try {
       const payload = {
         ...form,
-        shares_at_date: Number(form.shares_at_date),
-        gross_per_share: Number(form.gross_per_share),
-        gross_amount: Number(form.gross_amount),
+        shares_at_date: shares,
+        gross_per_share: perShare,
+        gross_amount: gross,
         withholding_tax: Number(form.withholding_tax) || 0,
         exchange_rate: Number(form.exchange_rate),
       }
@@ -286,17 +333,23 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.div_shares_at_date')}</label>
-              <input type="number" step="any" min="0.000001" {...field('shares_at_date')} required />
+              <input type="number" step="any" min="0.000001"
+                value={form.shares_at_date}
+                onChange={e => onSharesChange(e.target.value)} required />
             </div>
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.div_per_share')}</label>
-              <input type="number" step="any" min="0.000001" {...field('gross_per_share')} required />
+              <input type="number" step="any" min="0.000001"
+                value={form.gross_per_share}
+                onChange={e => onPerShareChange(e.target.value)} required />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.div_total_gross')}</label>
-              <input type="number" step="any" min="0.000001" {...field('gross_amount')} required />
+              <input type="number" step="any" min="0.000001"
+                value={form.gross_amount}
+                onChange={e => onGrossChange(e.target.value)} required />
             </div>
           </div>
           <div className="card-row">
@@ -305,8 +358,7 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null }) {
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <input type="number" step="any" min="0" style={{ flex: 1 }} {...field('withholding_tax')} />
                 {firstBracket && (
-                  <button type="button" className="btn-ghost btn-sm" onClick={applyWithholding}
-                    title={t('sd.div_apply_rate')}>
+                  <button type="button" className="btn-ghost btn-sm" onClick={applyWithholding}>
                     {t('sd.div_apply_rate')} -{Number(firstBracket.rate)}%
                   </button>
                 )}
@@ -442,6 +494,7 @@ function EditSecurityModal({ security, onClose, onSaved }) {
 export default function SecurityDetail() {
   const { id } = useParams()
   const { t } = useAppConfig()
+  const { user } = useAuth()
   const secId = parseInt(id, 10)
 
   const [security, setSecurity]     = useState(null)
@@ -623,7 +676,9 @@ export default function SecurityDetail() {
           <button className="btn-ghost btn-sm" onClick={toggleFav}>
             {isFav ? t('sd.fav_remove') : t('sd.fav_add')}
           </button>
-          <button className="btn-ghost btn-sm" onClick={() => setShowEditSec(true)}>{t('sd.btn_edit')}</button>
+          {user?.is_admin && (
+            <button className="btn-ghost btn-sm" onClick={() => setShowEditSec(true)}>{t('sd.btn_edit')}</button>
+          )}
           <button className="btn-ghost btn-sm" onClick={refresh}>{t('sd.btn_refresh')}</button>
         </div>
       </div>
@@ -928,6 +983,7 @@ export default function SecurityDetail() {
         <AddDivModal
           positionId={positionId}
           editDiv={editingDiv}
+          currentShares={posResult?.shares ?? null}
           onClose={() => { setDivModal(false); setEditingDiv(null) }}
           onAdded={() => { setDivModal(false); setEditingDiv(null); loadAll() }}
         />
