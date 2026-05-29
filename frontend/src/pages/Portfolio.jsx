@@ -179,16 +179,9 @@ export default function Portfolio() {
         <Card label={t('portfolio.total')}     value={`${sign(bpTotal)}${fmt(bpTotal)} €`} clsName={cls(bpTotal)} />
       </div>
 
-      {/* 2. Distribución + Evolución (flex, lado a lado en ancho / apiladas en estrecho) */}
+      {/* 2. Evolución de cartera (ancho completo) */}
       {positions.length > 0 && (
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
-          <div style={{ flex: '1 1 340px', minWidth: 0 }}>
-            <DistributionChart positions={positions} t={t} navigate={navigate} />
-          </div>
-          <div style={{ flex: '2 1 420px', minWidth: 0 }}>
-            <HistoryChart history={history} t={t} />
-          </div>
-        </div>
+        <HistoryChart history={history} t={t} />
       )}
 
       {/* 3. Tabla posiciones abiertas */}
@@ -292,11 +285,21 @@ export default function Portfolio() {
         </div>
       )}
 
-      {/* 4. Gráfico B/P por acción — subtítulo indica que son posiciones abiertas */}
+      {/* 4. Distribución + B/P por acción (posiciones abiertas, flex responsive) */}
       {positions.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <h2 style={{ marginBottom: 4 }}>{t('portfolio.pnl_open_positions')}</h2>
-          <PnLChart positions={positions} t={t} navigate={navigate} />
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16, alignItems: 'flex-start' }}>
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+              {t('portfolio.open')}
+            </div>
+            <DistributionChart positions={positions} t={t} navigate={navigate} />
+          </div>
+          <div style={{ flex: '2 1 400px', minWidth: 0 }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+              {t('portfolio.open')}
+            </div>
+            <PnLChart positions={positions} t={t} navigate={navigate} />
+          </div>
         </div>
       )}
 

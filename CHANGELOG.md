@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.8] — 2026-05-29
+
+### Corregido
+
+- **Bug dividendos por acción**: el endpoint `GET /portfolio/dividends-by-security`
+  fallaba con `NameError: DivRow` (import local eliminado pero referencia no
+  actualizada). La tabla y las gráficas de dividendos ahora aparecen correctamente.
+
+### Cambiado
+
+- **Layout Mi Cartera**: el gráfico de Distribución de cartera se mueve debajo
+  de la tabla de posiciones abiertas, en paralelo con el gráfico B/P por acción.
+  En pantallas anchas aparecen en la misma fila; en estrechas apilados. La
+  Evolución de cartera permanece en la cabecera, ancho completo.
+  Ambos gráficos inferiores llevan una etiqueta "Posiciones abiertas".
+
+- **Scatter posiciones cerradas**: nuevo toggle lineal / logarítmico en el eje X
+  (días en cartera). Útil cuando hay posiciones muy largas que distorsionan la
+  escala. El tick del eje muestra días (d) o años (a) según la magnitud.
+
+- **Scatter yield on cost**: mismo toggle lineal / logarítmico para el eje X
+  (años en cartera).
+
+---
+
 ## [1.6.7] — 2026-05-29
 
 ### Cambiado

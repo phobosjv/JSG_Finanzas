@@ -313,12 +313,14 @@ function fmtDate(iso) {
 // ─── Scatter posiciones cerradas ─────────────────────────────────────────────
 
 export function ClosedScatterChart({ data, t }) {
+  const [logScale, setLogScale] = useState(false)
   if (!data || data.length === 0) return null
 
   const maxCost = Math.max(...data.map(d => Number(d.cost_eur)), 1)
 
   const CustomDot = (props) => {
     const { cx, cy, payload } = props
+    if (!cx || !cy) return null
     const r = Math.max(6, Math.sqrt(Number(payload.cost_eur) / maxCost) * 24)
     const color = pnlColor(payload.pnl_pct)
     const label = `${payload.name} - ${fmtDate(payload.last_sell_date)}`
@@ -344,7 +346,7 @@ export function ClosedScatterChart({ data, t }) {
         <div style={{ color: pnlColor(d.pnl_pct) }}>
           {d.pnl_pct >= 0 ? '+' : ''}{Number(d.pnl_pct).toFixed(2)} %
         </div>
-        <div>Resultado: {d.realized_pnl_eur >= 0 ? '+' : ''}{Number(d.realized_pnl_eur).toFixed(2)} €</div>
+        <div>Resultado: {Number(d.realized_pnl_eur) >= 0 ? '+' : ''}{Number(d.realized_pnl_eur).toFixed(2)} €</div>
         <div style={{ color: 'var(--text-muted)' }}>Capital: {Number(d.cost_eur).toFixed(0)} €</div>
       </div>
     )
@@ -352,14 +354,38 @@ export function ClosedScatterChart({ data, t }) {
 
   return (
     <div className="card" style={{ marginTop: 24 }}>
-      <h2 style={{ marginBottom: 16 }}>{t('portfolio.closed_scatter_title')}</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <h2 style={{ margin: 0 }}>{t('portfolio.closed_scatter_title')}</h2>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+          <span>Eje X lineal</span>
+          <div
+            onClick={() => setLogScale(s => !s)}
+            style={{
+              width: 40, height: 20, borderRadius: 10, cursor: 'pointer',
+              background: logScale ? '#6366f1' : 'var(--border)',
+              position: 'relative', transition: 'background 0.2s',
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: 2, left: logScale ? 22 : 2,
+              width: 16, height: 16, borderRadius: '50%',
+              background: '#fff', transition: 'left 0.2s',
+            }} />
+          </div>
+          <span>logarítmico</span>
+        </label>
+      </div>
       <ResponsiveContainer width="100%" height={340}>
         <ScatterChart margin={{ top: 30, right: 30, bottom: 20, left: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             type="number" dataKey="avg_days_held" name={t('portfolio.closed_scatter_days')}
+            scale={logScale ? 'log' : 'auto'}
+            domain={logScale ? [1, 'auto'] : ['auto', 'auto']}
+            allowDataOverflow={logScale}
             label={{ value: t('portfolio.closed_scatter_days'), position: 'insideBottom', offset: -8, fill: 'var(--text-muted)', fontSize: 12 }}
             tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+            tickFormatter={v => v >= 365 ? `${(v/365).toFixed(1)}a` : `${Math.round(v)}d`}
           />
           <YAxis
             type="number" dataKey="pnl_pct" name={t('portfolio.closed_scatter_pnl')}
@@ -422,12 +448,14 @@ export function DividendBarChart({ data, t }) {
 // ─── Scatter yield on cost vs. antigüedad ────────────────────────────────────
 
 export function DividendScatterChart({ data, t }) {
+  const [logScale, setLogScale] = useState(false)
   if (!data || data.length === 0) return null
 
   const maxTotal = Math.max(...data.map(d => d.total_eur), 1)
 
   const CustomDot = (props) => {
     const { cx, cy, payload } = props
+    if (!cx || !cy) return null
     const r = Math.max(6, Math.sqrt(payload.total_eur / maxTotal) * 20)
     return (
       <g>
@@ -454,16 +482,44 @@ export function DividendScatterChart({ data, t }) {
     )
   }
 
+  const Toggle = () => (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+      <span>lineal</span>
+      <div
+        onClick={() => setLogScale(s => !s)}
+        style={{
+          width: 34, height: 18, borderRadius: 9, cursor: 'pointer',
+          background: logScale ? '#6366f1' : 'var(--border)',
+          position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+        }}
+      >
+        <div style={{
+          position: 'absolute', top: 2, left: logScale ? 18 : 2,
+          width: 14, height: 14, borderRadius: '50%',
+          background: '#fff', transition: 'left 0.2s',
+        }} />
+      </div>
+      <span>log</span>
+    </label>
+  )
+
   return (
     <div className="card" style={{ flex: '1 1 320px', minWidth: 0 }}>
-      <h3 style={{ marginBottom: 12, fontSize: '1rem' }}>{t('portfolio.div_scatter_title')}</h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8 }}>
+        <h3 style={{ margin: 0, fontSize: '1rem' }}>{t('portfolio.div_scatter_title')}</h3>
+        <Toggle />
+      </div>
       <ResponsiveContainer width="100%" height={260}>
         <ScatterChart margin={{ top: 24, right: 24, bottom: 20, left: 10 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             type="number" dataKey="years_held"
+            scale={logScale ? 'log' : 'auto'}
+            domain={logScale ? [0.1, 'auto'] : ['auto', 'auto']}
+            allowDataOverflow={logScale}
             label={{ value: t('portfolio.div_scatter_years'), position: 'insideBottom', offset: -8, fill: 'var(--text-muted)', fontSize: 12 }}
             tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+            tickFormatter={v => `${Number(v).toFixed(1)}a`}
           />
           <YAxis
             type="number" dataKey="yield_on_cost"

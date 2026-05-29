@@ -487,7 +487,7 @@ def get_dividends_by_security(
         for pos in sec_positions:
             all_txs.extend(repo.transactions_for_position(pos.id))
             div_rows = db.scalars(
-                select(DivRow).where(DivRow.position_id == pos.id)
+                select(DividendRow).where(DividendRow.position_id == pos.id)
             ).all()
             all_divs_rows.extend(div_rows)
 
