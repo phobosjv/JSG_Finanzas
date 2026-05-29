@@ -163,6 +163,16 @@ def _update_snapshot_for_security(db: Session, sec: Security) -> None:
     closes = [(date.fromisoformat(r.date), r.close) for r in rows]
     stats = compute_ranges(closes)
 
+    # Si Yahoo proporcionó el timestamp del último trade, lo preferimos sobre
+    # el datetime actual: refleja cuándo se actualizaron los precios EN ORIGEN.
+    # Esto evita que se interprete como "actualizado ahora" cuando en realidad
+    # los precios pueden ser de horas atrás (cierres EOD, mercado cerrado, etc.).
+    updated_at_value = (
+        quote.quote_time
+        if quote.quote_time
+        else datetime.now(timezone.utc).isoformat(timespec="seconds")
+    )
+
     stmt = (
         sqlite_insert(PriceSnapshot)
         .values(
@@ -175,7 +185,7 @@ def _update_snapshot_for_security(db: Session, sec: Security) -> None:
             min_2y=stats.min_2y,
             min_5y=stats.min_5y,
             last_dividend=quote.last_dividend,
-            updated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            updated_at=updated_at_value,
         )
         .on_conflict_do_update(
             index_elements=["security_id"],
@@ -188,7 +198,7 @@ def _update_snapshot_for_security(db: Session, sec: Security) -> None:
                 "min_2y": stats.min_2y,
                 "min_5y": stats.min_5y,
                 "last_dividend": quote.last_dividend,
-                "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "updated_at": updated_at_value,
             },
         )
     )

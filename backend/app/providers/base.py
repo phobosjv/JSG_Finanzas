@@ -37,6 +37,8 @@ class LiveQuote:
     daily_change_pct: Decimal
     # Ultimo dividendo por accion publicado; None si no hay datos.
     last_dividend: Decimal | None
+    # Timestamp del último trade segun Yahoo (ISO 8601 UTC). None si no disponible.
+    quote_time: str | None = None
 
 
 class PriceProvider(ABC):

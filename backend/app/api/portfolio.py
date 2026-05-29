@@ -389,17 +389,18 @@ def get_closed_analytics(
         proceeds_eur = sum((m.proceeds_eur for m in matches), Decimal("0"))
         fees_eur     = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
 
-        # Media ponderada de días por lote FIFO
-        if shares_sold > Decimal("0"):
-            weighted_days = sum(
-                m.shares * Decimal((m.sell_date - m.buy_date).days)
-                for m in matches
-            )
-            avg_days = float(weighted_days / shares_sold)
-        else:
-            avg_days = 0.0
+        # Defensa: una posición con sale_matches no vacío pero cost_eur=0 es
+        # un dato corrupto. Mejor omitirla que mostrar pnl_pct sin sentido.
+        if cost_eur <= Decimal("0") or shares_sold <= Decimal("0"):
+            continue
 
-        pnl_pct = float(computed.realized_gain_eur / cost_eur * 100) if cost_eur > 0 else 0.0
+        # Media ponderada de días por lote FIFO (cost_eur y shares_sold > 0 garantizado)
+        weighted_days = sum(
+            m.shares * Decimal((m.sell_date - m.buy_date).days)
+            for m in matches
+        )
+        avg_days = float(weighted_days / shares_sold)
+        pnl_pct  = float(computed.realized_gain_eur / cost_eur * 100)
 
         last_sell_date = max(m.sell_date for m in matches).isoformat()
 

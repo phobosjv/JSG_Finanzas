@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.10] — 2026-05-30
+
+### Añadido
+
+- **Hora real de Yahoo Finance**: el snapshot de precios ahora guarda el
+  timestamp del último trade reportado por Yahoo (campo `LiveQuote.quote_time`),
+  en lugar de "ahora mismo". Resultado: la marca "Precios actualizados:" en
+  Mercados muestra la hora real de la cotización en origen, no la hora local
+  del scheduler.
+- **Gráfico "Total dividendos por acción"**: al pulsar sobre una barra navega
+  al detalle de la acción correspondiente.
+- **Scroll vertical >10 filas** aplicado a la tabla de Mercados (SecurityTable)
+  y a las tres tablas de SecurityDetail (compras, ventas, dividendos).
+  Cabeceras "pegajosas" (sticky) para que sean visibles durante el scroll.
+
+### Corregido
+
+- **Bug**: `get_closed_analytics` ya no puede dividir por cero. Si un dato
+  corrupto produce `cost_eur=0` o `shares_sold=0` la posición se omite.
+- **Tests**: 13 tests nuevos en `test_portfolio_analytics.py` que cubren los
+  endpoints `closed-analytics`, `dividends-by-security` y `markets/exchange-rate`.
+  Incluye test de regresión para el bug v1.6.8 (NameError DivRow).
+
+---
+
 ## [1.6.9] — 2026-05-30
 
 ### Cambiado

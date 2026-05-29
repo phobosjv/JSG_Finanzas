@@ -94,6 +94,22 @@ class YahooProvider(PriceProvider):
         last_price = _to_decimal(float(df["Close"].iloc[-1]))
         prev_close = _to_decimal(float(df["Close"].iloc[-2]))
 
+        # Timestamp del último trade según Yahoo (índice del DataFrame).
+        # Para mercados intradia: contiene hora exacta del último tick.
+        # Para EOD: contiene la fecha del cierre (00:00 UTC).
+        quote_time: str | None = None
+        try:
+            last_idx = df.index[-1]
+            # Pandas Timestamp -> ISO 8601 UTC
+            if hasattr(last_idx, "tz_convert"):
+                try:
+                    last_idx = last_idx.tz_convert("UTC")
+                except (TypeError, ValueError):
+                    pass
+            quote_time = last_idx.isoformat()
+        except Exception:
+            pass
+
         if prev_close == 0:
             daily_change_pct = Decimal("0.00")
         else:
@@ -115,4 +131,5 @@ class YahooProvider(PriceProvider):
             prev_close=prev_close,
             daily_change_pct=daily_change_pct,
             last_dividend=last_dividend,
+            quote_time=quote_time,
         )

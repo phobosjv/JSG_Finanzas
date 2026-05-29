@@ -396,7 +396,7 @@ export default function Portfolio() {
       {/* 8. Gráficas dividendos: bar chart + scatter yield on cost */}
       {dividendsBySec.length > 0 && (
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16 }}>
-          <DividendBarChart data={dividendsBySec} t={t} />
+          <DividendBarChart data={dividendsBySec} t={t} navigate={navigate} />
           <DividendScatterChart data={dividendsBySec} t={t} />
         </div>
       )}

@@ -404,7 +404,7 @@ export function ClosedScatterChart({ data, t }) {
 
 // ─── Bar chart horizontal — dividendos por acción ────────────────────────────
 
-export function DividendBarChart({ data, t }) {
+export function DividendBarChart({ data, t, navigate }) {
   if (!data || data.length === 0) return null
 
   const sorted = [...data].sort((a, b) => b.total_eur - a.total_eur)
@@ -413,6 +413,7 @@ export function DividendBarChart({ data, t }) {
     name: d.name,
     value: Number(d.total_eur),
     count: d.count,
+    security_id: d.security_id,
   }))
 
   const CustomTooltip = ({ active, payload }) => {
@@ -433,7 +434,16 @@ export function DividendBarChart({ data, t }) {
     <div className="card" style={{ flex: '1 1 320px', minWidth: 0 }}>
       <h3 style={{ marginBottom: 12, fontSize: '1rem' }}>{t('portfolio.div_bar_title')}</h3>
       <ResponsiveContainer width="100%" height={barH}>
-        <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 8 }}>
+        <BarChart
+          data={chartData}
+          layout="vertical"
+          margin={{ top: 4, right: 40, bottom: 4, left: 8 }}
+          style={{ cursor: navigate ? 'pointer' : 'default' }}
+          onClick={(e) => {
+            const id = e?.activePayload?.[0]?.payload?.security_id
+            if (id && navigate) navigate(`/securities/${id}`)
+          }}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
           <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} tickFormatter={v => `${v}€`} />
           <YAxis type="category" dataKey="label" width={60} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />

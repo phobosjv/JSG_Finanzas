@@ -26,6 +26,11 @@ function totalOp(tx) {
   return tx.type === 'buy' ? base + Number(tx.fee) : base - Number(tx.fee)
 }
 
+/** Scroll vertical para tablas con >10 filas. */
+function tableScrollStyle(count) {
+  return count > 10 ? { maxHeight: 540, overflowY: 'auto' } : {}
+}
+
 function TxRow({ tx, onDelete, onEdit }) {
   return (
     <tr>
@@ -871,7 +876,7 @@ export default function SecurityDetail() {
             {positionId ? t('sd.no_buys') : t('sd.no_buys_hint')}
           </div>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" style={tableScrollStyle(buys.length)}>
             <table>
               <thead>
                 <tr>
@@ -907,7 +912,7 @@ export default function SecurityDetail() {
           {sells.length === 0 ? (
             <div className="state-empty" style={{ padding: 20 }}>{t('sd.no_sells')}</div>
           ) : (
-            <div className="table-wrap">
+            <div className="table-wrap" style={tableScrollStyle(sells.length)}>
               <table>
                 <thead>
                   <tr>
@@ -945,7 +950,7 @@ export default function SecurityDetail() {
         {dividends.length === 0 ? (
           <div className="state-empty" style={{ padding: 20 }}>{t('sd.no_dividends')}</div>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" style={tableScrollStyle(dividends.length)}>
             <table>
               <thead>
                 <tr>

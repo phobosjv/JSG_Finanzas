@@ -124,8 +124,10 @@ export default function SecurityTable({ securities, favoritesTab = false, onTogg
   const hasGoogle   = securities.some(s => s.google_ticker != null && s.google_ticker !== '')
   const hasDividend = securities.some(s => s.last_dividend != null)
 
+  const scrollStyle = securities.length > 10 ? { maxHeight: 540, overflowY: 'auto' } : {}
+
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" style={scrollStyle}>
       <table>
         <thead>
           <tr>
