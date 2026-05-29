@@ -209,3 +209,70 @@ def test_zip_no_contiene_env_ni_claude():
         f"El zip '{zip_name}' contiene ficheros que NO deben distribuirse:\n"
         + "\n".join(f"  - {f}" for f in forbidden)
     )
+
+
+# ---------------------------------------------------------------------------
+# 5. Iconos PWA presentes y válidos (PNG)
+# ---------------------------------------------------------------------------
+
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+_PWA_ICONS = [
+    "frontend/public/icons/icon-192.png",
+    "frontend/public/icons/icon-512.png",
+]
+
+
+def test_pwa_icons_existen_en_repo():
+    """Los iconos PWA referenciados en vite.config.js deben existir en el repo.
+
+    Bug prevenido: v1.6.6 — sin estos ficheros los navegadores no muestran
+    el botón de instalación aunque VitePWA esté configurado.
+    """
+    missing = [
+        icon for icon in _PWA_ICONS
+        if not os.path.isfile(os.path.join(PROJECT_ROOT, icon))
+    ]
+    assert not missing, (
+        "Los siguientes iconos PWA no existen en el repositorio "
+        "(el botón de instalación no aparecerá en los navegadores):\n"
+        + "\n".join(f"  - {i}" for i in missing)
+    )
+
+
+def test_pwa_icons_son_png_validos():
+    """Los iconos PWA deben ser ficheros PNG válidos (firma correcta)."""
+    for icon in _PWA_ICONS:
+        path = os.path.join(PROJECT_ROOT, icon)
+        if not os.path.isfile(path):
+            pytest.skip(f"Icono no encontrado: {icon} (cubierto por test anterior)")
+        with open(path, "rb") as fh:
+            header = fh.read(8)
+        assert header == _PNG_SIGNATURE, (
+            f"{icon} no es un PNG válido. "
+            f"Firma encontrada: {header.hex()!r} (esperada: {_PNG_SIGNATURE.hex()!r})"
+        )
+
+
+def test_pwa_icons_en_zip():
+    """El zip de distribución debe incluir los iconos PWA compilados en dist/.
+
+    Sin ellos el service worker no puede precachearlos y la instalación PWA
+    falla en producción aunque funcione en desarrollo.
+    """
+    zip_path = _latest_zip(PROJECT_ROOT)
+    if zip_path is None:
+        pytest.skip("No hay ningún zip de distribución en el proyecto.")
+
+    dist_icons = [
+        icon.replace("frontend/public/", "frontend/dist/")
+        for icon in _PWA_ICONS
+    ]
+    with zipfile.ZipFile(zip_path) as zf:
+        names_in_zip = {info.filename for info in zf.infolist()}
+
+    missing = [i for i in dist_icons if i not in names_in_zip]
+    zip_name = os.path.basename(zip_path)
+    assert not missing, (
+        f"El zip '{zip_name}' no contiene los iconos PWA compilados:\n"
+        + "\n".join(f"  - {i}" for i in missing)
+    )
