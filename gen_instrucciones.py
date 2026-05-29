@@ -1,16 +1,16 @@
 """
-Genera instrucciones.pdf para FJS Finanzas.
+Genera instrucciones.pdf para JSG Soft..
 Ejecutar desde la raiz del proyecto:
   python gen_instrucciones.py
 """
 from fpdf import FPDF
 
 VERSION = "1.6.7"
-TITLE   = f"FJS Finanzas {VERSION} - Manual de usuario"
+TITLE   = f"JSG Soft. {VERSION} - Manual de usuario"
 
 SECTIONS = [
     ("Descripcion general", [
-        "FJS Finanzas es una aplicacion web personal de seguimiento de cartera de inversion. "
+        "JSG Soft. es una aplicacion web personal de seguimiento de cartera de inversion. "
         "Permite registrar compras y ventas de acciones, seguir el valor de mercado en tiempo real, "
         "generar informes fiscales IRPF y gestionar el catalogo de mercados y valores.",
         "",
@@ -256,7 +256,7 @@ SECTIONS = [
         "    el Panel de Administracion (seccion Configuracion del sistema).",
         "  - El nombre nuevo aparece en la barra de titulo del navegador,",
         "    en la cabecera del menu lateral y en la pagina de login.",
-        "  - El valor por defecto es 'FJS Finanzas'.",
+        "  - El valor por defecto es 'JSG Soft.'.",
         "",
         "Tema claro / oscuro (usuarios normales):",
         "  - Boton de alternancia en el pie del menu lateral.",
@@ -333,7 +333,7 @@ SECTIONS = [
         "   nombre, ticker del indice de referencia, divisa y dias de ventana fiscal.",
         "",
         "4. Configuracion:",
-        "   - Nombre de la aplicacion: personalizable (por defecto 'FJS Finanzas').",
+        "   - Nombre de la aplicacion: personalizable (por defecto 'JSG Soft.').",
         "   - Intervalo de refresco de snapshots (5-60 minutos).",
         "   - Boton 'Actualizar precios (todos)': fuerza el refresco inmediato.",
     ]),
@@ -430,7 +430,7 @@ class PDF(FPDF):
         self.set_y(-15)
         self.set_font("Helvetica", "", 8)
         self.set_text_color(150, 150, 150)
-        self.cell(0, 10, f"FJS Finanzas {VERSION}  -  Pag. {self.page_no()}", align="C")
+        self.cell(0, 10, f"JSG Soft. {VERSION}  -  Pag. {self.page_no()}", align="C")
 
 
 def build_pdf(path: str) -> None:
@@ -443,7 +443,7 @@ def build_pdf(path: str) -> None:
     pdf.set_font("Helvetica", "B", 24)
     pdf.set_text_color(30, 30, 30)
     pdf.ln(20)
-    pdf.cell(0, 12, "FJS Finanzas", align="C")
+    pdf.cell(0, 12, "JSG Soft.", align="C")
     pdf.ln(10)
     pdf.set_font("Helvetica", "", 16)
     pdf.set_text_color(80, 80, 80)

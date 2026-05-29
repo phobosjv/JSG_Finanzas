@@ -5,7 +5,7 @@ import { translations } from '../i18n/translations'
 const AppCtx = createContext(null)
 
 export function AppProvider({ children }) {
-  const [appName, setAppNameState] = useState('FJS Finanzas')
+  const [appName, setAppNameState] = useState('JSG Soft.')
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
   const [locale, setLocaleState] = useState(() => localStorage.getItem('locale') || 'es')
 

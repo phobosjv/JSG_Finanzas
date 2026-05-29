@@ -18,7 +18,7 @@ from app.schemas.tax_bracket import TaxBracketOut
 
 router = APIRouter(prefix="/config", tags=["config"])
 
-_APP_NAME_DEFAULT = "FJS Finanzas"
+_APP_NAME_DEFAULT = "JSG Soft."
 
 
 @router.get("")

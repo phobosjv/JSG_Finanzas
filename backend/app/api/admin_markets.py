@@ -33,7 +33,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 _CONFIG_INTERVAL_KEY = "snapshot_interval_minutes"
 _CONFIG_APP_NAME_KEY = "app_name"
-_APP_NAME_DEFAULT    = "FJS Finanzas"
+_APP_NAME_DEFAULT    = "JSG Soft."
 
 
 # ---------------------------------------------------------------------------

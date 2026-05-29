@@ -647,7 +647,7 @@ function ConfigSection() {
     api.get('/admin/config').then(d => {
       setInterval(d.snapshot_interval_minutes)
       setInputVal(d.snapshot_interval_minutes)
-      setAppNameVal(d.app_name ?? 'FJS Finanzas')
+      setAppNameVal(d.app_name ?? 'JSG Soft.')
     }).catch(() => {})
   }, [])
 
@@ -697,7 +697,7 @@ function ConfigSection() {
             value={appNameVal}
             onChange={e => setAppNameVal(e.target.value)}
             maxLength={100}
-            placeholder="FJS Finanzas"
+            placeholder="JSG Soft."
           />
         </div>
         <button type="submit" className="btn-primary btn-sm" disabled={nameBusy || !appNameVal.trim()}>
