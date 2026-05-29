@@ -339,6 +339,7 @@ def get_exchange_rate(
             start=d.isoformat(),
             end=(d + timedelta(days=5)).isoformat(),
             auto_adjust=False,
+            timeout=5,
         )
         df = df.dropna(subset=["Close"])
         if not df.empty:

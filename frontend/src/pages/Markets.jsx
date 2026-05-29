@@ -192,11 +192,17 @@ export default function Markets() {
       {/* Cabecera del índice */}
       {activeTab && <IndexHeader market={activeTab} />}
 
+      {/* Hint de navegación */}
+      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>
+        {t('markets.nav_hint')}
+      </div>
+
       {/* Fila: última actualización + buscador */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
         {lastUpdated && (
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flex: '0 0 auto' }}>
-            {t('markets.updated')} {fmtDateTime(lastUpdated)}
+            <div>{t('markets.updated')} {fmtDateTime(lastUpdated)}</div>
+            <div style={{ fontSize: '0.72rem', opacity: 0.7 }}>{t('markets.updated_note')}</div>
           </div>
         )}
         <div style={{ flex: 1, minWidth: 180, position: 'relative' }}>

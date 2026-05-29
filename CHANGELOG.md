@@ -5,6 +5,38 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.9] — 2026-05-30
+
+### Cambiado
+
+- **Mi Cartera — tabla dividendos**: columna "Tiempo en cartera" ahora muestra
+  "X año(s) y Y mes(es)" en lugar de un número de meses. Las filas de la tabla
+  navegan al detalle de la acción al pulsarlas.
+- **Mi Cartera — gráficos**: eliminados subtítulos redundantes "Posiciones abiertas"
+  sobre los gráficos de distribución y B/P. Altura del donut igualada al de barras.
+- **Scatter dividendos**: título cambiado a "Rentabilidad sobre coste vs. antigüedad".
+  Toggle de escala con el mismo estilo que el scatter de posiciones cerradas
+  ("Eje X lineal / logarítmico"). En escala log se filtran los valores con
+  `years_held = 0` para evitar log(0).
+- **Mercados**: nuevo hint "Para registrar operaciones, pulsa sobre el valor deseado."
+  El timestamp de precios añade la nota "(puede acumular retraso en origen)".
+- **Dashboard**: mensaje vacío simplificado (eliminada la referencia a "Utilidades").
+- **Scrollbar horizontal** en tablas ahora usa el color de borde del tema (oscuro
+  en tema oscuro, claro en tema claro). Compatible Chrome, Firefox, Safari.
+- **Scroll vertical** en tablas con más de 10 filas (posiciones abiertas, cerradas
+  y dividendos por acción).
+
+### Corregido
+
+- **Bug**: timeout ausente en llamada a Yahoo Finance para tipo de cambio
+  (`GET /markets/exchange-rate`). Ahora se establece timeout=5 s para evitar
+  bloqueos indefinidos del servidor.
+- **Bug**: `CustomDot` en gráficos scatter usaba `!cx || !cy` (falsy), lo que
+  ocultaba puntos con coordenada x=0. Corregido a `typeof cx !== 'number'`.
+- **Bug**: null safety en `closedAnalytics` y `dividendsBySec` al cargar Portfolio.
+
+---
+
 ## [1.6.8] — 2026-05-29
 
 ### Corregido

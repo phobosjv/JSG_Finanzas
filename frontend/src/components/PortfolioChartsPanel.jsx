@@ -86,7 +86,7 @@ export function DistributionChart({ positions, t, navigate }) {
           transformOrigin: 'center 68%',
           filter: 'drop-shadow(0 14px 18px rgba(0,0,0,0.55))',
         }}>
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
                 data={positions.map(p => ({
@@ -320,7 +320,7 @@ export function ClosedScatterChart({ data, t }) {
 
   const CustomDot = (props) => {
     const { cx, cy, payload } = props
-    if (!cx || !cy) return null
+    if (typeof cx !== 'number' || typeof cy !== 'number') return null
     const r = Math.max(6, Math.sqrt(Number(payload.cost_eur) / maxCost) * 24)
     const color = pnlColor(payload.pnl_pct)
     const label = `${payload.name} - ${fmtDate(payload.last_sell_date)}`
@@ -451,11 +451,13 @@ export function DividendScatterChart({ data, t }) {
   const [logScale, setLogScale] = useState(false)
   if (!data || data.length === 0) return null
 
-  const maxTotal = Math.max(...data.map(d => d.total_eur), 1)
+  // En escala log filtramos los puntos con years_held=0 (log(0) es indefinido)
+  const chartData = logScale ? data.filter(d => Number(d.years_held) > 0) : data
+  const maxTotal = Math.max(...chartData.map(d => d.total_eur), 1)
 
   const CustomDot = (props) => {
     const { cx, cy, payload } = props
-    if (!cx || !cy) return null
+    if (typeof cx !== 'number' || typeof cy !== 'number') return null
     const r = Math.max(6, Math.sqrt(payload.total_eur / maxTotal) * 20)
     return (
       <g>
@@ -483,23 +485,23 @@ export function DividendScatterChart({ data, t }) {
   }
 
   const Toggle = () => (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
-      <span>lineal</span>
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+      <span>Eje X lineal</span>
       <div
         onClick={() => setLogScale(s => !s)}
         style={{
-          width: 34, height: 18, borderRadius: 9, cursor: 'pointer',
+          width: 40, height: 20, borderRadius: 10, cursor: 'pointer',
           background: logScale ? '#6366f1' : 'var(--border)',
           position: 'relative', transition: 'background 0.2s', flexShrink: 0,
         }}
       >
         <div style={{
-          position: 'absolute', top: 2, left: logScale ? 18 : 2,
-          width: 14, height: 14, borderRadius: '50%',
+          position: 'absolute', top: 2, left: logScale ? 22 : 2,
+          width: 16, height: 16, borderRadius: '50%',
           background: '#fff', transition: 'left 0.2s',
         }} />
       </div>
-      <span>log</span>
+      <span>logarítmico</span>
     </label>
   )
 
@@ -529,7 +531,7 @@ export function DividendScatterChart({ data, t }) {
           />
           <ZAxis type="number" dataKey="total_eur" range={[30, 600]} />
           <ReTooltip content={<CustomTooltip />} />
-          <Scatter data={data} shape={<CustomDot />} />
+          <Scatter data={chartData} shape={<CustomDot />} />
         </ScatterChart>
       </ResponsiveContainer>
     </div>

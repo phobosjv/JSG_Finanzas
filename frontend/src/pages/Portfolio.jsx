@@ -28,6 +28,20 @@ function fmt(val, dec = 2) {
   return Number(val).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
 
+/** Convierte meses a "X año(s) y Y mes(es)" para la tabla de dividendos. */
+function fmtYearsMonths(months) {
+  const years = Math.floor(months / 12)
+  const rem   = months % 12
+  if (years === 0) return `${rem} ${rem === 1 ? 'mes' : 'meses'}`
+  if (rem   === 0) return `${years} ${years === 1 ? 'año' : 'años'}`
+  return `${years} ${years === 1 ? 'año' : 'años'} y ${rem} ${rem === 1 ? 'mes' : 'meses'}`
+}
+
+/** Estilo de scroll vertical para tablas largas (>10 filas). */
+function tableScrollStyle(count) {
+  return count > 10 ? { maxHeight: 540, overflowY: 'auto' } : {}
+}
+
 function sign(val) { return Number(val) >= 0 ? '+' : '' }
 function cls(val)  { return Number(val) > 0 ? 'pos' : Number(val) < 0 ? 'neg' : 'neu' }
 
@@ -122,8 +136,8 @@ export default function Portfolio() {
         setPositions(open)
         setClosed(cls)
         setHistory(hist)
-        setClosedAn(analytics)
-        setDivsBySec(divsBySec)
+        setClosedAn(analytics || [])
+        setDivsBySec(divsBySec || [])
       })
       .catch(err => setError(err.message))
   }, [])
@@ -190,7 +204,7 @@ export default function Portfolio() {
       ) : (
         <div className="card">
           <h2>{t('portfolio.open')}</h2>
-          <div className="table-wrap">
+          <div className="table-wrap" style={tableScrollStyle(positions.length)}>
             <table>
               <thead>
                 <tr>
@@ -289,15 +303,9 @@ export default function Portfolio() {
       {positions.length > 0 && (
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16, alignItems: 'flex-start' }}>
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>
-              {t('portfolio.open')}
-            </div>
             <DistributionChart positions={positions} t={t} navigate={navigate} />
           </div>
           <div style={{ flex: '2 1 400px', minWidth: 0 }}>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>
-              {t('portfolio.open')}
-            </div>
             <PnLChart positions={positions} t={t} navigate={navigate} />
           </div>
         </div>
@@ -307,7 +315,7 @@ export default function Portfolio() {
       {closed.length > 0 && (
         <div className="card">
           <h2>{t('portfolio.closed')}</h2>
-          <div className="table-wrap">
+          <div className="table-wrap" style={tableScrollStyle(closed.length)}>
             <table>
               <thead>
                 <tr>
@@ -353,7 +361,7 @@ export default function Portfolio() {
       {dividendsBySec.length > 0 && (
         <div className="card" style={{ marginTop: 24 }}>
           <h2>{t('portfolio.div_by_security_title')}</h2>
-          <div className="table-wrap">
+          <div className="table-wrap" style={tableScrollStyle(dividendsBySec.length)}>
             <table>
               <thead>
                 <tr>
@@ -373,7 +381,7 @@ export default function Portfolio() {
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{d.name}</div>
                     </td>
                     <td className="num">{d.count}</td>
-                    <td className="num">{d.months_held}</td>
+                    <td className="num">{fmtYearsMonths(d.months_held)}</td>
                     <td className="num pos">{fmt(d.avg_yield_pct, 2)} %</td>
                     <td className="num">{fmt(d.avg_per_share, 4)}</td>
                     <td className="num pos">{fmt(d.total_eur)} €</td>
