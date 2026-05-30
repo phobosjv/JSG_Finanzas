@@ -5,6 +5,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.12] — 2026-05-30
+
+### Cambiado
+
+- **Scatter "Rentabilidad vs. tiempo en cartera"**: paletas separadas para
+  positivos y negativos, para evitar que una ganancia parezca pérdida.
+  - **Positivos**: verde aceituna `#71732B` (peor, 3 %/año) → verde intenso
+    `#16a34a` (mejor, 60 %/año).
+  - **Negativos**: naranja `#D24608` (menos malo) → rojo oscuro `#7f1d1d`
+    (mayor pérdida en mayor tiempo).
+
+---
+
 ## [1.6.11] — 2026-05-30
 
 ### Cambiado

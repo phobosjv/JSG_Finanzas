@@ -284,12 +284,15 @@ export default function PortfolioChartsPanel({ positions, history, chartsVisible
 
 // ─── Utilidad: color por % de rentabilidad + tiempo en cartera ──────────────
 //
-// Positivos: el color depende de la rentabilidad ANUALIZADA (pct/años).
-//   - Muy rentable en poco tiempo (>= 60%/año) → verde intenso.
-//   - Poco rentable en mucho tiempo (<= 3%/año) → naranja oscuro (sin llegar a rojo).
-// Negativos: siempre rojo, más oscuro cuanto mayor sea la pérdida y más tiempo.
-//   - Pérdida pequeña en poco tiempo → rojo claro.
-//   - Pérdida grande en mucho tiempo → rojo oscuro.
+// IMPORTANTE: los positivos y negativos viven en paletas separadas para que
+// nunca se confundan visualmente. Ninguna ganancia debe parecer pérdida.
+//
+// Positivos: del peor (verde aceituna #71732B) al mejor (verde intenso #16a34a).
+//   Métrica: rentabilidad anualizada (pct/años).
+//   3 %/año → verde aceituna · 60 %/año → verde intenso.
+// Negativos: del menos malo (naranja #D24608) al peor (rojo oscuro #7f1d1d).
+//   Métrica: |pct| · (1 + años/3) — combina magnitud y duración.
+//   intensidad 5 → naranja · intensidad 80 → rojo oscuro.
 
 function lerp(a, b, t) { return Math.round(a + (b - a) * t) }
 
@@ -298,29 +301,23 @@ function pnlColor(pct, days) {
   const p = Number(pct)  || 0
 
   if (p < 0) {
-    // Intensidad: combinación de magnitud y duración de la pérdida.
-    // |pct| en %, years en [0, ∞). intensity ≈ |pct| · (1 + years/3)
     const years = d / 365
     const intensity = Math.abs(p) * (1 + years / 3)
-    // Mapeo: 5 → rojo claro, 80+ → rojo oscuro
     const t = Math.max(0, Math.min(1, (intensity - 5) / 75))
-    // Rojo claro #fca5a5 → rojo oscuro #7f1d1d
-    const r = lerp(252, 127, t)
-    const g = lerp(165,  29, t)
-    const b = lerp(165,  29, t)
+    // Naranja #D24608 → rojo oscuro #7f1d1d
+    const r = lerp(210, 127, t)
+    const g = lerp( 70,  29, t)
+    const b = lerp(  8,  29, t)
     return `rgb(${r},${g},${b})`
   }
 
-  // Positivo: rentabilidad anualizada.
-  // Evita división por cero usando un mínimo de 0.05 años (~18 días).
   const years = Math.max(d / 365, 0.05)
   const annualized = p / years
-  // Mapeo: 3%/año → naranja oscuro, 60%/año → verde intenso
   const t = Math.max(0, Math.min(1, (annualized - 3) / 57))
-  // Naranja oscuro #cc5500 → verde intenso #16a34a
-  const r = lerp(204,  22, t)
-  const g = lerp( 85, 163, t)
-  const b = lerp(  0,  74, t)
+  // Verde aceituna #71732B → verde intenso #16a34a
+  const r = lerp(113,  22, t)
+  const g = lerp(115, 163, t)
+  const b = lerp( 43,  74, t)
   return `rgb(${r},${g},${b})`
 }
 
