@@ -5,6 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.11] — 2026-05-30
+
+### Cambiado
+
+- **Scatter "Rentabilidad vs. tiempo en cartera"**: el color de cada punto
+  ya no depende solo del % de rentabilidad — ahora combina rentabilidad y
+  tiempo en cartera:
+  - **Positivos**: color basado en la rentabilidad **anualizada** (`pct/años`).
+    Operaciones muy rentables en poco tiempo (>=60 %/año) → verde intenso.
+    Operaciones poco rentables en mucho tiempo (<=3 %/año) → naranja oscuro.
+  - **Negativos**: siempre rojo. Intensidad mayor (rojo más oscuro) cuanto
+    mayor sea la pérdida y más tiempo se mantuvo. Pérdidas pequeñas en poco
+    tiempo → rojo claro.
+
+---
+
 ## [1.6.10] — 2026-05-30
 
 ### Añadido

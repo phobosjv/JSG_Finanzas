@@ -282,25 +282,45 @@ export default function PortfolioChartsPanel({ positions, history, chartsVisible
   )
 }
 
-// ─── Utilidad: color por % de rentabilidad ───────────────────────────────────
+// ─── Utilidad: color por % de rentabilidad + tiempo en cartera ──────────────
+//
+// Positivos: el color depende de la rentabilidad ANUALIZADA (pct/años).
+//   - Muy rentable en poco tiempo (>= 60%/año) → verde intenso.
+//   - Poco rentable en mucho tiempo (<= 3%/año) → naranja oscuro (sin llegar a rojo).
+// Negativos: siempre rojo, más oscuro cuanto mayor sea la pérdida y más tiempo.
+//   - Pérdida pequeña en poco tiempo → rojo claro.
+//   - Pérdida grande en mucho tiempo → rojo oscuro.
 
-function pnlColor(pct) {
-  // Gradiente: rojo (≤-30%) → amarillo (0%) → verde (≥+50%)
-  if (pct <= -30) return '#ef4444'
-  if (pct >= 50)  return '#22c55e'
-  if (pct < 0) {
-    // -30 → 0 : rojo → amarillo
-    const t = (pct + 30) / 30  // 0..1
-    const r = Math.round(239 + (234 - 239) * t)
-    const g = Math.round(68  + (179 - 68)  * t)
-    const b = Math.round(68  + (8   - 68)  * t)
+function lerp(a, b, t) { return Math.round(a + (b - a) * t) }
+
+function pnlColor(pct, days) {
+  const d = Number(days) || 0
+  const p = Number(pct)  || 0
+
+  if (p < 0) {
+    // Intensidad: combinación de magnitud y duración de la pérdida.
+    // |pct| en %, years en [0, ∞). intensity ≈ |pct| · (1 + years/3)
+    const years = d / 365
+    const intensity = Math.abs(p) * (1 + years / 3)
+    // Mapeo: 5 → rojo claro, 80+ → rojo oscuro
+    const t = Math.max(0, Math.min(1, (intensity - 5) / 75))
+    // Rojo claro #fca5a5 → rojo oscuro #7f1d1d
+    const r = lerp(252, 127, t)
+    const g = lerp(165,  29, t)
+    const b = lerp(165,  29, t)
     return `rgb(${r},${g},${b})`
   }
-  // 0 → 50 : amarillo → verde
-  const t = pct / 50  // 0..1
-  const r = Math.round(234 + (34  - 234) * t)
-  const g = Math.round(179 + (197 - 179) * t)
-  const b = Math.round(8   + (94  - 8)   * t)
+
+  // Positivo: rentabilidad anualizada.
+  // Evita división por cero usando un mínimo de 0.05 años (~18 días).
+  const years = Math.max(d / 365, 0.05)
+  const annualized = p / years
+  // Mapeo: 3%/año → naranja oscuro, 60%/año → verde intenso
+  const t = Math.max(0, Math.min(1, (annualized - 3) / 57))
+  // Naranja oscuro #cc5500 → verde intenso #16a34a
+  const r = lerp(204,  22, t)
+  const g = lerp( 85, 163, t)
+  const b = lerp(  0,  74, t)
   return `rgb(${r},${g},${b})`
 }
 
@@ -322,7 +342,7 @@ export function ClosedScatterChart({ data, t }) {
     const { cx, cy, payload } = props
     if (typeof cx !== 'number' || typeof cy !== 'number') return null
     const r = Math.max(6, Math.sqrt(Number(payload.cost_eur) / maxCost) * 24)
-    const color = pnlColor(payload.pnl_pct)
+    const color = pnlColor(payload.pnl_pct, payload.avg_days_held)
     const label = `${payload.name} - ${fmtDate(payload.last_sell_date)}`
     return (
       <g>
@@ -343,7 +363,7 @@ export function ClosedScatterChart({ data, t }) {
         <div style={{ fontWeight: 700, marginBottom: 4 }}>{d.name}</div>
         <div>Venta: {fmtDate(d.last_sell_date)}</div>
         <div>Días: {Math.round(d.avg_days_held)}</div>
-        <div style={{ color: pnlColor(d.pnl_pct) }}>
+        <div style={{ color: pnlColor(d.pnl_pct, d.avg_days_held) }}>
           {d.pnl_pct >= 0 ? '+' : ''}{Number(d.pnl_pct).toFixed(2)} %
         </div>
         <div>Resultado: {Number(d.realized_pnl_eur) >= 0 ? '+' : ''}{Number(d.realized_pnl_eur).toFixed(2)} €</div>
