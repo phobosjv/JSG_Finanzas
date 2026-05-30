@@ -1,17 +1,35 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      - finanzas
+
   finanzas:
     build: .
-    ports:
-      - "8040:8000"
+    # Sin ports: el acceso externo pasa por Caddy vía la red Docker interna.
+    # Para desarrollo local sin Docker: cd backend && uvicorn app.main:app --reload
     volumes:
       - finanzas-data:/data        # aquí vive finanzas.db y los backups
     environment:
       - DATABASE_URL=sqlite:////data/finanzas.db
       - SECRET_KEY=${SECRET_KEY}
       # En producción Docker el frontend lo sirve el propio FastAPI (mismo origen),
-      # así que CORS solo hace falta si accedes desde un dominio externo.
-      # Ejemplo: ALLOWED_ORIGINS=["https://tu-dominio.com"]
+      # así que CORS normalmente no hace falta cambiar este valor.
+      # Si accedes desde un dominio externo distinto al del servidor, añádelo aquí.
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-["http://localhost:5173"]}
+      # Marca la cookie de sesión como Secure (obligatorio con HTTPS).
+      # Poner true cuando DOMAIN es un dominio real con certificado SSL.
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - DEBUG=${DEBUG:-false}
       # Usuario admin creado automáticamente en el primer arranque.
       # Cambia la contraseña tras el primer login.
@@ -27,3 +45,5 @@ services:
 
 volumes:
   finanzas-data:
+  caddy-data:
+  caddy-config:
