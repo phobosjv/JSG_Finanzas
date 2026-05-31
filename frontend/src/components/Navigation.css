@@ -61,6 +61,28 @@
   margin-top: 2px;
 }
 
+.sidebar-logo {
+  display: block;
+  max-width: 100%;
+  max-height: 56px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 8px;
+}
+
+.mobile-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mobile-header-logo {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+}
+
 .sidebar-links {
   flex: 1;
   display: flex;

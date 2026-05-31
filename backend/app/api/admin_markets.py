@@ -14,6 +14,7 @@ PATCH  /admin/config/snapshot-interval — cambia el intervalo de actualización
 
 from __future__ import annotations
 
+import base64
 import json
 from datetime import date, datetime
 
@@ -24,16 +25,19 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_admin
 from app.models import AppConfig, MarketRow, Security, TaxBracketRow, User
 from app.schemas.market_admin import (
-    AppNameUpdate, CatalogImportBody,
+    AppNameUpdate, CatalogImportBody, LogoUpdate,
     MarketCreate, MarketOut, MarketReorderItem, MarketUpdate, SnapshotIntervalUpdate,
 )
 from app.schemas.tax_bracket import TaxBracketCreate, TaxBracketOut, TaxBracketUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-_CONFIG_INTERVAL_KEY = "snapshot_interval_minutes"
-_CONFIG_APP_NAME_KEY = "app_name"
-_APP_NAME_DEFAULT    = "JSG Soft."
+_CONFIG_INTERVAL_KEY    = "snapshot_interval_minutes"
+_CONFIG_APP_NAME_KEY    = "app_name"
+_CONFIG_LOGO_DATA_KEY   = "logo_data"
+_CONFIG_LOGO_MIME_KEY   = "logo_mime"
+_CONFIG_LOGO_UPDATED_KEY = "logo_updated_at"
+_APP_NAME_DEFAULT       = "JSG Soft."
 
 
 # ---------------------------------------------------------------------------
@@ -318,9 +322,12 @@ def get_config(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
+    logo_updated = db.get(AppConfig, _CONFIG_LOGO_UPDATED_KEY)
     return {
         "snapshot_interval_minutes": _get_interval(db),
         "app_name": _get_app_name(db),
+        "has_logo": db.get(AppConfig, _CONFIG_LOGO_DATA_KEY) is not None,
+        "logo_updated_at": logo_updated.value if logo_updated else None,
     }
 
 
@@ -337,6 +344,50 @@ def set_app_name(
         row.value = body.app_name
     db.commit()
     return {"app_name": body.app_name}
+
+
+def _upsert_config(db: Session, key: str, value: str) -> None:
+    row = db.get(AppConfig, key)
+    if row is None:
+        db.add(AppConfig(key=key, value=value))
+    else:
+        row.value = value
+
+
+@router.put("/config/logo")
+def set_logo(
+    body: LogoUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Guarda el logotipo de la app (base64) tras validar tipo y tamaño."""
+    try:
+        blob, mime = body.decoded()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        )
+
+    # Re-codificar canónicamente para no almacenar el prefijo data-URI.
+    updated_at = datetime.now().isoformat(timespec="seconds")
+    _upsert_config(db, _CONFIG_LOGO_DATA_KEY, base64.b64encode(blob).decode("ascii"))
+    _upsert_config(db, _CONFIG_LOGO_MIME_KEY, mime)
+    _upsert_config(db, _CONFIG_LOGO_UPDATED_KEY, updated_at)
+    db.commit()
+    return {"has_logo": True, "logo_updated_at": updated_at}
+
+
+@router.delete("/config/logo", status_code=status.HTTP_204_NO_CONTENT)
+def delete_logo(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Elimina el logotipo personalizado y vuelve a los iconos por defecto."""
+    for key in (_CONFIG_LOGO_DATA_KEY, _CONFIG_LOGO_MIME_KEY, _CONFIG_LOGO_UPDATED_KEY):
+        row = db.get(AppConfig, key)
+        if row is not None:
+            db.delete(row)
+    db.commit()
 
 
 @router.patch("/config/snapshot-interval")

@@ -14,19 +14,23 @@ const NAV_LINKS = [
 
 export default function Navigation() {
   const { user, logout } = useAuth()
-  const { appName, theme, toggleTheme, t } = useAppConfig()
+  const { appName, logoUrl, theme, toggleTheme, t } = useAppConfig()
 
   return (
     <>
       {/* Cabecera superior — móvil */}
       <header className="mobile-header">
-        <span className="mobile-header-name">{appName}</span>
+        <span className="mobile-header-brand">
+          {logoUrl && <img className="mobile-header-logo" src={logoUrl} alt={appName} />}
+          <span className="mobile-header-name">{appName}</span>
+        </span>
         <span className="mobile-header-version">v{version}</span>
       </header>
 
       {/* Barra lateral — escritorio */}
       <nav className="sidebar">
         <div className="sidebar-brand">
+          {logoUrl && <img className="sidebar-logo" src={logoUrl} alt={appName} />}
           {appName}
           <span className="sidebar-version">v{version}</span>
         </div>

@@ -12,6 +12,15 @@
   max-width: 360px;
 }
 
+.login-logo {
+  display: block;
+  max-width: 160px;
+  max-height: 96px;
+  width: auto;
+  margin: 0 auto 16px;
+  object-fit: contain;
+}
+
 .login-title {
   text-align: center;
   color: var(--accent);

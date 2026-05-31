@@ -633,15 +633,56 @@ function TaxBracketsSubsection() {
 // ---------------------------------------------------------------------------
 
 function ConfigSection() {
-  const { setAppName } = useAppConfig()
+  const { setAppName, logoUrl, refreshLogo, t } = useAppConfig()
   const [interval, setInterval]     = useState(null)
   const [inputVal, setInputVal]     = useState(5)
   const [appNameVal, setAppNameVal] = useState('')
   const [busy, setBusy]             = useState(false)
   const [nameBusy, setNameBusy]     = useState(false)
   const [refreshBusy, setRefreshBusy] = useState(false)
+  const [logoBusy, setLogoBusy]     = useState(false)
+  const logoFileRef                 = useRef(null)
   const [msg, setMsg]               = useState(null)
   const [err, setErr]               = useState(null)
+
+  const LOGO_MAX_BYTES = 1024 * 1024
+  const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/svg+xml'
+
+  async function onLogoFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setMsg(null); setErr(null)
+    if (!file.type || !LOGO_ACCEPT.split(',').includes(file.type)) {
+      setErr(t('admin.logo_bad_type')); e.target.value = ''; return
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      setErr(t('admin.logo_too_big')); e.target.value = ''; return
+    }
+    setLogoBusy(true)
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(r.result)
+        r.onerror = () => reject(new Error('read error'))
+        r.readAsDataURL(file)
+      })
+      await api.put('/admin/config/logo', { data: dataUrl, mime: file.type })
+      await refreshLogo()
+      setMsg(t('admin.logo_saved'))
+    } catch (e2) { setErr(e2.message) }
+    finally { setLogoBusy(false); e.target.value = '' }
+  }
+
+  async function removeLogo() {
+    if (!window.confirm(t('admin.logo_confirm_remove'))) return
+    setMsg(null); setErr(null); setLogoBusy(true)
+    try {
+      await api.delete('/admin/config/logo')
+      await refreshLogo()
+      setMsg(t('admin.logo_removed'))
+    } catch (e2) { setErr(e2.message) }
+    finally { setLogoBusy(false) }
+  }
 
   useEffect(() => {
     api.get('/admin/config').then(d => {
@@ -704,6 +745,48 @@ function ConfigSection() {
           {nameBusy ? 'Guardando…' : 'Aplicar nombre'}
         </button>
       </form>
+
+      {/* Logotipo de la aplicación */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ display: 'block', marginBottom: 6 }}>{t('admin.logo')}</label>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 0, marginBottom: 10 }}>
+          {t('admin.logo_help')}
+        </p>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{
+            width: 96, height: 96, borderRadius: 8, border: '1px solid var(--border)',
+            background: 'var(--bg-input)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
+          }}>
+            {logoUrl
+              ? <img src={logoUrl} alt={t('admin.logo_current')} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              : <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textAlign: 'center', padding: 6 }}>{t('admin.logo_none')}</span>
+            }
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              ref={logoFileRef}
+              type="file"
+              accept={LOGO_ACCEPT}
+              onChange={onLogoFile}
+              style={{ display: 'none' }}
+            />
+            <button
+              type="button"
+              className="btn-primary btn-sm"
+              disabled={logoBusy}
+              onClick={() => logoFileRef.current?.click()}
+            >
+              {logoBusy ? '…' : t('admin.logo_upload')}
+            </button>
+            {logoUrl && (
+              <button type="button" className="btn-ghost btn-sm" disabled={logoBusy} onClick={removeLogo}>
+                {t('admin.logo_remove')}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Intervalo de snapshots */}
       <form onSubmit={saveInterval} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 16 }}>

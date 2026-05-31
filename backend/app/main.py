@@ -24,13 +24,15 @@ import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 import os
 
 from app.api import admin, admin_markets, admin_splits, app_config, auth, backup, favorites, markets, portfolio, reports, securities
+from app.api.deps import get_db
 from app.auth.security import hash_password
 from app.config import get_settings
 from app.database import SessionLocal
@@ -120,7 +122,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Finanzas",
         description="Seguimiento de cartera de inversion",
-        version="1.6.12",
+        version="1.6.13",
         lifespan=lifespan,
     )
 
@@ -144,6 +146,48 @@ def create_app() -> FastAPI:
     app.include_router(portfolio.router, prefix=prefix)
     app.include_router(reports.router, prefix=prefix)
     app.include_router(backup.router, prefix=prefix)
+
+    # Manifest PWA dinámico. Debe registrarse ANTES del catch-all serve_spa
+    # para que gane al fichero estático que genera VitePWA. Refleja el nombre
+    # de la app y, si hay logo subido, lo usa como icono de la PWA.
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    def dynamic_manifest(db: Session = Depends(get_db)):
+        from app.models import AppConfig
+
+        name_row = db.get(AppConfig, "app_name")
+        app_name = name_row.value if name_row else "JSG Soft."
+
+        logo_data = db.get(AppConfig, "logo_data")
+        logo_mime = db.get(AppConfig, "logo_mime")
+        logo_updated = db.get(AppConfig, "logo_updated_at")
+
+        if logo_data is not None and logo_mime is not None:
+            ver = logo_updated.value if logo_updated else ""
+            src = f"/api/config/logo?v={ver}"
+            icons = [
+                {"src": src, "sizes": "192x192", "type": logo_mime.value, "purpose": "any"},
+                {"src": src, "sizes": "512x512", "type": logo_mime.value, "purpose": "any"},
+                {"src": src, "sizes": "any", "type": logo_mime.value, "purpose": "maskable"},
+            ]
+        else:
+            icons = [
+                {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+            ]
+
+        return JSONResponse(
+            content={
+                "name": app_name,
+                "short_name": app_name,
+                "description": "Seguimiento de cartera de inversión",
+                "theme_color": "#1a1a2e",
+                "background_color": "#1a1a2e",
+                "display": "standalone",
+                "start_url": "/",
+                "icons": icons,
+            },
+            media_type="application/manifest+json",
+        )
 
     # Frontend compilado. En Docker se copia a /app/static (Dockerfile).
     # En desarrollo local se sirve desde frontend/dist si existe,

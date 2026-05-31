@@ -5,6 +5,29 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.13] — 2026-05-31
+
+### Añadido
+
+- **Logotipo personalizable de la aplicación.** El administrador puede subir
+  una imagen (PNG/JPEG/WebP/SVG, máx. 1 MB) desde ordenador o móvil en
+  AdminPanel → Configuración del sistema. El logo aparece en:
+  - la pantalla de **login** (junto al nombre y la versión),
+  - el **menú principal** (sidebar de escritorio y cabecera móvil),
+  - el **icono de la PWA** instalada, mediante un manifest dinámico servido
+    por el backend (`GET /manifest.webmanifest`).
+- Endpoints nuevos: `PUT`/`DELETE /api/admin/config/logo` (admin),
+  `GET /api/config/logo` (público) y `has_logo`/`logo_updated_at` en
+  `GET /api/config`.
+- Botón "Quitar logo" para revertir a los iconos por defecto.
+
+### Notas
+
+- La imagen se guarda tal cual en la BD (`app_config`), sin reprocesar; se
+  recomienda subir una imagen cuadrada para el mejor resultado en la PWA.
+- Una PWA ya instalada no actualiza su icono hasta reinstalarla (caché del
+  sistema/navegador).
+
 ## [1.6.12] — 2026-05-30
 
 ### Cambiado

@@ -8,7 +8,10 @@ GET /config               — devuelve {app_name}.
 GET /config/tax-brackets  — lista de tramos IRPF del ahorro (para la UI).
 """
 
-from fastapi import APIRouter, Depends
+import base64
+import binascii
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -23,8 +26,31 @@ _APP_NAME_DEFAULT = "JSG Soft."
 
 @router.get("")
 def get_public_config(db: Session = Depends(get_db)):
-    row = db.get(AppConfig, "app_name")
-    return {"app_name": row.value if row else _APP_NAME_DEFAULT}
+    name = db.get(AppConfig, "app_name")
+    logo_updated = db.get(AppConfig, "logo_updated_at")
+    return {
+        "app_name": name.value if name else _APP_NAME_DEFAULT,
+        "has_logo": db.get(AppConfig, "logo_data") is not None,
+        "logo_updated_at": logo_updated.value if logo_updated else None,
+    }
+
+
+@router.get("/logo")
+def get_logo(db: Session = Depends(get_db)):
+    """Devuelve el logotipo de la app con su Content-Type. 404 si no hay."""
+    data = db.get(AppConfig, "logo_data")
+    mime = db.get(AppConfig, "logo_mime")
+    if data is None or mime is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sin logotipo")
+    try:
+        blob = base64.b64decode(data.value, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Logotipo corrupto")
+    return Response(
+        content=blob,
+        media_type=mime.value,
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 @router.get("/tax-brackets", response_model=list[TaxBracketOut])

@@ -1,6 +1,8 @@
 """Schemas para la gestión de mercados (admin), splits y configuración global."""
 from __future__ import annotations
 
+import base64
+import binascii
 from datetime import date
 from typing import Literal
 
@@ -98,6 +100,62 @@ class AppNameUpdate(BaseModel):
         if len(v) > 100:
             raise ValueError("El nombre no puede superar 100 caracteres")
         return v
+
+
+# Tipos de imagen permitidos para el logotipo de la aplicación.
+LOGO_ALLOWED_MIMES = {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
+# Tamaño máximo de la imagen ya decodificada (1 MiB).
+LOGO_MAX_BYTES = 1024 * 1024
+
+
+class LogoUpdate(BaseModel):
+    """Subida del logotipo de la app como base64.
+
+    `data` acepta tanto base64 puro como un data-URI
+    (`data:image/png;base64,...`); en este último caso el prefijo se
+    descompone y, si no se indica `mime`, se toma el del propio data-URI.
+    """
+    data: str
+    mime: str | None = None
+
+    @field_validator("data")
+    @classmethod
+    def data_valid(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("La imagen no puede estar vacía")
+        return v.strip()
+
+    def decoded(self) -> tuple[bytes, str]:
+        """Devuelve (bytes, mime) validados. Lanza ValueError si algo falla."""
+        raw = self.data
+        mime = (self.mime or "").strip().lower()
+
+        # Descomponer data-URI si viene con prefijo
+        if raw.startswith("data:"):
+            try:
+                header, raw = raw.split(",", 1)
+            except ValueError:
+                raise ValueError("data-URI mal formado")
+            # header tipo "data:image/png;base64"
+            if not mime and ";" in header:
+                mime = header[len("data:"):].split(";", 1)[0].strip().lower()
+
+        if mime not in LOGO_ALLOWED_MIMES:
+            raise ValueError(
+                "Tipo de imagen no permitido. Usa PNG, JPEG, WebP o SVG."
+            )
+
+        try:
+            blob = base64.b64decode(raw, validate=True)
+        except (binascii.Error, ValueError):
+            raise ValueError("La imagen no es base64 válido")
+
+        if not blob:
+            raise ValueError("La imagen está vacía")
+        if len(blob) > LOGO_MAX_BYTES:
+            raise ValueError("La imagen supera el tamaño máximo de 1 MB")
+
+        return blob, mime
 
 
 # ---------------------------------------------------------------------------

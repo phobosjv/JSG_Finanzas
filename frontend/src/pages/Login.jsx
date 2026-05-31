@@ -7,7 +7,7 @@ import './Login.css'
 
 export default function Login() {
   const { login } = useAuth()
-  const { appName } = useAppConfig()
+  const { appName, logoUrl } = useAppConfig()
   const navigate = useNavigate()
   const [form, setForm]   = useState({ username: '', password: '' })
   const [error, setError] = useState(null)
@@ -30,6 +30,9 @@ export default function Login() {
   return (
     <div className="login-page">
       <form className="login-box card" onSubmit={submit}>
+        {logoUrl && (
+          <img className="login-logo" src={logoUrl} alt={appName} />
+        )}
         <h1 className="login-title">{appName}</h1>
         <p className="login-sub">Seguimiento de cartera de inversión</p>
         <p className="login-version">v{version}</p>
