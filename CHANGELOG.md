@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.19] — 2026-06-01
+
+### Añadido
+
+- **Explorador Yahoo Finance por mercado** (AdminPanel → Catálogo → Mercados).
+  Cada mercado puede tener configurado un código de **exchange de Yahoo Finance**
+  (ej: `MCE`=Madrid, `NMS`=NasdaqGS, `LSE`=Londres). Cuando está configurado,
+  aparece un botón 🔍 en la fila del mercado que abre un buscador filtrado solo
+  a ese exchange: muestra qué valores están ya en el catálogo (✓ con su mercado)
+  y permite añadir los que faltan con un clic directamente a ese mercado.
+- Campo "Exchange Yahoo Finance" en el formulario de creación/edición de mercados.
+- Nuevo endpoint: `GET /api/admin/markets/{code}/yahoo-securities?q=<texto>` (admin).
+- Migración Alembic `c3d4e5f6a1b2`: añade columna `yahoo_exchange` a `markets`.
+
+### Nota
+
+- Yahoo Finance no ofrece API pública para listar exhaustivamente todos los
+  valores de un exchange, por lo que el explorador es un **descubridor asistido**:
+  el admin busca por nombre/sector y ve los resultados filtrados a ese exchange.
+
 ## [1.6.18] — 2026-06-01
 
 ### Añadido

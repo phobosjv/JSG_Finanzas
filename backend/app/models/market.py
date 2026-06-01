@@ -12,6 +12,8 @@ Campos:
                       60 para mercados UE/EEE, 365 para mercados fuera del EEE.
   sort_order        — orden de aparición en las pestañas de la UI (v1.5.0).
                       Menor número = más a la izquierda. Default 0.
+  yahoo_exchange    — código de exchange en Yahoo Finance (ej: 'MCE', 'NMS', 'LSE').
+                      Opcional. Permite filtrar búsquedas del explorador de valores.
   created_at        — timestamp de creación
 """
 
@@ -32,6 +34,7 @@ class MarketRow(Base):
     currency: Mapped[str] = mapped_column(String, nullable=False, default="EUR")
     fiscal_window_days: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    yahoo_exchange: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
     def __repr__(self) -> str:

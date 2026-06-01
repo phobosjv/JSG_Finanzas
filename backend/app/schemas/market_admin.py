@@ -16,6 +16,7 @@ class MarketCreate(BaseModel):
     currency: str = "EUR"
     fiscal_window_days: int = 60
     sort_order: int = 0
+    yahoo_exchange: str | None = None
 
     @field_validator("code")
     @classmethod
@@ -51,6 +52,7 @@ class MarketUpdate(BaseModel):
     currency: Literal["EUR", "USD"] | None = None
     fiscal_window_days: int | None = None
     sort_order: int | None = None
+    yahoo_exchange: str | None = None
 
     @field_validator("fiscal_window_days")
     @classmethod
@@ -67,6 +69,7 @@ class MarketOut(BaseModel):
     currency: str
     fiscal_window_days: int
     sort_order: int = 0
+    yahoo_exchange: str | None = None
 
     model_config = {"from_attributes": True}
 

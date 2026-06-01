@@ -101,6 +101,7 @@ def create_market(
         currency=body.currency,
         fiscal_window_days=body.fiscal_window_days,
         sort_order=body.sort_order,
+        yahoo_exchange=body.yahoo_exchange.strip().upper() if body.yahoo_exchange else None,
         created_at=datetime.now().isoformat(),
     )
     db.add(market)
@@ -127,6 +128,9 @@ def update_market(
         market.fiscal_window_days = body.fiscal_window_days
     if body.sort_order is not None:
         market.sort_order = body.sort_order
+    if body.yahoo_exchange is not None:
+        # Guardar None si se envía string vacío (para "borrar" el exchange)
+        market.yahoo_exchange = body.yahoo_exchange.strip().upper() or None
     db.commit()
     db.refresh(market)
     return market
@@ -585,3 +589,78 @@ def search_yahoo_securities(
         })
 
     return results
+
+
+# ---------------------------------------------------------------------------
+#  Explorador Yahoo Finance filtrado por mercado
+# ---------------------------------------------------------------------------
+
+@router.get("/markets/{code}/yahoo-securities")
+def search_yahoo_by_market(
+    code: str,
+    q: str = "",
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Busca valores en Yahoo Finance filtrando por el exchange del mercado dado.
+
+    Requiere que el mercado tenga `yahoo_exchange` configurado (ej. "MCE").
+    Devuelve los resultados de yf.Search que pertenecen a ese exchange,
+    marcando cuáles están ya en el catálogo.
+    """
+    market = _require_market(db, code)
+
+    if not market.yahoo_exchange:
+        return {"error": "no_exchange_configured", "results": []}
+
+    if not q or not q.strip():
+        return {"error": None, "results": []}
+
+    import yfinance as yf
+
+    exchange = market.yahoo_exchange.upper()
+
+    try:
+        search = yf.Search(q.strip(), max_results=50, enable_fuzzy_query=True)
+        quotes = search.quotes or []
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Yahoo Finance no disponible: {exc}",
+        )
+
+    # Filtrar solo los que pertenecen al exchange del mercado
+    filtered = [
+        item for item in quotes
+        if (item.get("exchange") or "").upper() == exchange
+    ]
+
+    if not filtered:
+        return {"error": None, "results": []}
+
+    # Comprobar cuáles están ya en el catálogo
+    tickers = [item.get("symbol", "").upper() for item in filtered if item.get("symbol")]
+    existing: dict[str, str] = {}
+    if tickers:
+        rows = db.scalars(
+            select(Security).where(Security.yahoo_ticker.in_(tickers))
+        ).all()
+        existing = {sec.yahoo_ticker.upper(): sec.market for sec in rows}
+
+    results = []
+    for item in filtered:
+        symbol = (item.get("symbol") or "").upper()
+        if not symbol:
+            continue
+        name = item.get("shortname") or item.get("longname") or symbol
+        results.append({
+            "ticker":         symbol,
+            "name":           name,
+            "exchange":       item.get("exchDisp") or item.get("exchange") or "",
+            "type":           item.get("quoteType") or "",
+            "currency":       (item.get("currency") or "").upper() or None,
+            "in_catalog":     symbol in existing,
+            "catalog_market": existing.get(symbol),
+        })
+
+    return {"error": None, "results": results}

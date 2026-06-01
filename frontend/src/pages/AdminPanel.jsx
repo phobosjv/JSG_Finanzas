@@ -1016,9 +1016,10 @@ function ForceHistoryUpdateSection() {
 //  Gestión de mercados (catálogo dinámico)
 // ---------------------------------------------------------------------------
 
-const EMPTY_MARKET = { code: '', name: '', index_ticker: '', currency: 'EUR', fiscal_window_days: 60 }
+const EMPTY_MARKET = { code: '', name: '', index_ticker: '', currency: 'EUR', fiscal_window_days: 60, yahoo_exchange: '' }
 
 function MarketsSection() {
+  const { t } = useAppConfig()
   const [markets, setMarkets]   = useState([])
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing]   = useState(null)
@@ -1026,6 +1027,12 @@ function MarketsSection() {
   const [busy, setBusy]         = useState(false)
   const [err, setErr]           = useState(null)
   const [msg, setMsg]           = useState(null)
+  // Explorador por mercado
+  const [mktExplorer, setMktExplorer] = useState(null)  // market code abierto, o null
+  const [mktYfQuery, setMktYfQuery]   = useState('')
+  const [mktYfResults, setMktYfResults] = useState(null)
+  const [mktYfLoading, setMktYfLoading] = useState(false)
+  const [mktYfError, setMktYfError]     = useState(null)
 
   async function load() { setMarkets(await api.get('/admin/markets')) }
   useEffect(() => { load() }, [])
@@ -1049,6 +1056,7 @@ function MarketsSection() {
           index_ticker: body.index_ticker,
           currency: body.currency,
           fiscal_window_days: body.fiscal_window_days,
+          yahoo_exchange: body.yahoo_exchange || null,
         })
         setMsg('Mercado actualizado')
       } else {
@@ -1072,9 +1080,48 @@ function MarketsSection() {
 
   function startEdit(m) {
     setEditing(m)
-    setForm({ code: m.code, name: m.name, index_ticker: m.index_ticker ?? '', currency: m.currency, fiscal_window_days: m.fiscal_window_days })
+    setForm({ code: m.code, name: m.name, index_ticker: m.index_ticker ?? '', currency: m.currency, fiscal_window_days: m.fiscal_window_days, yahoo_exchange: m.yahoo_exchange ?? '' })
     setShowForm(true)
     setErr(null); setMsg(null)
+  }
+
+  async function searchMktYahoo(e) {
+    e?.preventDefault()
+    if (!mktYfQuery.trim() || !mktExplorer) return
+    setMktYfLoading(true); setMktYfError(null); setMktYfResults(null)
+    try {
+      const data = await api.get(`/admin/markets/${mktExplorer}/yahoo-securities?q=${encodeURIComponent(mktYfQuery.trim())}`)
+      if (data.error === 'no_exchange_configured') {
+        setMktYfError(t('admin.market_no_exchange'))
+      } else {
+        setMktYfResults(data.results || [])
+      }
+    } catch (err) { setMktYfError(err.message) }
+    finally { setMktYfLoading(false) }
+  }
+
+  function openMktExplorer(code) {
+    if (mktExplorer === code) { setMktExplorer(null); return }
+    setMktExplorer(code); setMktYfQuery(''); setMktYfResults(null); setMktYfError(null)
+  }
+
+  /** Añade un valor de Yahoo directamente al mercado que se está explorando. */
+  async function addFromMktExplorer(item) {
+    if (!mktExplorer) return
+    try {
+      await api.post('/securities', {
+        name: item.name,
+        yahoo_ticker: item.ticker,
+        market: mktExplorer,
+        currency: item.currency || 'EUR',
+      })
+      // Marcar como añadido en los resultados sin recargar toda la búsqueda
+      setMktYfResults(rs => rs.map(r =>
+        r.ticker === item.ticker
+          ? { ...r, in_catalog: true, catalog_market: mktExplorer }
+          : r
+      ))
+    } catch (e) { setMktYfError(e.message) }
   }
 
   /** Mueve un mercado una posición arriba o abajo y persiste el nuevo orden. */
@@ -1143,6 +1190,15 @@ function MarketsSection() {
                 <input type="number" min={1} {...field('fiscal_window_days')} style={{ width: 80 }} />
               </div>
             </div>
+            <div className="card-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>{t('admin.market_yahoo_exchange')}</label>
+                <input type="text" {...field('yahoo_exchange')} placeholder="MCE, NMS, LSE…" />
+                <small style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                  {t('admin.market_yahoo_exchange_help')}
+                </small>
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button type="button" className="btn-ghost btn-sm" onClick={() => { setShowForm(false); setEditing(null) }}>Cancelar</button>
               <button type="submit" className="btn-primary btn-sm" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
@@ -1161,6 +1217,7 @@ function MarketsSection() {
               <th>Ticker índice</th>
               <th>Divisa</th>
               <th>Ventana fiscal</th>
+              <th>Yahoo Exch.</th>
               <th></th>
             </tr>
           </thead>
@@ -1191,8 +1248,18 @@ function MarketsSection() {
                 <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{m.index_ticker ?? '—'}</td>
                 <td>{m.currency}</td>
                 <td className="num">{m.fiscal_window_days}d</td>
+                <td style={{ fontSize: '0.82rem', color: m.yahoo_exchange ? 'var(--text)' : 'var(--text-muted)' }}>
+                  {m.yahoo_exchange || '—'}
+                </td>
                 <td>
                   <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                    {m.yahoo_exchange && (
+                      <button
+                        className={mktExplorer === m.code ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+                        onClick={() => openMktExplorer(m.code)}
+                        title={t('admin.market_yahoo_btn')}
+                      >🔍</button>
+                    )}
                     <button className="btn-ghost btn-sm" onClick={() => startEdit(m)}>✎</button>
                     <button className="btn-danger btn-sm" onClick={() => del(m.code)}>✕</button>
                   </div>
@@ -1202,6 +1269,96 @@ function MarketsSection() {
           </tbody>
         </table>
       </div>
+
+      {/* Panel explorador del mercado seleccionado */}
+      {mktExplorer && (() => {
+        const m = markets.find(x => x.code === mktExplorer)
+        if (!m) return null
+        const ph = t('admin.market_yahoo_search_ph')
+          .replace('{name}', m.name)
+          .replace('{exchange}', m.yahoo_exchange || '')
+        return (
+          <div style={{
+            border: '1px solid var(--accent)', borderRadius: 8,
+            padding: 14, marginTop: 12, background: 'var(--bg-input)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <strong style={{ fontSize: '0.9rem' }}>🔍 {m.name} · {m.yahoo_exchange}</strong>
+              <button className="btn-ghost btn-sm" onClick={() => setMktExplorer(null)}>✕</button>
+            </div>
+            <form onSubmit={searchMktYahoo} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <input
+                type="text"
+                value={mktYfQuery}
+                onChange={e => setMktYfQuery(e.target.value)}
+                placeholder={ph}
+                style={{ flex: 1 }}
+                autoFocus
+              />
+              <button type="submit" className="btn-primary btn-sm" disabled={mktYfLoading || !mktYfQuery.trim()}>
+                {mktYfLoading ? t('admin.yf_searching') : t('admin.yf_search_btn')}
+              </button>
+            </form>
+
+            {mktYfError && <div className="state-error" style={{ padding: 8, marginBottom: 8 }}>{mktYfError}</div>}
+            {mktYfResults !== null && mktYfResults.length === 0 && !mktYfLoading && (
+              <div className="state-empty">{t('admin.yf_no_results')}</div>
+            )}
+
+            {mktYfResults && mktYfResults.length > 0 && (
+              <div className="table-wrap" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('admin.yf_col_ticker')}</th>
+                      <th>{t('admin.yf_col_name')}</th>
+                      <th>{t('admin.yf_col_type')}</th>
+                      <th>{t('admin.yf_col_currency')}</th>
+                      <th>{t('admin.yf_col_status')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mktYfResults.map(item => (
+                      <tr key={item.ticker}>
+                        <td className="ticker">{item.ticker}</td>
+                        <td style={{ fontSize: '0.85rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.name}
+                        </td>
+                        <td>
+                          <span className="badge" style={{ fontSize: '0.75rem', background: 'var(--bg-card)' }}>
+                            {item.type || '—'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.85rem' }}>{item.currency || '—'}</td>
+                        <td>
+                          {item.in_catalog ? (
+                            <span style={{ color: 'var(--green)', fontWeight: 600, fontSize: '0.82rem' }}>
+                              ✓ {item.catalog_market}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn-primary btn-sm"
+                              style={{ fontSize: '0.78rem', padding: '2px 8px' }}
+                              onClick={() => addFromMktExplorer(item)}
+                            >
+                              + {t('admin.yf_add')}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 8, marginBottom: 0 }}>
+              {t('admin.market_yahoo_exchange_help')}
+            </p>
+          </div>
+        )
+      })()}
+
       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 8, marginBottom: 0 }}>
         El orden aquí determinará el orden de las pestañas en la sección Mercados.
       </p>

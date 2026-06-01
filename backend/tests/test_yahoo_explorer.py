@@ -97,3 +97,43 @@ def test_search_sin_autenticacion(client, seed_markets):
 def test_search_no_admin(auth_client, seed_markets):
     r = auth_client.get("/api/admin/securities/search?q=santander")
     assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+#  Tests explorador por mercado
+# ---------------------------------------------------------------------------
+
+def _crear_market_con_exchange(client, code="ibex35", exchange="MCE"):
+    """Actualiza el exchange Yahoo de un mercado existente."""
+    r = client.patch(f"/api/admin/markets/{code}", json={"yahoo_exchange": exchange})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_market_yahoo_search_filtra_por_exchange(admin_client, seed_markets):
+    """Buscar en un mercado con yahoo_exchange=MCE solo devuelve SAN.MC (exchange MCE)."""
+    _crear_market_con_exchange(admin_client, code="ibex35", exchange="MCE")
+    r = admin_client.get("/api/admin/markets/ibex35/yahoo-securities?q=banco")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["error"] is None
+    results = data["results"]
+    # Solo SAN.MC (exchange MCE); AAPL (exchange NMS) queda excluida
+    assert len(results) == 1
+    assert results[0]["ticker"] == "SAN.MC"
+    assert results[0]["in_catalog"] is False
+
+
+def test_market_sin_exchange_da_error_configurable(admin_client, seed_markets):
+    """Mercado sin yahoo_exchange devuelve error específico."""
+    # ibex35 sin yahoo_exchange configurado
+    r = admin_client.get("/api/admin/markets/ibex35/yahoo-securities?q=banco")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["error"] == "no_exchange_configured"
+    assert data["results"] == []
+
+
+def test_market_yahoo_search_no_admin(auth_client, seed_markets):
+    r = auth_client.get("/api/admin/markets/ibex35/yahoo-securities?q=banco")
+    assert r.status_code == 403
