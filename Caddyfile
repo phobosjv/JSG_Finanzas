@@ -1,4 +1,4 @@
-{$DOMAIN} {
+jsg-portfolio.com www.jsg-portfolio.com {
     reverse_proxy finanzas:8000
 }
 
