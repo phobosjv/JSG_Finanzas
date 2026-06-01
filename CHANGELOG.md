@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.15] — 2026-06-01
+
+### Añadido
+
+- **Importación desde Ghostfolio** (Utilidades). Sube el JSON exportado desde
+  Ghostfolio para importar tu historial directamente. Los tipos BUY, SELL y
+  DIVIDEND se mapean a compra, venta y dividendo; FEE, INTEREST e ITEM se
+  ignoran. El tipo de cambio EUR/USD se resuelve automáticamente desde la base
+  de datos BCE o Yahoo Finance como fallback.
+- Endpoint nuevo: `POST /api/portfolio/import-ghostfolio`.
+
+### Cambiado
+
+- **AdminPanel reorganizado en pestañas** (Usuarios / Catálogo /
+  Configuración / Herramientas). Mejora la navegabilidad del panel de
+  administración, que había crecido significativamente.
+
 ## [1.6.14] — 2026-06-01
 
 ### Añadido

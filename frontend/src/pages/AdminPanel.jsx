@@ -1316,7 +1316,8 @@ function SecuritiesSection() {
 
 export default function AdminPanel() {
   const { user: me, logout } = useAuth()
-  const { appName } = useAppConfig()
+  const { appName, t } = useAppConfig()
+  const [tab, setTab] = useState('usuarios')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -1472,15 +1473,35 @@ export default function AdminPanel() {
   if (loading) return <div className="state-loading" style={{ minHeight: '100vh' }}><div className="spinner" /></div>
   if (error)   return <div className="state-error">{error}</div>
 
+  const TABS = [
+    { key: 'usuarios',      label: t('admin.tab_users')   },
+    { key: 'catalogo',      label: t('admin.tab_catalog') },
+    { key: 'configuracion', label: t('admin.tab_config')  },
+    { key: 'herramientas',  label: t('admin.tab_tools')   },
+  ]
+
   return (
     <div style={{ maxWidth: 820, margin: '0 auto', padding: '24px 16px' }}>
       {/* Cabecera */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.4rem' }}>Administración</h1>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{appName} · {me?.username}</span>
         </div>
         <button className="btn-ghost btn-sm" onClick={logout}>Salir</button>
+      </div>
+
+      {/* Barra de pestañas */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+        {TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            className={tab === key ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {opError && (
@@ -1494,8 +1515,8 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Tabla de usuarios */}
-      <div className="card">
+      {/* ── Pestaña: Usuarios ─────────────────────────────────────────── */}
+      {tab === 'usuarios' && <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ margin: 0 }}>Usuarios ({users.length})</h2>
           <button className="btn-primary btn-sm" onClick={() => setShowCreate(true)}>+ Nuevo usuario</button>
@@ -1588,10 +1609,9 @@ export default function AdminPanel() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
-      {/* Cambiar mi contraseña */}
-      <div className="card" style={{ marginTop: 24 }}>
+      {tab === 'usuarios' && <div className="card" style={{ marginTop: 24 }}>
         <h2>Cambiar mi contraseña</h2>
         {pwError && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{pwError}</div>}
         {pwOk    && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12 }}>Contraseña actualizada correctamente.</div>}
@@ -1630,10 +1650,10 @@ export default function AdminPanel() {
             </button>
           </div>
         </form>
-      </div>
+      </div>}
 
-      {/* Backup completo del sistema */}
-      <div className="card" style={{ marginTop: 24 }}>
+      {/* ── Pestaña: Herramientas ─────────────────────────────────────── */}
+      {tab === 'herramientas' && <div className="card" style={{ marginTop: 0 }}>
         <h2>Backup completo del sistema</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
           Exporta todos los usuarios, el catálogo de valores y todas las carteras a un JSON.
@@ -1660,10 +1680,9 @@ export default function AdminPanel() {
             onChange={importAdminBackup}
           />
         </div>
-      </div>
+      </div>}
 
-      {/* Catálogo de mercados y valores */}
-      <div className="card" style={{ marginTop: 24 }}>
+      {tab === 'herramientas' && <div className="card" style={{ marginTop: 24 }}>
         <h2>Catálogo de valores</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
           Exporta o importa el catálogo de mercados y valores en formato JSON.
@@ -1692,12 +1711,16 @@ export default function AdminPanel() {
             onChange={importCatalog}
           />
         </div>
-      </div>
+      </div>}
 
-      <ConfigSection />
-      <ForceHistoryUpdateSection />
-      <MarketsSection />
-      <SecuritiesSection />
+      {tab === 'herramientas' && <ForceHistoryUpdateSection />}
+
+      {/* ── Pestaña: Catálogo ─────────────────────────────────────────── */}
+      {tab === 'catalogo' && <MarketsSection />}
+      {tab === 'catalogo' && <SecuritiesSection />}
+
+      {/* ── Pestaña: Configuración ────────────────────────────────────── */}
+      {tab === 'configuracion' && <ConfigSection />}
 
       {/* Modales */}
       {showCreate && (

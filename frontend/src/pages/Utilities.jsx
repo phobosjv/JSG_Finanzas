@@ -54,6 +54,29 @@ export default function Utilities() {
   const [csvResult, setCsvResult]       = useState(null)
   const [csvErr, setCsvErr]             = useState(null)
 
+  // Ghostfolio import
+  const gfFileRef                       = useRef(null)
+  const [gfImporting, setGfImporting]   = useState(false)
+  const [gfResult, setGfResult]         = useState(null)
+  const [gfErr, setGfErr]               = useState(null)
+
+  async function onGfFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setGfResult(null); setGfErr(null); setGfImporting(true)
+    try {
+      const text = await file.text()
+      let data
+      try { data = JSON.parse(text) } catch { throw new Error(t('utilities.gf_bad_format')) }
+      if (!data?.activities || !Array.isArray(data.activities)) {
+        throw new Error(t('utilities.gf_bad_format'))
+      }
+      const result = await api.post('/portfolio/import-ghostfolio', data)
+      setGfResult(result)
+    } catch (err) { setGfErr(err.message) }
+    finally { setGfImporting(false); e.target.value = '' }
+  }
+
   function onCsvFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -383,6 +406,62 @@ export default function Utilities() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Importar desde Ghostfolio */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>{t('utilities.gf_title')}</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 12, fontSize: '0.9rem' }}>
+          {t('utilities.gf_desc')}
+        </p>
+
+        {gfErr && (
+          <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{gfErr}</div>
+        )}
+        {gfResult && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ color: 'var(--green)', padding: '6px 0' }}>
+              {t('utilities.gf_result')
+                .replace('{tx}', gfResult.transactions_added)
+                .replace('{div}', gfResult.dividends_added)
+                .replace('{sk}', gfResult.skipped)}
+            </div>
+            {gfResult.errors?.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <span style={{ color: 'var(--red)', fontWeight: 600, fontSize: '0.85rem' }}>
+                  {t('utilities.gf_errors')}
+                </span>
+                <ul style={{ marginTop: 4, paddingLeft: 20, fontSize: '0.82rem', color: 'var(--red)' }}>
+                  {gfResult.errors.map((e, i) => (
+                    <li key={i}>
+                      {t('utilities.gf_error_row')
+                        .replace('{row}', e.row)
+                        .replace('{ticker}', e.ticker)
+                        .replace('{reason}', e.reason)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            className="btn-primary btn-sm"
+            disabled={gfImporting}
+            onClick={() => gfFileRef.current?.click()}
+          >
+            {gfImporting ? t('utilities.gf_importing') : t('utilities.gf_select')}
+          </button>
+          <input
+            ref={gfFileRef}
+            type="file"
+            accept=".json,application/json"
+            style={{ display: 'none' }}
+            onChange={onGfFile}
+          />
+        </div>
       </div>
     </div>
   )
