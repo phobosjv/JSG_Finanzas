@@ -102,6 +102,7 @@ def create_market(
         fiscal_window_days=body.fiscal_window_days,
         sort_order=body.sort_order,
         yahoo_exchange=body.yahoo_exchange.strip().upper() if body.yahoo_exchange else None,
+        is_fund_market=body.is_fund_market,
         created_at=datetime.now().isoformat(),
     )
     db.add(market)
@@ -131,6 +132,8 @@ def update_market(
     if body.yahoo_exchange is not None:
         # Guardar None si se envía string vacío (para "borrar" el exchange)
         market.yahoo_exchange = body.yahoo_exchange.strip().upper() or None
+    if body.is_fund_market is not None:
+        market.is_fund_market = body.is_fund_market
     db.commit()
     db.refresh(market)
     return market
@@ -200,6 +203,7 @@ def export_catalog(
                 "currency": m.currency,
                 "fiscal_window_days": m.fiscal_window_days,
                 "sort_order": m.sort_order,
+                "is_fund_market": m.is_fund_market,
             }
             for m in markets
         ],
@@ -261,6 +265,7 @@ def import_catalog(
                     currency=(m.currency or "EUR").upper(),
                     fiscal_window_days=max(1, m.fiscal_window_days or 60),
                     sort_order=m.sort_order,
+                    is_fund_market=m.is_fund_market,
                     created_at=datetime.now().isoformat(),
                 )
             )

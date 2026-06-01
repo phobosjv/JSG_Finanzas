@@ -195,6 +195,93 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
   )
 }
 
+function TransferModal({ originPositionId, originSecurityId, currentShares, onClose, onDone }) {
+  const { t } = useAppConfig()
+  const [funds, setFunds] = useState([])
+  const [form, setForm] = useState({
+    dest_security_id: '',
+    shares: currentShares != null ? String(currentShares) : '',
+    dest_shares: '',
+    date: new Date().toISOString().slice(0, 10),
+  })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  // Cargar fondos de destino: securities cuyo mercado es de fondos, excluyendo el origen
+  useEffect(() => {
+    Promise.all([
+      api.get('/markets/list').catch(() => []),
+      api.get('/securities').catch(() => []),
+    ]).then(([markets, secs]) => {
+      const fundCodes = new Set(markets.filter(m => m.is_fund_market).map(m => m.code))
+      setFunds(secs.filter(s => fundCodes.has(s.market) && s.id !== originSecurityId))
+    })
+  }, [originSecurityId])
+
+  function field(name) {
+    return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    if (!form.dest_security_id) { setError(t('sd.transfer_err_dest')); return }
+    if (Number(form.shares) <= 0 || Number(form.dest_shares) <= 0) { setError(t('sd.transfer_err_shares')); return }
+    setBusy(true); setError(null)
+    try {
+      await api.post('/portfolio/transfer', {
+        origin_position_id: originPositionId,
+        shares: Number(form.shares),
+        dest_security_id: Number(form.dest_security_id),
+        dest_shares: Number(form.dest_shares),
+        date: form.date,
+      })
+      onDone()
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h2>{t('sd.transfer_modal_title')}</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: -4 }}>
+          {t('sd.transfer_help')}
+        </p>
+        {error && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{error}</div>}
+        <form onSubmit={submit}>
+          <div className="form-group">
+            <label>{t('sd.transfer_dest')}</label>
+            <select {...field('dest_security_id')} required>
+              <option value="">{t('sd.transfer_dest_ph')}</option>
+              {funds.map(s => <option key={s.id} value={s.id}>{s.name} ({s.yahoo_ticker})</option>)}
+            </select>
+          </div>
+          <div className="card-row">
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>{t('sd.transfer_shares_out')}</label>
+              <input type="number" step="any" min="0.000001" {...field('shares')} required />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>{t('sd.transfer_shares_in')}</label>
+              <input type="number" step="any" min="0.000001" {...field('dest_shares')} required />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>{t('sd.tx_date')}</label>
+              <input type="date" {...field('date')} />
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>{t('common.cancel')}</button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? t('sd.saving') : t('sd.transfer_submit')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function AddDivModal({ positionId, onClose, onAdded, editDiv = null, currentShares = null }) {
   const { t, currencies: CURRENCIES } = useAppConfig()
   const [form, setForm] = useState(editDiv ? {
@@ -512,6 +599,8 @@ export default function SecurityDetail() {
   const [editingTx, setEditingTx]     = useState(null)
   const [showDivModal, setDivModal]   = useState(false)
   const [editingDiv, setEditingDiv]   = useState(null)
+  const [showTransfer, setShowTransfer] = useState(false)
+  const [isFundMarket, setIsFundMarket] = useState(false)
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesVal, setNotesVal]         = useState('')
   const [startingTracking, setStarting] = useState(false)
@@ -525,17 +614,19 @@ export default function SecurityDetail() {
     setIsClosed(false)
     setClosedSummary(null)
     try {
-      const [sec, snap, hist, posResult, favs] = await Promise.all([
+      const [sec, snap, hist, posResult, favs, markets] = await Promise.all([
         api.get(`/securities/${secId}`),
         api.get(`/markets/${secId}/snapshot`).catch(() => null),
         api.get(`/markets/${secId}/history`).catch(() => []),
         api.get(`/portfolio/by-security/${secId}`).catch(() => null),
         api.get('/favorites'),
+        api.get('/markets/list').catch(() => []),
       ])
       setSecurity(sec)
       setSnapshot(snap)
       setHistory(hist.slice(-365))
       setIsFav(favs.some(f => f.security_id === secId))
+      setIsFundMarket(markets.some(m => m.code === sec.market && m.is_fund_market))
 
       if (posResult) {
         // Posición abierta encontrada directamente
@@ -614,6 +705,7 @@ export default function SecurityDetail() {
 
   const buys  = transactions.filter(t => t.type === 'buy')
   const sells = transactions.filter(t => t.type === 'sell')
+  const transfers = transactions.filter(t => t.type === 'transfer_in' || t.type === 'transfer_out')
   const totalDivsGross = dividends.reduce(
     (s, d) => s + Number(d.gross_amount), 0
   )
@@ -928,6 +1020,49 @@ export default function SecurityDetail() {
         </div>
       )}
 
+      {/* Traspasos (solo fondos) */}
+      {isFundMarket && (positionId || transfers.length > 0) && (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h2 style={{ marginBottom: 0 }}>{t('sd.transfers')}</h2>
+            {positionId && (
+              <button className="btn-primary btn-sm" onClick={() => setShowTransfer(true)}>
+                {t('sd.transfer_new')}
+              </button>
+            )}
+          </div>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 0 }}>
+            {t('sd.transfer_note')}
+          </p>
+          {transfers.length === 0 ? (
+            <div className="state-empty" style={{ padding: 20 }}>{t('sd.no_transfers')}</div>
+          ) : (
+            <div className="table-wrap" style={tableScrollStyle(transfers.length)}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t('sd.col_date')}</th>
+                    <th>{t('sd.transfer_direction')}</th>
+                    <th className="num">{t('sd.col_shares')}</th>
+                    <th className="num">{t('sd.transfer_cost')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transfers.map(tx => (
+                    <tr key={tx.id}>
+                      <td>{tx.date}</td>
+                      <td>{tx.type === 'transfer_in' ? `↓ ${t('sd.transfer_in')}` : `↑ ${t('sd.transfer_out')}`}</td>
+                      <td className="num">{fmtShares(tx.shares)}</td>
+                      <td className="num">{fmt(Number(tx.shares) * Number(tx.price))} €</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Dividendos */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -987,6 +1122,15 @@ export default function SecurityDetail() {
           currentShares={posResult?.shares ?? null}
           onClose={() => { setDivModal(false); setEditingDiv(null) }}
           onAdded={() => { setDivModal(false); setEditingDiv(null); loadAll() }}
+        />
+      )}
+      {showTransfer && (
+        <TransferModal
+          originPositionId={positionId}
+          originSecurityId={secId}
+          currentShares={posResult?.shares ?? null}
+          onClose={() => setShowTransfer(false)}
+          onDone={() => { setShowTransfer(false); loadAll() }}
         />
       )}
     </div>

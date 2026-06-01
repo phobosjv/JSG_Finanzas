@@ -28,6 +28,7 @@ from collections import defaultdict
 
 from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, Security, SecuritySplit, TransactionRow, User
 from app.repositories.portfolio_repository import PortfolioRepository
+from app.models.market import MarketRow
 from app.schemas.portfolio import (
     ClosedPositionAnalytics,
     ClosedPositionSummary,
@@ -37,8 +38,12 @@ from app.schemas.portfolio import (
     PositionSummary,
     SecurityDividendSummary,
     TransactionCreate, TransactionOut,
+    TransferCreate, TransferResult,
 )
-from app.services.calculations import Transaction, compute_position, daily_change, normalize_splits, value_position
+from app.services.calculations import (
+    Transaction, compute_position, consumed_cost_fifo, daily_change,
+    normalize_splits, value_position,
+)
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -158,6 +163,120 @@ def create_position(
     db.commit()
     db.refresh(pos)
     return pos
+
+
+# ---------------------------------------------------------------------------
+#  Traspaso de fondos (fiscalmente neutro)
+# ---------------------------------------------------------------------------
+
+def _is_fund_security(db: Session, security: Security) -> bool:
+    """True si el valor pertenece a un mercado marcado como mercado de fondos."""
+    market = db.get(MarketRow, security.market)
+    return bool(market and market.is_fund_market)
+
+
+@router.post("/transfer", response_model=TransferResult, status_code=status.HTTP_201_CREATED)
+def create_transfer(
+    body: TransferCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Registra un traspaso entre fondos: consume 'shares' del origen (transfer_out,
+    sin resultado fiscal) y crea 'dest_shares' en el destino (transfer_in) con el
+    COSTE HEREDADO calculado por FIFO. La plusvalía latente se difiere hasta el
+    reembolso final, conforme al régimen español de traspasos de fondos.
+    """
+    origin = _require_position(db, body.origin_position_id, user.id)
+    origin_sec = db.get(Security, origin.security_id)
+    dest_sec = db.get(Security, body.dest_security_id)
+    if dest_sec is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fondo de destino no encontrado")
+
+    # Ambos extremos deben ser fondos: el traspaso es un régimen específico de fondos.
+    if not _is_fund_security(db, origin_sec):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="El valor de origen no pertenece a un mercado de fondos.",
+        )
+    if not _is_fund_security(db, dest_sec):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="El valor de destino no pertenece a un mercado de fondos.",
+        )
+    if origin.security_id == body.dest_security_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="El fondo de origen y el de destino no pueden ser el mismo.",
+        )
+
+    transfer_date = date_type.fromisoformat(body.date)
+
+    # Coste heredado: estado FIFO del origen con las transacciones hasta la fecha
+    # del traspaso (inclusive). Se consumen 'shares' de la cola para sumar su coste.
+    repo = PortfolioRepository(db)
+    splits = repo.splits_for_security(origin.security_id)
+    origin_txs = [
+        t for t in repo.transactions_for_position(origin.id)
+        if t.date <= transfer_date
+    ]
+    origin_state = compute_position(origin_txs, [], splits)
+    try:
+        _, inherited_cost_eur = consumed_cost_fifo(origin_state.open_lots, body.shares)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+
+    # transfer_out en el origen (precio informativo = coste heredado por participación)
+    out_price = inherited_cost_eur / body.shares
+    out_row = TransactionRow(
+        position_id=origin.id,
+        type="transfer_out",
+        date=body.date,
+        shares=body.shares,
+        price=out_price,
+        fee=Decimal("0"),
+        currency="EUR",
+        exchange_rate=Decimal("1"),
+    )
+
+    # Posición de destino (crear si no existe)
+    dest_pos = db.scalar(
+        select(Position).where(
+            Position.user_id == user.id,
+            Position.security_id == body.dest_security_id,
+        )
+    )
+    if dest_pos is None:
+        dest_pos = Position(user_id=user.id, security_id=body.dest_security_id)
+        db.add(dest_pos)
+        db.flush()  # para disponer de dest_pos.id
+
+    # transfer_in en el destino con precio sintético que codifica el coste heredado
+    in_price = inherited_cost_eur / body.dest_shares
+    in_row = TransactionRow(
+        position_id=dest_pos.id,
+        type="transfer_in",
+        date=body.date,
+        shares=body.dest_shares,
+        price=in_price,
+        fee=Decimal("0"),
+        currency="EUR",
+        exchange_rate=Decimal("1"),
+    )
+
+    db.add(out_row)
+    db.add(in_row)
+    db.commit()
+    db.refresh(out_row)
+    db.refresh(in_row)
+
+    return TransferResult(
+        origin_position_id=origin.id,
+        dest_position_id=dest_pos.id,
+        transfer_out_id=out_row.id,
+        transfer_in_id=in_row.id,
+        inherited_cost_eur=inherited_cost_eur,
+    )
 
 
 # ---------------------------------------------------------------------------

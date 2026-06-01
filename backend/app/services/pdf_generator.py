@@ -299,6 +299,7 @@ def _build_sale_lines_grouped(sale_lines: list[SaleLine]) -> list[dict]:
                 "proceeds_eur":   Decimal("0"),
                 "gain_eur":       Decimal("0"),
                 "has_disallowed": False,
+                "is_fund":        False,
             }
         g = groups[key]
         g["shares"]       += line.shares
@@ -307,10 +308,14 @@ def _build_sale_lines_grouped(sale_lines: list[SaleLine]) -> list[dict]:
         g["gain_eur"]     += line.gain_eur
         if line.loss_disallowed:
             g["has_disallowed"] = True
+        if line.is_fund:
+            g["is_fund"] = True
 
     result = [
         {
-            "security_name":  g["security_name"],
+            # Los fondos se marcan con «(F)»: retención del 19% gestionada por
+            # la entidad (explicado en los avisos del informe).
+            "security_name":  g["security_name"] + (" (F)" if g["is_fund"] else ""),
             "isin":           g["isin"],
             "sell_year":      str(g["sell_year"]),
             "shares":         _fmt_shares(g["shares"]),
@@ -319,6 +324,7 @@ def _build_sale_lines_grouped(sale_lines: list[SaleLine]) -> list[dict]:
             "gain_eur":       _fmt_money(g["gain_eur"]),
             "gain_positive":  g["gain_eur"] >= Decimal("0"),
             "has_disallowed": g["has_disallowed"],
+            "is_fund":        g["is_fund"],
         }
         for g in groups.values()
     ]
@@ -607,13 +613,14 @@ def _build_context(
     # Bloque 3: dividendos
     dividend_lines = [
         {
-            "security_name":   line.security_name,
+            "security_name":   line.security_name + (" (F)" if line.is_fund else ""),
             "isin":            line.isin,
             "market":          line.market,
             "pay_date":        _fmt_date(line.pay_date),
             "gross_eur":       _fmt_money(line.gross_eur),
             "withholding_eur": _fmt_money(line.withholding_eur),
             "net_eur":         _fmt_money(line.net_eur),
+            "is_fund":         line.is_fund,
         }
         for line in report.dividend_lines
     ]

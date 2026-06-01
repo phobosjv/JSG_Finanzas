@@ -5,6 +5,62 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.0] — 2026-06-02
+
+### Añadido — Mercados de fondos de inversión
+
+- **Mercados de fondos** (AdminPanel → Catálogo → Mercados). Cada mercado
+  puede marcarse como "Mercado de fondos" con un checkbox en el formulario.
+  Los mercados de fondos muestran un badge azul "Fondos" en la tabla.
+- El catálogo **import/export JSON** incluye `is_fund_market` por mercado
+  (compatible hacia atrás: ficheros sin el campo usan `false`).
+- Migración Alembic `d4e5f6a1b2c3`: columna `is_fund_market` en `markets`.
+
+### Añadido — Traspasos de fondos (fiscalmente neutros)
+
+- Nuevo endpoint `POST /api/portfolio/transfer`: registra un traspaso entre
+  fondos. Consume participaciones del origen (`transfer_out`, sin resultado
+  fiscal) y crea participaciones en el destino (`transfer_in`) con el **coste
+  de adquisición heredado**, calculado por FIFO en el backend.
+- El motor de cálculo incorpora los tipos `transfer_in` / `transfer_out`:
+  el traspaso es neutro (no genera ganancia/pérdida) y la plusvalía latente
+  se difiere; aflora correctamente en el reembolso final del fondo de destino.
+- Migración Alembic `e5f6a1b2c3d4`: amplía `ck_tx_type` con los nuevos tipos.
+- Frontend: en la ficha de un fondo, sección "Traspasos" con su historial y
+  un formulario para registrar un nuevo traspaso (fondo destino, participaciones
+  de salida y de entrada, fecha).
+
+### Cambiado — Informe fiscal y fondos
+
+- Las ganancias de **reembolsos de fondos SÍ entran en el informe fiscal**
+  (acumulan en la base del ahorro como las acciones). Se marcan con «(F)» y
+  un aviso aclara que la retención del 19 % la practica automáticamente la
+  entidad gestora, y que los traspasos no generan resultado fiscal.
+
+### Cambiado — Scheduler
+
+- Los fondos solo refrescan su valor liquidativo **una vez por hora** en el
+  job de snapshots en vivo (su NAV es diario; consultarlo cada pocos minutos
+  solo añade carga inútil sobre Yahoo). El resto de valores se actualizan en
+  cada ejecución; el job nocturno sigue incluyendo a los fondos.
+
+### Corregido (incluye los fixes de revisión previos)
+
+- `_check_currency_consistency` ahora valida cualquier divisa ≠ EUR con
+  `exchange_rate=1` (antes solo detectaba USD).
+- `total_cost_eur` en dividendos-por-valor acumula en `Decimal` hasta la
+  frontera (antes hacía `float()` prematuro).
+- El scatter de posiciones cerradas filtra `avg_days_held=0` en escala log.
+
+### Limitaciones conocidas
+
+- El coste heredado del traspaso se calcula y se almacena al crearlo. Editar
+  el historial del fondo de origen *anterior* a un traspaso ya registrado no
+  recalcula automáticamente ese coste; habría que rehacer el traspaso.
+- El coste heredado se conserva en EUR (base fiscal española). Para fondos
+  denominados en USD, la P&L latente en la vista de cartera puede mezclar
+  divisa; la cifra fiscal es correcta.
+
 ## [1.6.20] — 2026-06-01
 
 ### Añadido

@@ -108,7 +108,9 @@ def _to_dividend(row: DividendRow) -> Dividend:
     )
 
 
-def _to_security_ref(sec: Security, fiscal_window_days: int = 60) -> SecurityRef:
+def _to_security_ref(
+    sec: Security, fiscal_window_days: int = 60, is_fund_market: bool = False,
+) -> SecurityRef:
     """Security (fila SQLite) -> tax_report.SecurityRef."""
     return SecurityRef(
         security_id=sec.id,
@@ -117,6 +119,7 @@ def _to_security_ref(sec: Security, fiscal_window_days: int = 60) -> SecurityRef
         market=sec.market,
         fiscal_window_days=fiscal_window_days,
         currency=sec.currency,
+        is_fund_market=is_fund_market,
     )
 
 
@@ -210,7 +213,8 @@ class PortfolioRepository:
             raise ValueError(f"No existe el valor con id={security_id}.")
         market_row = self._db.get(MarketRow, sec.market)
         fiscal_window_days = market_row.fiscal_window_days if market_row else 60
-        return _to_security_ref(sec, fiscal_window_days)
+        is_fund = bool(market_row and market_row.is_fund_market)
+        return _to_security_ref(sec, fiscal_window_days, is_fund)
 
     def dividend_records(self, user_id: int) -> list[DividendRecord]:
         """
@@ -232,9 +236,10 @@ class PortfolioRepository:
         for div_row, sec in rows:
             market_row = self._db.get(MarketRow, sec.market)
             fiscal_window_days = market_row.fiscal_window_days if market_row else 60
+            is_fund = bool(market_row and market_row.is_fund_market)
             records.append(
                 DividendRecord(
-                    security=_to_security_ref(sec, fiscal_window_days),
+                    security=_to_security_ref(sec, fiscal_window_days, is_fund),
                     dividend=_to_dividend(div_row),
                 )
             )

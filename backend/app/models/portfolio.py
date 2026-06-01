@@ -102,7 +102,10 @@ class TransactionRow(Base):
     """
     __tablename__ = "transactions"
     __table_args__ = (
-        CheckConstraint("type IN ('buy','sell')", name="ck_tx_type"),
+        # transfer_in / transfer_out añadidos en v1.7.0 para traspasos de fondos
+        CheckConstraint(
+            "type IN ('buy','sell','transfer_in','transfer_out')", name="ck_tx_type"
+        ),
         CheckConstraint("shares > 0", name="ck_tx_shares_positive"),
         # ck_tx_currency eliminada en v1.6.16 para soportar multi-divisa configurable
         Index("idx_tx_position_date", "position_id", "date"),
@@ -112,7 +115,7 @@ class TransactionRow(Base):
     position_id: Mapped[int] = mapped_column(
         ForeignKey("positions.id", ondelete="CASCADE"), nullable=False
     )
-    type: Mapped[str] = mapped_column(String, nullable=False)  # 'buy' | 'sell'
+    type: Mapped[str] = mapped_column(String, nullable=False)  # buy|sell|transfer_in|transfer_out
     date: Mapped[str] = mapped_column(String, nullable=False)  # 'YYYY-MM-DD'
     shares: Mapped["object"] = mapped_column(Money, nullable=False)
     price: Mapped["object"] = mapped_column(Money, nullable=False)

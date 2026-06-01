@@ -57,6 +57,7 @@ class SecurityRef:
     market: str
     fiscal_window_days: int = 60  # tomado de markets.fiscal_window_days
     currency: str = "EUR"         # divisa nativa del valor (EUR o USD)
+    is_fund_market: bool = False  # True si es un fondo (retención automática)
 
     @property
     def recapture_window(self) -> timedelta:
@@ -115,6 +116,8 @@ class SaleLine:
     # Marca de la regla de recompra
     loss_disallowed: bool = False       # True si es perdida y NO computa este ano
     disallowed_reason: str | None = None
+    # True si es un reembolso de fondo: la retención (19%) la gestiona la entidad
+    is_fund: bool = False
 
 
 @dataclass
@@ -138,6 +141,7 @@ class DividendLine:
     gross_eur: Decimal
     withholding_eur: Decimal    # retencion en origen
     net_eur: Decimal
+    is_fund: bool = False       # True si procede de un fondo
 
 
 @dataclass
@@ -291,6 +295,7 @@ def build_tax_report(
                 fiscal_window_days=sec.fiscal_window_days,
                 loss_disallowed=disallowed,
                 disallowed_reason=reason,
+                is_fund=sec.is_fund_market,
             )
             report.sale_lines.append(line)
 
@@ -354,6 +359,7 @@ def build_tax_report(
                 gross_eur=gross_eur,
                 withholding_eur=withholding_eur,
                 net_eur=net_eur,
+                is_fund=rec.security.is_fund_market,
             )
         )
         report.total_dividends_gross_eur += gross_eur
@@ -377,6 +383,16 @@ def build_tax_report(
             "Existen retenciones en origen sobre dividendos. La deduccion por "
             "doble imposicion internacional no se calcula en este informe: "
             "depende del conjunto de la declaracion."
+        )
+    if any(l.is_fund for l in report.sale_lines) or any(
+        l.is_fund for l in report.dividend_lines
+    ):
+        report.warnings.append(
+            "Hay reembolsos o rendimientos de FONDOS (marcados con «F»). Sus "
+            "ganancias acumulan en la base del ahorro igual que las acciones, "
+            "pero la retencion del 19% la practica automaticamente la entidad "
+            "gestora en el reembolso. Los traspasos entre fondos no generan "
+            "resultado fiscal (diferimiento) y no aparecen como ventas."
         )
 
     # Ordenar las lineas por fecha para una lectura comoda del PDF

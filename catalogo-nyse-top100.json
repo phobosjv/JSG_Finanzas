@@ -1,0 +1,815 @@
+{
+  "_nota": "Top 100 valores del NYSE por capitalización bursátil. Generado con datos de Yahoo Finance. Los ISINs (null) deben verificarse antes de usarlos en declaraciones fiscales.",
+  "exported_at": "2026-06-01",
+  "markets": [
+    {
+      "code": "nyse",
+      "name": "New York Stock Exchange",
+      "index_ticker": "^NYA",
+      "currency": "USD",
+      "fiscal_window_days": 365
+    }
+  ],
+  "securities": [
+    {
+      "name": "Taiwan Semiconductor Manufactur",
+      "isin": null,
+      "yahoo_ticker": "TSM",
+      "google_ticker": "NYSE:TSM",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Berkshire Hathaway Inc. New",
+      "isin": null,
+      "yahoo_ticker": "BRK-B",
+      "google_ticker": "NYSE:BRK-B",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Berkshire Hathaway Inc.",
+      "isin": null,
+      "yahoo_ticker": "BRK-A",
+      "google_ticker": "NYSE:BRK-A",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Eli Lilly and Company",
+      "isin": null,
+      "yahoo_ticker": "LLY",
+      "google_ticker": "NYSE:LLY",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "JP Morgan Chase & Co.",
+      "isin": null,
+      "yahoo_ticker": "JPM",
+      "google_ticker": "NYSE:JPM",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Oracle Corporation",
+      "isin": null,
+      "yahoo_ticker": "ORCL",
+      "google_ticker": "NYSE:ORCL",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Exxon Mobil Corporation",
+      "isin": null,
+      "yahoo_ticker": "XOM",
+      "google_ticker": "NYSE:XOM",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Visa Inc.",
+      "isin": null,
+      "yahoo_ticker": "V",
+      "google_ticker": "NYSE:V",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Johnson & Johnson",
+      "isin": null,
+      "yahoo_ticker": "JNJ",
+      "google_ticker": "NYSE:JNJ",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Mastercard Incorporated",
+      "isin": null,
+      "yahoo_ticker": "MA",
+      "google_ticker": "NYSE:MA",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Caterpillar, Inc.",
+      "isin": null,
+      "yahoo_ticker": "CAT",
+      "google_ticker": "NYSE:CAT",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "AbbVie Inc.",
+      "isin": null,
+      "yahoo_ticker": "ABBV",
+      "google_ticker": "NYSE:ABBV",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Chevron Corporation",
+      "isin": null,
+      "yahoo_ticker": "CVX",
+      "google_ticker": "NYSE:CVX",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Bank of America Corporation",
+      "isin": null,
+      "yahoo_ticker": "BAC",
+      "google_ticker": "NYSE:BAC",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "UnitedHealth Group Incorporated",
+      "isin": null,
+      "yahoo_ticker": "UNH",
+      "google_ticker": "NYSE:UNH",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "GE Aerospace",
+      "isin": null,
+      "yahoo_ticker": "GE",
+      "google_ticker": "NYSE:GE",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Coca-Cola Company (The)",
+      "isin": null,
+      "yahoo_ticker": "KO",
+      "google_ticker": "NYSE:KO",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Morgan Stanley",
+      "isin": null,
+      "yahoo_ticker": "MS",
+      "google_ticker": "NYSE:MS",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Procter & Gamble Company (The)",
+      "isin": null,
+      "yahoo_ticker": "PG",
+      "google_ticker": "NYSE:PG",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "HSBC Holdings, plc.",
+      "isin": null,
+      "yahoo_ticker": "HSBC",
+      "google_ticker": "NYSE:HSBC",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Home Depot, Inc. (The)",
+      "isin": null,
+      "yahoo_ticker": "HD",
+      "google_ticker": "NYSE:HD",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Goldman Sachs Group, Inc. (The)",
+      "isin": null,
+      "yahoo_ticker": "GS",
+      "google_ticker": "NYSE:GS",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Dell Technologies Inc.",
+      "isin": null,
+      "yahoo_ticker": "DELL",
+      "google_ticker": "NYSE:DELL",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "International Business Machines",
+      "isin": null,
+      "yahoo_ticker": "IBM",
+      "google_ticker": "NYSE:IBM",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Alibaba Group Holding Limited",
+      "isin": null,
+      "yahoo_ticker": "BABA",
+      "google_ticker": "NYSE:BABA",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Merck & Company, Inc.",
+      "isin": null,
+      "yahoo_ticker": "MRK",
+      "google_ticker": "NYSE:MRK",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "AstraZeneca PLC",
+      "isin": null,
+      "yahoo_ticker": "AZN",
+      "google_ticker": "NYSE:AZN",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Novartis AG",
+      "isin": null,
+      "yahoo_ticker": "NVS",
+      "google_ticker": "NYSE:NVS",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Philip Morris International Inc",
+      "isin": null,
+      "yahoo_ticker": "PM",
+      "google_ticker": "NYSE:PM",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Royal Bank Of Canada",
+      "isin": null,
+      "yahoo_ticker": "RY",
+      "google_ticker": "NYSE:RY",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "GE Vernova Inc.",
+      "isin": null,
+      "yahoo_ticker": "GEV",
+      "google_ticker": "NYSE:GEV",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Toyota Motor Corporation",
+      "isin": null,
+      "yahoo_ticker": "TM",
+      "google_ticker": "NYSE:TM",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Shell PLC",
+      "isin": null,
+      "yahoo_ticker": "SHEL",
+      "google_ticker": "NYSE:SHEL",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Wells Fargo & Company",
+      "isin": null,
+      "yahoo_ticker": "WFC",
+      "google_ticker": "NYSE:WFC",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "RTX Corporation",
+      "isin": null,
+      "yahoo_ticker": "RTX",
+      "google_ticker": "NYSE:RTX",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "BHP Group Limited",
+      "isin": null,
+      "yahoo_ticker": "BHP",
+      "google_ticker": "NYSE:BHP",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "SAP  SE",
+      "isin": null,
+      "yahoo_ticker": "SAP",
+      "google_ticker": "NYSE:SAP",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Citigroup, Inc.",
+      "isin": null,
+      "yahoo_ticker": "C",
+      "google_ticker": "NYSE:C",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Arista Networks, Inc.",
+      "isin": null,
+      "yahoo_ticker": "ANET",
+      "google_ticker": "NYSE:ANET",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "American Express Company",
+      "isin": null,
+      "yahoo_ticker": "AXP",
+      "google_ticker": "NYSE:AXP",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Mitsubishi UFJ Financial Group,",
+      "isin": null,
+      "yahoo_ticker": "MUFG",
+      "google_ticker": "NYSE:MUFG",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Verizon Communications Inc.",
+      "isin": null,
+      "yahoo_ticker": "VZ",
+      "google_ticker": "NYSE:VZ",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "TotalEnergies SE",
+      "isin": null,
+      "yahoo_ticker": "TTE",
+      "google_ticker": "NYSE:TTE",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "McDonald's Corporation",
+      "isin": null,
+      "yahoo_ticker": "MCD",
+      "google_ticker": "NYSE:MCD",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Novo Nordisk A/S",
+      "isin": null,
+      "yahoo_ticker": "NVO",
+      "google_ticker": "NYSE:NVO",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Thermo Fisher Scientific Inc",
+      "isin": null,
+      "yahoo_ticker": "TMO",
+      "google_ticker": "NYSE:TMO",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Toronto Dominion Bank (The)",
+      "isin": null,
+      "yahoo_ticker": "TD",
+      "google_ticker": "NYSE:TD",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Amphenol Corporation",
+      "isin": null,
+      "yahoo_ticker": "APH",
+      "google_ticker": "NYSE:APH",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Walt Disney Company (The)",
+      "isin": null,
+      "yahoo_ticker": "DIS",
+      "google_ticker": "NYSE:DIS",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Banco Santander, S.A. Sponsored",
+      "isin": null,
+      "yahoo_ticker": "SAN",
+      "google_ticker": "NYSE:SAN",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Rio Tinto Plc",
+      "isin": null,
+      "yahoo_ticker": "RIO",
+      "google_ticker": "NYSE:RIO",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Boeing Company (The)",
+      "isin": null,
+      "yahoo_ticker": "BA",
+      "google_ticker": "NYSE:BA",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "NextEra Energy, Inc.",
+      "isin": null,
+      "yahoo_ticker": "NEE",
+      "google_ticker": "NYSE:NEE",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Salesforce, Inc.",
+      "isin": null,
+      "yahoo_ticker": "CRM",
+      "google_ticker": "NYSE:CRM",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "AT&T Inc.",
+      "isin": null,
+      "yahoo_ticker": "T",
+      "google_ticker": "NYSE:T",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "TJX Companies, Inc. (The)",
+      "isin": null,
+      "yahoo_ticker": "TJX",
+      "google_ticker": "NYSE:TJX",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Southern Copper Corporation",
+      "isin": null,
+      "yahoo_ticker": "SCCO",
+      "google_ticker": "NYSE:SCCO",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "BlackRock, Inc.",
+      "isin": null,
+      "yahoo_ticker": "BLK",
+      "google_ticker": "NYSE:BLK",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "UBS Group AG Registered",
+      "isin": null,
+      "yahoo_ticker": "UBS",
+      "google_ticker": "NYSE:UBS",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Union Pacific Corporation",
+      "isin": null,
+      "yahoo_ticker": "UNP",
+      "google_ticker": "NYSE:UNP",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Eaton Corporation, PLC",
+      "isin": null,
+      "yahoo_ticker": "ETN",
+      "google_ticker": "NYSE:ETN",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Anheuser-Busch Inbev SA Sponsor",
+      "isin": null,
+      "yahoo_ticker": "BUD",
+      "google_ticker": "NYSE:BUD",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Charles Schwab Corporation (The",
+      "isin": null,
+      "yahoo_ticker": "SCHW",
+      "google_ticker": "NYSE:SCHW",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Abbott Laboratories",
+      "isin": null,
+      "yahoo_ticker": "ABT",
+      "google_ticker": "NYSE:ABT",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Corning Incorporated",
+      "isin": null,
+      "yahoo_ticker": "GLW",
+      "google_ticker": "NYSE:GLW",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Uber Technologies, Inc.",
+      "isin": null,
+      "yahoo_ticker": "UBER",
+      "google_ticker": "NYSE:UBER",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Deere & Company",
+      "isin": null,
+      "yahoo_ticker": "DE",
+      "google_ticker": "NYSE:DE",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Pfizer, Inc.",
+      "isin": null,
+      "yahoo_ticker": "PFE",
+      "google_ticker": "NYSE:PFE",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Blackstone Inc.",
+      "isin": null,
+      "yahoo_ticker": "BX",
+      "google_ticker": "NYSE:BX",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "ConocoPhillips",
+      "isin": null,
+      "yahoo_ticker": "COP",
+      "google_ticker": "NYSE:COP",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Sumitomo Mitsui Financial Group",
+      "isin": null,
+      "yahoo_ticker": "SMFG",
+      "google_ticker": "NYSE:SMFG",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "ServiceNow, Inc.",
+      "isin": null,
+      "yahoo_ticker": "NOW",
+      "google_ticker": "NYSE:NOW",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Welltower Inc.",
+      "isin": null,
+      "yahoo_ticker": "WELL",
+      "google_ticker": "NYSE:WELL",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Sony Group Corporation",
+      "isin": null,
+      "yahoo_ticker": "SONY",
+      "google_ticker": "NYSE:SONY",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "British American Tobacco  Indus",
+      "isin": null,
+      "yahoo_ticker": "BTI",
+      "google_ticker": "NYSE:BTI",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Prologis, Inc.",
+      "isin": null,
+      "yahoo_ticker": "PLD",
+      "google_ticker": "NYSE:PLD",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Banco Bilbao Vizcaya Argentaria",
+      "isin": null,
+      "yahoo_ticker": "BBVA",
+      "google_ticker": "NYSE:BBVA",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Danaher Corporation",
+      "isin": null,
+      "yahoo_ticker": "DHR",
+      "google_ticker": "NYSE:DHR",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "S&P Global Inc.",
+      "isin": null,
+      "yahoo_ticker": "SPGI",
+      "google_ticker": "NYSE:SPGI",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Vertiv Holdings, LLC",
+      "isin": null,
+      "yahoo_ticker": "VRT",
+      "google_ticker": "NYSE:VRT",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Petroleo Brasileiro S.A. Petrob",
+      "isin": null,
+      "yahoo_ticker": "PBR",
+      "google_ticker": "NYSE:PBR",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "HDFC Bank Limited",
+      "isin": null,
+      "yahoo_ticker": "HDB",
+      "google_ticker": "NYSE:HDB",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Accenture plc",
+      "isin": null,
+      "yahoo_ticker": "ACN",
+      "google_ticker": "NYSE:ACN",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Unilever PLC",
+      "isin": null,
+      "yahoo_ticker": "UL",
+      "google_ticker": "NYSE:UL",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Chubb Limited",
+      "isin": null,
+      "yahoo_ticker": "CB",
+      "google_ticker": "NYSE:CB",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Enbridge Inc",
+      "isin": null,
+      "yahoo_ticker": "ENB",
+      "google_ticker": "NYSE:ENB",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Lockheed Martin Corporation",
+      "isin": null,
+      "yahoo_ticker": "LMT",
+      "google_ticker": "NYSE:LMT",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Lowe's Companies, Inc.",
+      "isin": null,
+      "yahoo_ticker": "LOW",
+      "google_ticker": "NYSE:LOW",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Wells Fargo & Company Depositar",
+      "isin": null,
+      "yahoo_ticker": "WFC-PC",
+      "google_ticker": "NYSE:WFC-PC",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "CVS Health Corporation",
+      "isin": null,
+      "yahoo_ticker": "CVS",
+      "google_ticker": "NYSE:CVS",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Newmont Corporation",
+      "isin": null,
+      "yahoo_ticker": "NEM",
+      "google_ticker": "NYSE:NEM",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Petroleo Brasileiro S.A. Petrob",
+      "isin": null,
+      "yahoo_ticker": "PBR-A",
+      "google_ticker": "NYSE:PBR-A",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Capital One Financial Corporati",
+      "isin": null,
+      "yahoo_ticker": "COF",
+      "google_ticker": "NYSE:COF",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Stryker Corporation",
+      "isin": null,
+      "yahoo_ticker": "SYK",
+      "google_ticker": "NYSE:SYK",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Altria Group, Inc.",
+      "isin": null,
+      "yahoo_ticker": "MO",
+      "google_ticker": "NYSE:MO",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Bank Of Montreal",
+      "isin": null,
+      "yahoo_ticker": "BMO",
+      "google_ticker": "NYSE:BMO",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Progressive Corporation (The)",
+      "isin": null,
+      "yahoo_ticker": "PGR",
+      "google_ticker": "NYSE:PGR",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Bristol-Myers Squibb Company",
+      "isin": null,
+      "yahoo_ticker": "BMY",
+      "google_ticker": "NYSE:BMY",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "BP p.l.c.",
+      "isin": null,
+      "yahoo_ticker": "BP",
+      "google_ticker": "NYSE:BP",
+      "market": "nyse",
+      "currency": "USD"
+    },
+    {
+      "name": "Mizuho Financial Group, Inc. Sp",
+      "isin": null,
+      "yahoo_ticker": "MFG",
+      "google_ticker": "NYSE:MFG",
+      "market": "nyse",
+      "currency": "USD"
+    }
+  ]
+}

@@ -14,12 +14,14 @@ Campos:
                       Menor número = más a la izquierda. Default 0.
   yahoo_exchange    — código de exchange en Yahoo Finance (ej: 'MCE', 'NMS', 'LSE').
                       Opcional. Permite filtrar búsquedas del explorador de valores.
+  is_fund_market    — True si el mercado agrupa fondos de inversión. Los fondos se
+                      excluyen del informe fiscal PDF (la retención la gestiona la entidad).
   created_at        — timestamp de creación
 """
 
 from __future__ import annotations
 
-from sqlalchemy import Integer, String
+from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -35,6 +37,7 @@ class MarketRow(Base):
     fiscal_window_days: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     yahoo_exchange: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    is_fund_market: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
     def __repr__(self) -> str:

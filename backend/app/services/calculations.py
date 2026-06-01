@@ -41,8 +41,22 @@ SHARE_PREC = Decimal("0.000001")  # precisión para fracciones de acción
 
 @dataclass(frozen=True)
 class Transaction:
-    """Una compra o una venta. Importes en divisa nativa de la operación."""
-    type: Literal["buy", "sell"]
+    """
+    Una operación sobre una posición. Importes en divisa nativa de la operación.
+
+    Tipos:
+      buy / sell      — compra y venta ordinarias.
+      transfer_in     — entrada de un traspaso de fondos. Se comporta como una
+                        compra (crea lote), pero su 'price' codifica el COSTE
+                        HEREDADO del fondo de origen (precio sintético =
+                        coste_heredado / participaciones recibidas, en EUR con
+                        exchange_rate=1). Así la plusvalía latente del origen
+                        viaja al destino y solo tributa en el reembolso final.
+      transfer_out    — salida de un traspaso. Consume lotes FIFO como una venta
+                        pero NO genera resultado fiscal (SaleMatch): el traspaso
+                        es fiscalmente neutro hasta el reembolso final.
+    """
+    type: Literal["buy", "sell", "transfer_in", "transfer_out"]
     date: date
     shares: Decimal
     price: Decimal          # precio por acción, divisa nativa
@@ -223,11 +237,12 @@ def compute_position(
         transactions = normalize_splits(transactions, splits)
 
     # Ordenar por fecha es imprescindible para que FIFO sea correcto.
-    # Ante misma fecha, las compras van antes que las ventas: no se puede
-    # vender una acción que se compra el mismo día si aún no está en cola.
+    # Ante misma fecha, las ENTRADAS de lote (buy / transfer_in) van antes que
+    # las SALIDAS (sell / transfer_out): no se puede consumir una acción que
+    # entra el mismo día si aún no está en cola.
     txs = sorted(
         transactions,
-        key=lambda t: (t.date, 0 if t.type == "buy" else 1),
+        key=lambda t: (t.date, 0 if t.type in ("buy", "transfer_in") else 1),
     )
 
     open_lots: list[Lot] = []
@@ -236,8 +251,14 @@ def compute_position(
     realized_eur = Decimal("0")
 
     for tx in txs:
-        if tx.type == "buy":
+        if tx.type in ("buy", "transfer_in"):
+            # transfer_in se trata como una compra: su 'price' ya codifica el
+            # coste heredado del fondo de origen (precio sintético en EUR).
             _apply_buy(tx, open_lots)
+        elif tx.type == "transfer_out":
+            # transfer_out consume lotes FIFO SIN generar resultado fiscal:
+            # el traspaso es neutro hasta el reembolso final.
+            _apply_transfer_out(tx, open_lots)
         else:  # sell
             g_native, g_eur, matches = _apply_sell(tx, open_lots)
             realized_native += g_native
@@ -374,6 +395,62 @@ def _apply_sell(
             open_lots.pop(0)
 
     return gain_native_total, gain_eur_total, matches
+
+
+def _apply_transfer_out(tx: Transaction, open_lots: list[Lot]) -> None:
+    """
+    Procesa una salida de traspaso: consume lotes desde el principio de la cola
+    (FIFO) igual que una venta, PERO sin producir resultado fiscal ni SaleMatch.
+
+    Un traspaso entre fondos es fiscalmente neutro en España: no genera
+    ganancia/pérdida imputable; la plusvalía latente se difiere y viaja al
+    fondo de destino a través del coste heredado (transfer_in con precio
+    sintético). Aquí solo se descuentan las participaciones traspasadas de la
+    cola FIFO para que las acciones vivas del origen queden correctas.
+    """
+    shares_to_remove = tx.shares
+    while shares_to_remove > Decimal("0"):
+        if not open_lots:
+            raise ValueError(
+                f"Traspaso del {tx.date}: se intentan traspasar más "
+                f"participaciones de las disponibles según el historial."
+            )
+        lot = open_lots[0]
+        take = min(shares_to_remove, lot.shares)
+        lot.shares -= take
+        shares_to_remove -= take
+        if lot.shares <= Decimal("0"):
+            open_lots.pop(0)
+
+
+def consumed_cost_fifo(
+    open_lots: list[Lot], shares: Decimal,
+) -> tuple[Decimal, Decimal]:
+    """
+    Calcula el coste de adquisición (nativo y EUR) de las primeras 'shares'
+    participaciones de la cola FIFO, SIN modificar los lotes.
+
+    Se usa al crear un traspaso para determinar el coste heredado que se
+    transmite al fondo de destino. No consume los lotes (solo lee).
+
+    Devuelve (coste_native, coste_eur). Lanza ValueError si no hay suficientes
+    participaciones vivas para cubrir 'shares'.
+    """
+    remaining = shares
+    cost_native = Decimal("0")
+    cost_eur = Decimal("0")
+    for lot in open_lots:
+        if remaining <= Decimal("0"):
+            break
+        take = min(remaining, lot.shares)
+        cost_native += take * lot.unit_cost_native
+        cost_eur += take * lot.unit_cost_eur
+        remaining -= take
+    if remaining > Decimal("0"):
+        raise ValueError(
+            "No hay suficientes participaciones vivas para el traspaso solicitado."
+        )
+    return cost_native, cost_eur
 
 
 # --------------------------------------------------------------------------

@@ -17,6 +17,7 @@ class MarketCreate(BaseModel):
     fiscal_window_days: int = 60
     sort_order: int = 0
     yahoo_exchange: str | None = None
+    is_fund_market: bool = False
 
     @field_validator("code")
     @classmethod
@@ -53,6 +54,7 @@ class MarketUpdate(BaseModel):
     fiscal_window_days: int | None = None
     sort_order: int | None = None
     yahoo_exchange: str | None = None
+    is_fund_market: bool | None = None
 
     @field_validator("fiscal_window_days")
     @classmethod
@@ -70,6 +72,7 @@ class MarketOut(BaseModel):
     fiscal_window_days: int
     sort_order: int = 0
     yahoo_exchange: str | None = None
+    is_fund_market: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -177,6 +180,7 @@ class CatalogMarketIn(BaseModel):
     currency: str = "EUR"
     fiscal_window_days: int = 60
     sort_order: int = 0
+    is_fund_market: bool = False
 
 
 class CatalogSecurityIn(BaseModel):

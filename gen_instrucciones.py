@@ -5,7 +5,7 @@ Ejecutar desde la raiz del proyecto:
 """
 from fpdf import FPDF
 
-VERSION = "1.6.20"
+VERSION = "1.7.0"
 TITLE   = f"JSG Soft. {VERSION} - Manual de usuario"
 
 SECTIONS = [

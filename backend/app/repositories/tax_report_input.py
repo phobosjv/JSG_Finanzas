@@ -38,6 +38,13 @@ def build_tax_report_input(
 
     Devuelve (sales, dividends). El filtrado por ejercicio fiscal NO se hace
     aqui: build_tax_report ya descarta lo que no pertenece al ano pedido.
+
+    Los fondos de inversión SÍ entran en el informe (sus ganancias acumulan en
+    la base del ahorro como las acciones). Lo que NO genera resultado fiscal es
+    el TRASPASO: en compute_position un 'transfer_out' consume lotes FIFO sin
+    producir SaleMatch, así que el diferimiento fiscal del traspaso se respeta
+    automáticamente y la plusvalía latente viaja al fondo de destino vía el
+    coste heredado del 'transfer_in'.
     """
     repo = PortfolioRepository(session)
 

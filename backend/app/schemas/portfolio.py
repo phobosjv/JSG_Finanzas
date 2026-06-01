@@ -131,6 +131,40 @@ class TransactionOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TransferCreate(BaseModel):
+    """
+    Traspaso de fondos: salida de 'shares' del fondo de origen y entrada de
+    'dest_shares' en el fondo de destino, en la misma fecha. El backend calcula
+    el coste heredado por FIFO (no se introduce manualmente). Fiscalmente neutro.
+    """
+    origin_position_id: int
+    shares: Decimal            # participaciones a traspasar del origen
+    dest_security_id: int      # fondo de destino
+    dest_shares: Decimal       # participaciones recibidas en el destino
+    date: str                  # YYYY-MM-DD
+
+    @field_validator("date")
+    @classmethod
+    def valid_date(cls, v: str) -> str:
+        return _valid_date(v)
+
+    @field_validator("shares", "dest_shares")
+    @classmethod
+    def positive(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("Debe ser mayor que 0")
+        return v
+
+
+class TransferResult(BaseModel):
+    """Resultado de un traspaso: las dos transacciones creadas + coste heredado."""
+    origin_position_id: int
+    dest_position_id: int
+    transfer_out_id: int
+    transfer_in_id: int
+    inherited_cost_eur: Decimal
+
+
 class DividendCreate(BaseModel):
     date: str
     shares_at_date: Decimal

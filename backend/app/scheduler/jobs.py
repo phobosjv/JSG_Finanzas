@@ -35,7 +35,8 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from app.models import EcbRate, PriceHistory, PriceSnapshot, Security
+from app.models import AppConfig, EcbRate, PriceHistory, PriceSnapshot, Security
+from app.models.market import MarketRow
 from app.providers.yahoo import YahooProvider
 from app.providers.ecb import EcbProvider
 from app.services.indicators import compute_ranges
@@ -137,10 +138,27 @@ def _update_history_for_security(
 #  2. Snapshots (precio en vivo + rangos)
 # ---------------------------------------------------------------------------
 
-def update_snapshots(db: Session) -> None:
+def _fund_market_codes(db: Session) -> set[str]:
+    """Códigos de mercados marcados como mercado de fondos."""
+    return set(
+        db.scalars(select(MarketRow.code).where(MarketRow.is_fund_market.is_(True)))
+    )
+
+
+def update_snapshots(db: Session, include_funds: bool = True) -> None:
+    """
+    Actualiza los snapshots de precio en vivo.
+
+    Si include_funds es False, omite los valores de mercados de fondos: su NAV
+    es diario y no cambia intradía, así que no tiene sentido consultarlo cada
+    pocos minutos. El job nocturno siempre los incluye (include_funds=True).
+    """
     securities = db.scalars(select(Security)).all()
+    fund_codes = _fund_market_codes(db) if not include_funds else set()
 
     for sec in securities:
+        if not include_funds and sec.market in fund_codes:
+            continue
         try:
             _update_snapshot_for_security(db, sec)
         except Exception:
@@ -245,8 +263,49 @@ def update_ecb_rates(db: Session) -> None:
 #  4. Snapshots en vivo (job periódico cada N minutos, configurable por admin)
 # ---------------------------------------------------------------------------
 
+_FUNDS_REFRESH_KEY = "funds_live_refresh_at"
+
+
+def _should_refresh_funds_live(db: Session, now: datetime) -> bool:
+    """
+    Los fondos solo se refrescan en el job en vivo una vez por hora de reloj
+    (su NAV es diario). Devuelve True si en la hora actual aún no se han
+    refrescado, comparando con el timestamp guardado en app_config.
+    """
+    row = db.get(AppConfig, _FUNDS_REFRESH_KEY)
+    if row is None or not row.value:
+        return True
+    try:
+        last = datetime.fromisoformat(row.value)
+    except ValueError:
+        return True
+    # Refrescar si cambia la hora de reloj (o el día)
+    return (last.date(), last.hour) != (now.date(), now.hour)
+
+
+def _mark_funds_refreshed(db: Session, now: datetime) -> None:
+    """Registra en app_config la marca de tiempo del último refresco de fondos."""
+    row = db.get(AppConfig, _FUNDS_REFRESH_KEY)
+    if row is None:
+        db.add(AppConfig(key=_FUNDS_REFRESH_KEY, value=now.isoformat(timespec="seconds")))
+    else:
+        row.value = now.isoformat(timespec="seconds")
+    db.commit()
+
+
 def update_snapshots_live(db: Session) -> None:
-    """Actualiza solo snapshots (sin histórico). Llamado cada N min durante el día."""
-    log.info("Actualizacion live de snapshots")
-    update_snapshots(db)
+    """
+    Actualiza solo snapshots (sin histórico). Llamado cada N min durante el día.
+
+    Los fondos (mercados is_fund_market) se actualizan como máximo una vez por
+    hora de reloj: su valor liquidativo es diario y consultarlo cada pocos
+    minutos solo añade carga inútil sobre Yahoo. El resto de valores (acciones,
+    ETFs, cripto) se actualizan en cada ejecución.
+    """
+    now = datetime.now()
+    include_funds = _should_refresh_funds_live(db, now)
+    log.info("Actualizacion live de snapshots (fondos=%s)", include_funds)
+    update_snapshots(db, include_funds=include_funds)
+    if include_funds:
+        _mark_funds_refreshed(db, now)
     log.info("Snapshots live completados")

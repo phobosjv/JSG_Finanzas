@@ -1016,7 +1016,7 @@ function ForceHistoryUpdateSection() {
 //  Gestión de mercados (catálogo dinámico)
 // ---------------------------------------------------------------------------
 
-const EMPTY_MARKET = { code: '', name: '', index_ticker: '', currency: 'EUR', fiscal_window_days: 60, yahoo_exchange: '' }
+const EMPTY_MARKET = { code: '', name: '', index_ticker: '', currency: 'EUR', fiscal_window_days: 60, yahoo_exchange: '', is_fund_market: false }
 
 function MarketsSection() {
   const { t } = useAppConfig()
@@ -1058,6 +1058,7 @@ function MarketsSection() {
           currency: body.currency,
           fiscal_window_days: body.fiscal_window_days,
           yahoo_exchange: body.yahoo_exchange || null,
+          is_fund_market: body.is_fund_market,
         })
         setMsg('Mercado actualizado')
       } else {
@@ -1081,7 +1082,7 @@ function MarketsSection() {
 
   function startEdit(m) {
     setEditing(m)
-    setForm({ code: m.code, name: m.name, index_ticker: m.index_ticker ?? '', currency: m.currency, fiscal_window_days: m.fiscal_window_days, yahoo_exchange: m.yahoo_exchange ?? '' })
+    setForm({ code: m.code, name: m.name, index_ticker: m.index_ticker ?? '', currency: m.currency, fiscal_window_days: m.fiscal_window_days, yahoo_exchange: m.yahoo_exchange ?? '', is_fund_market: m.is_fund_market ?? false })
     setShowForm(true)
     setErr(null); setMsg(null)
   }
@@ -1215,6 +1216,19 @@ function MarketsSection() {
                   {t('admin.market_yahoo_exchange_help')}
                 </small>
               </div>
+              <div className="form-group" style={{ flex: 1, justifyContent: 'flex-end' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 24 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!form.is_fund_market}
+                    onChange={e => setForm(f => ({ ...f, is_fund_market: e.target.checked }))}
+                  />
+                  {t('admin.market_is_fund')}
+                </label>
+                <small style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                  {t('admin.market_is_fund_help')}
+                </small>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button type="button" className="btn-ghost btn-sm" onClick={() => { setShowForm(false); setEditing(null) }}>Cancelar</button>
@@ -1235,6 +1249,7 @@ function MarketsSection() {
               <th>Divisa</th>
               <th>Ventana fiscal</th>
               <th>Yahoo Exch.</th>
+              <th>{t('admin.market_is_fund')}</th>
               <th></th>
             </tr>
           </thead>
@@ -1267,6 +1282,13 @@ function MarketsSection() {
                 <td className="num">{m.fiscal_window_days}d</td>
                 <td style={{ fontSize: '0.82rem', color: m.yahoo_exchange ? 'var(--text)' : 'var(--text-muted)' }}>
                   {m.yahoo_exchange || '—'}
+                </td>
+                <td style={{ textAlign: 'center' }}>
+                  {m.is_fund_market && (
+                    <span style={{ background: '#1e40af', color: '#bfdbfe', borderRadius: 4, padding: '1px 7px', fontSize: '0.75rem', fontWeight: 600 }}>
+                      {t('admin.market_fund_badge')}
+                    </span>
+                  )}
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
