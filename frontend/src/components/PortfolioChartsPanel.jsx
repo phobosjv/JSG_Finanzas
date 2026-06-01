@@ -333,7 +333,8 @@ export function ClosedScatterChart({ data, t }) {
   const [logScale, setLogScale] = useState(false)
   if (!data || data.length === 0) return null
 
-  const maxCost = Math.max(...data.map(d => Number(d.cost_eur)), 1)
+  const chartData = logScale ? data.filter(d => Number(d.avg_days_held) > 0) : data
+  const maxCost = Math.max(...chartData.map(d => Number(d.cost_eur)), 1)
 
   const CustomDot = (props) => {
     const { cx, cy, payload } = props
@@ -412,7 +413,7 @@ export function ClosedScatterChart({ data, t }) {
           />
           <ZAxis type="number" dataKey="cost_eur" range={[40, 900]} />
           <ReTooltip content={<CustomTooltip />} />
-          <Scatter data={data} shape={<CustomDot />} />
+          <Scatter data={chartData} shape={<CustomDot />} />
         </ScatterChart>
       </ResponsiveContainer>
     </div>

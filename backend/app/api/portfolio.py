@@ -507,10 +507,10 @@ def get_dividends_by_security(
         years_held = months_held / 12.0 if months_held > 0 else 0.0
 
         # Capital total invertido (todas las compras en EUR)
-        total_cost_eur = sum(
-            float(tx.price * tx.shares / tx.exchange_rate) + float(tx.fee / tx.exchange_rate)
+        total_cost_eur = float(sum(
+            tx.price * tx.shares / tx.exchange_rate + tx.fee / tx.exchange_rate
             for tx in all_txs if tx.type == "buy"
-        )
+        ))
 
         # Yield por dividendo: gross_eur / capital_en_fecha
         yield_pcts: list[float] = []

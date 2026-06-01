@@ -46,8 +46,9 @@ def _check_currency_consistency(
     row_id: int, kind: str, currency: str, exchange_rate: Decimal,
 ) -> None:
     """
-    Una operacion en EUR debe tener exchange_rate exactamente 1; una en USD
-    debe tenerlo distinto de 1 (no tiene sentido un cambio EUR/USD de 1.0).
+    Una operacion en EUR debe tener exchange_rate exactamente 1; cualquier
+    otra divisa debe tenerlo distinto de 1 (un tipo de cambio de 1.0 con una
+    divisa no-EUR es sospechoso de que no se aplicó la consulta al BCE/Yahoo).
     Una incoherencia aqui falsea silenciosamente toda la conversion a euros,
     asi que se detiene con error claro en lugar de devolver cifras malas.
     """
@@ -56,10 +57,10 @@ def _check_currency_consistency(
             f"{kind} id={row_id}: currency='EUR' exige exchange_rate=1, "
             f"pero vale {exchange_rate}."
         )
-    if currency == "USD" and exchange_rate == Decimal("1"):
+    if currency != "EUR" and exchange_rate == Decimal("1"):
         raise ValueError(
-            f"{kind} id={row_id}: currency='USD' con exchange_rate=1 es "
-            f"sospechoso (no se pudo aplicar el tipo del BCE)."
+            f"{kind} id={row_id}: currency='{currency}' con exchange_rate=1 es "
+            f"sospechoso — ¿se olvidó aplicar el tipo de cambio?"
         )
     if exchange_rate <= Decimal("0"):
         raise ValueError(

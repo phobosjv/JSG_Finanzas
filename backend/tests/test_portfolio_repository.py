@@ -167,6 +167,20 @@ def test_usd_con_rate_uno_falla(db):
         PortfolioRepository(db).transactions_for_position(p.id)
 
 
+def test_non_eur_con_rate_uno_falla(db):
+    """Cualquier divisa no-EUR con exchange_rate=1 debe fallar (cubre divisas añadidas en v1.6.16)."""
+    u = make_user(db)
+    # El security es EUR (ck_securities_currency lo exige); la TRANSACCIÓN
+    # se registra en GBP (soportado desde v1.6.16 en transactions.currency).
+    s = make_security(db, name="Santander", market="ibex", ticker="SAN.MC")
+    p = make_position(db, u, s)
+    add_tx(db, p, "buy", "2023-01-01", "10", "3.50",
+           currency="GBP", rate="1")  # sospechoso: GBP con rate=1
+
+    with pytest.raises(ValueError, match="GBP"):
+        PortfolioRepository(db).transactions_for_position(p.id)
+
+
 def test_usd_coherente_pasa(db):
     """currency='USD' con rate real: la transaccion se construye sin error."""
     u = make_user(db)
