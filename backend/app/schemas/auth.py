@@ -31,6 +31,8 @@ class UserAdminOut(BaseModel):
     is_enabled: bool
     expires_at: datetime | None
     created_at: datetime
+    last_login_at: datetime | None = None
+    has_operations: bool = False
 
     model_config = {"from_attributes": True}
 

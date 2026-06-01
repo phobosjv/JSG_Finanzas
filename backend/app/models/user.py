@@ -55,6 +55,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.datetime("now")
     )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     positions: Mapped[list["Position"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

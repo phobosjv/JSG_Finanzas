@@ -1220,6 +1220,7 @@ function SecuritiesSection() {
   const [markets, setMarkets]     = useState([])
   const [securities, setSecs]     = useState([])
   const [marketFilter, setMarketFilter] = useState('all')
+  const [secSearch, setSecSearch]       = useState('')
   const [showForm, setShowForm]   = useState(false)
   const [editing, setEditing]     = useState(null)
   const [form, setForm]           = useState(EMPTY_SEC)
@@ -1287,6 +1288,15 @@ function SecuritiesSection() {
         </button>
       </div>
 
+      {/* Buscador */}
+      <input
+        type="text"
+        placeholder={t('admin.sec_search')}
+        value={secSearch}
+        onChange={e => setSecSearch(e.target.value)}
+        style={{ marginBottom: 10, width: '100%', maxWidth: 320 }}
+      />
+
       {/* Filtro por mercado */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {[{ code: 'all', name: t('admin.filter_all') }, ...markets].map(m => (
@@ -1348,14 +1358,16 @@ function SecuritiesSection() {
       )}
 
       {(() => {
-        const filtered = marketFilter === 'all'
-          ? securities
-          : securities.filter(s => s.market === marketFilter)
+        const q = secSearch.toLowerCase()
+        const filtered = securities
+          .filter(s => marketFilter === 'all' || s.market === marketFilter)
+          .filter(s => !q || s.name.toLowerCase().includes(q) || s.yahoo_ticker.toLowerCase().includes(q))
+        const scrollStyle = filtered.length > 10 ? { maxHeight: 540, overflowY: 'auto' } : {}
         if (filtered.length === 0) return (
-          <div className="state-empty">No hay valores en el catálogo{marketFilter !== 'all' ? ' para este mercado' : ''}.</div>
+          <div className="state-empty">No hay valores en el catálogo{marketFilter !== 'all' ? ' para este mercado' : ''}{q ? ` que coincidan con "${secSearch}"` : ''}.</div>
         )
         return (
-        <div className="table-wrap">
+        <div className="table-wrap" style={scrollStyle}>
           <table>
             <thead>
               <tr>
@@ -1422,6 +1434,7 @@ export default function AdminPanel() {
   const [historyModal, setHistoryModal] = useState(null) // usuario para ver historial
 
   const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
+  const [userSearch, setUserSearch] = useState('')
 
   // Backup admin
   const adminFileRef                        = useRef(null)
@@ -1610,11 +1623,26 @@ export default function AdminPanel() {
 
       {/* ── Pestaña: Usuarios ─────────────────────────────────────────── */}
       {tab === 'usuarios' && <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>Usuarios ({users.length})</h2>
           <button className="btn-primary btn-sm" onClick={() => setShowCreate(true)}>+ Nuevo usuario</button>
         </div>
-        <div className="table-wrap">
+        <input
+          type="text"
+          placeholder={t('admin.user_search')}
+          value={userSearch}
+          onChange={e => setUserSearch(e.target.value)}
+          style={{ marginBottom: 12, width: '100%', maxWidth: 280 }}
+        />
+        {(() => {
+          const filtered = users.filter(u =>
+            u.username.toLowerCase().includes(userSearch.toLowerCase())
+          )
+          const scrollStyle = filtered.length > 10
+            ? { maxHeight: 540, overflowY: 'auto' }
+            : {}
+          return (
+        <div className="table-wrap" style={scrollStyle}>
           <table>
             <thead>
               <tr>
@@ -1623,11 +1651,13 @@ export default function AdminPanel() {
                 <th>Estado</th>
                 <th>Caduca</th>
                 <th>Creado</th>
+                <th>{t('admin.user_last_login')}</th>
+                <th>{t('admin.user_operations')}</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
+              {filtered.map(u => (
                 <tr key={u.id}>
                   <td>
                     <span style={{ fontWeight: u.id === me?.id ? 600 : 400 }}>{u.username}</span>
@@ -1649,6 +1679,17 @@ export default function AdminPanel() {
                     {u.expires_at ? fmt(u.expires_at) : '—'}
                   </td>
                   <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{fmt(u.created_at)}</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    {u.last_login_at ? fmt(u.last_login_at) : t('admin.never')}
+                  </td>
+                  <td>
+                    <span style={{
+                      fontSize: '0.8rem', fontWeight: 600,
+                      color: u.has_operations ? 'var(--green)' : 'var(--text-muted)',
+                    }}>
+                      {u.has_operations ? 'Sí' : 'No'}
+                    </span>
+                  </td>
                   <td>
                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       <button
@@ -1702,6 +1743,8 @@ export default function AdminPanel() {
             </tbody>
           </table>
         </div>
+          )
+        })()}
       </div>}
 
       {tab === 'usuarios' && <div className="card" style={{ marginTop: 24 }}>

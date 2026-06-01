@@ -85,7 +85,23 @@ def list_users(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    return db.scalars(select(User).order_by(User.id)).all()
+    users = db.scalars(select(User).order_by(User.id)).all()
+
+    # Usuarios que tienen al menos una transacción — consulta única eficiente
+    from sqlalchemy import distinct as _distinct
+    user_ids_with_ops: set[int] = set(
+        db.scalars(
+            select(_distinct(Position.user_id))
+            .join(TransactionRow, TransactionRow.position_id == Position.id)
+        ).all()
+    )
+
+    result = []
+    for u in users:
+        out = UserAdminOut.model_validate(u)
+        out.has_operations = u.id in user_ids_with_ops
+        result.append(out)
+    return result
 
 
 @router.post("/users", response_model=UserAdminOut, status_code=status.HTTP_201_CREATED)

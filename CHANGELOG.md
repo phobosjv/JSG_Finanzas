@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.17] — 2026-06-01
+
+### Añadido / Mejorado
+
+**AdminPanel → Usuarios:**
+- Buscador de usuarios (filtra en tiempo real por nombre de usuario).
+- Scroll vertical automático cuando hay más de 10 usuarios en la lista.
+- Nueva columna **Último acceso**: fecha del último login exitoso del usuario
+  (`last_login_at`); muestra "Nunca" si no ha iniciado sesión todavía.
+- Nueva columna **Operaciones**: Sí/No según si el usuario tiene al menos
+  una transacción registrada.
+- Migración Alembic `b2c3d4e5f6a1`: añade columna `last_login_at` a `users`.
+
+**AdminPanel → Catálogo:**
+- Buscador por nombre o ticker (filtra en tiempo real).
+- Scroll vertical automático cuando hay más de 10 valores en la lista.
+
 ## [1.6.16] — 2026-06-01
 
 ### Añadido

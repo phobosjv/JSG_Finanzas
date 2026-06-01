@@ -67,6 +67,10 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
         user.password_hash = hash_password(body.password)
         db.commit()
 
+    # Registrar fecha de último acceso
+    user.last_login_at = _now()
+    db.commit()
+
     create_session_cookie(response, user.id)
     return user
 
