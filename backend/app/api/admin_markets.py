@@ -523,3 +523,65 @@ def delete_tax_bracket(
     bracket = _require_bracket(db, bracket_id)
     db.delete(bracket)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+#  Explorador de valores Yahoo Finance
+# ---------------------------------------------------------------------------
+
+@router.get("/securities/search")
+def search_yahoo_securities(
+    q: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Busca valores en Yahoo Finance por nombre o ticker y comprueba si ya
+    están en el catálogo local. Devuelve hasta 15 resultados.
+
+    Respuesta por ítem:
+      ticker, name, exchange, type, currency,
+      in_catalog (bool), catalog_market (str|None)
+    """
+    if not q or not q.strip():
+        return []
+
+    import yfinance as yf
+
+    try:
+        search = yf.Search(q.strip(), max_results=15, enable_fuzzy_query=True)
+        quotes = search.quotes or []
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Yahoo Finance no disponible: {exc}",
+        )
+
+    if not quotes:
+        return []
+
+    # Pre-cargar los tickers que ya están en catálogo en una sola consulta
+    tickers_in_query = [q_item.get("symbol", "").upper() for q_item in quotes if q_item.get("symbol")]
+    existing: dict[str, str] = {}
+    if tickers_in_query:
+        rows = db.scalars(
+            select(Security).where(Security.yahoo_ticker.in_(tickers_in_query))
+        ).all()
+        existing = {sec.yahoo_ticker.upper(): sec.market for sec in rows}
+
+    results = []
+    for item in quotes:
+        symbol = (item.get("symbol") or "").upper()
+        if not symbol:
+            continue
+        name = item.get("shortname") or item.get("longname") or symbol
+        results.append({
+            "ticker":        symbol,
+            "name":          name,
+            "exchange":      item.get("exchDisp") or item.get("exchange") or "",
+            "type":          item.get("quoteType") or "",
+            "currency":      (item.get("currency") or "").upper() or None,
+            "in_catalog":    symbol in existing,
+            "catalog_market": existing.get(symbol),
+        })
+
+    return results

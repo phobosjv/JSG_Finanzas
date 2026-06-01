@@ -5,6 +5,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.18] — 2026-06-01
+
+### Añadido
+
+- **Explorador Yahoo Finance** (AdminPanel → Catálogo). Panel plegable con
+  un buscador de texto libre (por nombre de empresa o ticker). El backend
+  llama a `yf.Search()` y devuelve hasta 15 resultados con ticker, nombre,
+  exchange, tipo (EQUITY/ETF/CRYPTO) y divisa. Cada resultado muestra si ya
+  está en el catálogo (con el mercado) o un botón "+ Añadir" que pre-rellena
+  el formulario de nuevo valor con los datos de Yahoo.
+- Nuevo endpoint: `GET /api/admin/securities/search?q=<texto>` (admin).
+
 ## [1.6.17] — 2026-06-01
 
 ### Añadido / Mejorado

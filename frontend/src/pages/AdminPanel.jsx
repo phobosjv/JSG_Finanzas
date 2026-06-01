@@ -1221,6 +1221,11 @@ function SecuritiesSection() {
   const [securities, setSecs]     = useState([])
   const [marketFilter, setMarketFilter] = useState('all')
   const [secSearch, setSecSearch]       = useState('')
+  const [showYfExplorer, setShowYfExplorer] = useState(false)
+  const [yfQuery, setYfQuery]               = useState('')
+  const [yfResults, setYfResults]           = useState(null)   // null=sin búsqueda, []=vacío
+  const [yfLoading, setYfLoading]           = useState(false)
+  const [yfError, setYfError]               = useState(null)
   const [showForm, setShowForm]   = useState(false)
   const [editing, setEditing]     = useState(null)
   const [form, setForm]           = useState(EMPTY_SEC)
@@ -1236,6 +1241,36 @@ function SecuritiesSection() {
     if (!form.market && mks.length) setForm(f => ({ ...f, market: mks[0].code }))
   }
   useEffect(() => { load() }, [])
+
+  async function searchYahoo(e) {
+    e?.preventDefault()
+    if (!yfQuery.trim()) return
+    setYfLoading(true); setYfError(null); setYfResults(null)
+    try {
+      const data = await api.get(`/admin/securities/search?q=${encodeURIComponent(yfQuery.trim())}`)
+      setYfResults(data)
+    } catch (err) {
+      setYfError(err.message || t('admin.yf_error'))
+    } finally {
+      setYfLoading(false)
+    }
+  }
+
+  function prefillFromYahoo(item) {
+    setEditing(null)
+    setForm({
+      name: item.name,
+      isin: '',
+      yahoo_ticker: item.ticker,
+      google_ticker: '',
+      market: marketFilter !== 'all' ? marketFilter : markets[0]?.code ?? '',
+      currency: item.currency || 'EUR',
+    })
+    setShowForm(true)
+    setErr(null); setMsg(null)
+    // Scroll al formulario
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50)
+  }
 
   function field(name) {
     return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
@@ -1286,6 +1321,97 @@ function SecuritiesSection() {
         }}>
           {showForm && !editing ? 'Cancelar' : '+ Nuevo valor'}
         </button>
+      </div>
+
+      {/* ── Explorador Yahoo Finance ──────────────────────────────── */}
+      <div style={{ marginBottom: 16 }}>
+        <button
+          type="button"
+          className="btn-ghost btn-sm"
+          onClick={() => { setShowYfExplorer(s => !s); setYfResults(null); setYfError(null) }}
+          style={{ marginBottom: showYfExplorer ? 10 : 0 }}
+        >
+          🔍 {t('admin.yf_explorer')} {showYfExplorer ? '▲' : '▼'}
+        </button>
+
+        {showYfExplorer && (
+          <div style={{
+            border: '1px solid var(--border)', borderRadius: 8,
+            padding: 14, background: 'var(--bg-input)',
+          }}>
+            <form onSubmit={searchYahoo} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input
+                type="text"
+                value={yfQuery}
+                onChange={e => setYfQuery(e.target.value)}
+                placeholder={t('admin.yf_search_placeholder')}
+                style={{ flex: 1 }}
+                autoFocus
+              />
+              <button type="submit" className="btn-primary btn-sm" disabled={yfLoading || !yfQuery.trim()}>
+                {yfLoading ? t('admin.yf_searching') : t('admin.yf_search_btn')}
+              </button>
+            </form>
+
+            {yfError && (
+              <div className="state-error" style={{ padding: 8, marginBottom: 8 }}>{yfError}</div>
+            )}
+
+            {yfResults !== null && yfResults.length === 0 && !yfLoading && (
+              <div className="state-empty">{t('admin.yf_no_results')}</div>
+            )}
+
+            {yfResults && yfResults.length > 0 && (
+              <div className="table-wrap" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('admin.yf_col_ticker')}</th>
+                      <th>{t('admin.yf_col_name')}</th>
+                      <th>{t('admin.yf_col_exchange')}</th>
+                      <th>{t('admin.yf_col_type')}</th>
+                      <th>{t('admin.yf_col_currency')}</th>
+                      <th>{t('admin.yf_col_status')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {yfResults.map(item => (
+                      <tr key={item.ticker}>
+                        <td className="ticker">{item.ticker}</td>
+                        <td style={{ fontSize: '0.85rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.name}
+                        </td>
+                        <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{item.exchange || '—'}</td>
+                        <td>
+                          <span className="badge" style={{ fontSize: '0.75rem', background: 'var(--bg-card)' }}>
+                            {item.type || '—'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.85rem' }}>{item.currency || '—'}</td>
+                        <td>
+                          {item.in_catalog ? (
+                            <span style={{ color: 'var(--green)', fontWeight: 600, fontSize: '0.82rem' }}>
+                              ✓ {item.catalog_market}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn-primary btn-sm"
+                              style={{ fontSize: '0.78rem', padding: '2px 8px' }}
+                              onClick={() => prefillFromYahoo(item)}
+                            >
+                              + {t('admin.yf_add')}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Buscador */}
