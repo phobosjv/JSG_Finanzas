@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.admin_markets import _get_supported_currencies
 from app.api.deps import get_current_user, get_db
 from app.models import DividendRow, EcbRate, Position, Security, TransactionRow, User
 from app.schemas.portfolio import CsvImportResult
@@ -30,23 +31,25 @@ router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 _IMPORTABLE_TYPES = {"BUY", "SELL", "DIVIDEND"}
 
 
-def _resolve_exchange_rate(date_str: str, db: Session) -> Decimal | None:
-    """Devuelve el tipo EUR/USD para la fecha dada o None si no se encuentra."""
-    row = db.scalar(
-        select(EcbRate)
-        .where(EcbRate.date <= date_str)
-        .order_by(EcbRate.date.desc())
-        .limit(1)
-    )
-    if row is not None:
-        return row.rate
+def _resolve_exchange_rate(date_str: str, db: Session, currency: str = "USD") -> Decimal | None:
+    """Devuelve el tipo EUR/{currency} para la fecha dada o None si no se encuentra."""
+    # BCE solo tiene USD
+    if currency == "USD":
+        row = db.scalar(
+            select(EcbRate)
+            .where(EcbRate.date <= date_str)
+            .order_by(EcbRate.date.desc())
+            .limit(1)
+        )
+        if row is not None:
+            return row.rate
 
-    # Fallback Yahoo Finance EURUSD=X
+    # Fallback Yahoo Finance EUR{currency}=X
     try:
         import yfinance as yf
         from datetime import date as date_type, timedelta
         d = date_type.fromisoformat(date_str)
-        df = yf.Ticker("EURUSD=X").history(
+        df = yf.Ticker(f"EUR{currency}=X").history(
             start=d.isoformat(),
             end=(d + timedelta(days=5)).isoformat(),
             auto_adjust=False,
@@ -85,6 +88,7 @@ async def import_ghostfolio(
     dividends_added = 0
     skipped = 0
     errors: list[dict] = []
+    valid_currencies = set(_get_supported_currencies(db))
 
     for idx, act in enumerate(activities, start=1):
         act_type = (act.get("type") or "").upper()
@@ -106,7 +110,7 @@ async def import_ghostfolio(
             continue
 
         currency = (act.get("currency") or "EUR").upper()
-        if currency not in ("EUR", "USD"):
+        if currency not in valid_currencies:
             errors.append({"row": idx, "ticker": ticker,
                            "reason": f"divisa no soportada: {currency}"})
             continue
@@ -115,10 +119,10 @@ async def import_ghostfolio(
         if currency == "EUR":
             exchange_rate = Decimal("1")
         else:
-            rate = _resolve_exchange_rate(date_str, db)
+            rate = _resolve_exchange_rate(date_str, db, currency=currency)
             if rate is None:
                 errors.append({"row": idx, "ticker": ticker,
-                               "reason": f"no se encontró tipo EUR/USD para {date_str}"})
+                               "reason": f"no se encontró tipo EUR/{currency} para {date_str}"})
                 continue
             exchange_rate = rate
 

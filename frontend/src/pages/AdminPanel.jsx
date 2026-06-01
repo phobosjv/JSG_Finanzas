@@ -633,7 +633,7 @@ function TaxBracketsSubsection() {
 // ---------------------------------------------------------------------------
 
 function ConfigSection() {
-  const { setAppName, logoUrl, refreshLogo, t } = useAppConfig()
+  const { setAppName, logoUrl, refreshLogo, currencies: ctxCurrencies, t } = useAppConfig()
   const [interval, setInterval]     = useState(null)
   const [inputVal, setInputVal]     = useState(5)
   const [appNameVal, setAppNameVal] = useState('')
@@ -642,6 +642,9 @@ function ConfigSection() {
   const [refreshBusy, setRefreshBusy] = useState(false)
   const [logoBusy, setLogoBusy]     = useState(false)
   const logoFileRef                 = useRef(null)
+  const [currencyList, setCurrencyList] = useState(ctxCurrencies.filter(c => c !== 'EUR'))
+  const [newCurrency, setNewCurrency]   = useState('')
+  const [currencyBusy, setCurrencyBusy] = useState(false)
   const [msg, setMsg]               = useState(null)
   const [err, setErr]               = useState(null)
 
@@ -682,6 +685,32 @@ function ConfigSection() {
       setMsg(t('admin.logo_removed'))
     } catch (e2) { setErr(e2.message) }
     finally { setLogoBusy(false) }
+  }
+
+  function addCurrency() {
+    const code = newCurrency.trim().toUpperCase()
+    if (code.length !== 3 || !/^[A-Z]{3}$/.test(code)) return
+    if (code === 'EUR' || currencyList.includes(code)) return
+    setCurrencyList(prev => [...prev, code])
+    setNewCurrency('')
+  }
+
+  function removeCurrency(code) {
+    setCurrencyList(prev => prev.filter(c => c !== code))
+  }
+
+  async function saveCurrencies() {
+    setCurrencyBusy(true); setMsg(null); setErr(null)
+    try {
+      await api.patch('/admin/config/currencies', { currencies: currencyList })
+      // Recargar config para que AppContext actualice el contexto global
+      const d = await api.get('/config')
+      if (Array.isArray(d?.supported_currencies)) {
+        setCurrencyList(d.supported_currencies.filter(c => c !== 'EUR'))
+      }
+      setMsg(t('admin.currencies_saved'))
+    } catch (e2) { setErr(e2.message) }
+    finally { setCurrencyBusy(false) }
   }
 
   useEffect(() => {
@@ -745,6 +774,53 @@ function ConfigSection() {
           {nameBusy ? 'Guardando…' : 'Aplicar nombre'}
         </button>
       </form>
+
+      {/* Divisas soportadas */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ display: 'block', marginBottom: 4 }}>{t('admin.currencies')}</label>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 0, marginBottom: 10 }}>
+          {t('admin.currencies_note')}
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          <span style={{
+            padding: '2px 10px', borderRadius: 4, fontSize: '0.85rem',
+            background: 'var(--bg-input)', color: 'var(--text-muted)',
+            border: '1px solid var(--border)',
+          }}>EUR</span>
+          {currencyList.map(c => (
+            <span key={c} style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '2px 8px', borderRadius: 4, fontSize: '0.85rem',
+              background: 'var(--accent-dim)', color: 'var(--accent)',
+              border: '1px solid var(--accent)',
+            }}>
+              {c}
+              <button
+                type="button"
+                onClick={() => removeCurrency(c)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, fontSize: '0.8rem' }}
+              >×</button>
+            </span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            value={newCurrency}
+            onChange={e => setNewCurrency(e.target.value.toUpperCase())}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCurrency())}
+            maxLength={3}
+            placeholder={t('admin.currencies_placeholder')}
+            style={{ width: 80, textTransform: 'uppercase' }}
+          />
+          <button type="button" className="btn-ghost btn-sm" onClick={addCurrency}>
+            + {t('admin.currencies_add')}
+          </button>
+          <button type="button" className="btn-primary btn-sm" disabled={currencyBusy} onClick={saveCurrencies}>
+            {currencyBusy ? '…' : t('common.save')}
+          </button>
+        </div>
+      </div>
 
       {/* Logotipo de la aplicación */}
       <div style={{ marginBottom: 20 }}>
@@ -1139,11 +1215,11 @@ function MarketsSection() {
 // ---------------------------------------------------------------------------
 
 const EMPTY_SEC = { name: '', isin: '', yahoo_ticker: '', google_ticker: '', market: '', currency: 'EUR' }
-const CURRENCIES = ['EUR', 'USD']
-
 function SecuritiesSection() {
+  const { currencies: CURRENCIES, t } = useAppConfig()
   const [markets, setMarkets]     = useState([])
   const [securities, setSecs]     = useState([])
+  const [marketFilter, setMarketFilter] = useState('all')
   const [showForm, setShowForm]   = useState(false)
   const [editing, setEditing]     = useState(null)
   const [form, setForm]           = useState(EMPTY_SEC)
@@ -1204,11 +1280,22 @@ function SecuritiesSection() {
         <h2 style={{ margin: 0 }}>Catálogo de valores</h2>
         <button className="btn-primary btn-sm" onClick={() => {
           setEditing(null)
-          setForm({ ...EMPTY_SEC, market: markets[0]?.code ?? '' })
+          setForm({ ...EMPTY_SEC, market: marketFilter !== 'all' ? marketFilter : markets[0]?.code ?? '' })
           setShowForm(s => !s); setErr(null); setMsg(null)
         }}>
           {showForm && !editing ? 'Cancelar' : '+ Nuevo valor'}
         </button>
+      </div>
+
+      {/* Filtro por mercado */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+        {[{ code: 'all', name: t('admin.filter_all') }, ...markets].map(m => (
+          <button
+            key={m.code}
+            className={marketFilter === m.code ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+            onClick={() => setMarketFilter(m.code)}
+          >{m.name}</button>
+        ))}
       </div>
 
       {err && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{err}</div>}
@@ -1260,9 +1347,14 @@ function SecuritiesSection() {
         </div>
       )}
 
-      {securities.length === 0 ? (
-        <div className="state-empty">No hay valores en el catálogo.</div>
-      ) : (
+      {(() => {
+        const filtered = marketFilter === 'all'
+          ? securities
+          : securities.filter(s => s.market === marketFilter)
+        if (filtered.length === 0) return (
+          <div className="state-empty">No hay valores en el catálogo{marketFilter !== 'all' ? ' para este mercado' : ''}.</div>
+        )
+        return (
         <div className="table-wrap">
           <table>
             <thead>
@@ -1276,7 +1368,7 @@ function SecuritiesSection() {
               </tr>
             </thead>
             <tbody>
-              {securities.map(s => (
+              {filtered.map(s => (
                 <tr key={s.id}>
                   <td className="ticker">{s.yahoo_ticker}</td>
                   <td>{s.name}</td>
@@ -1297,7 +1389,8 @@ function SecuritiesSection() {
             </tbody>
           </table>
         </div>
-      )}
+        )
+      })()}
 
       {splitsFor && (
         <SplitsModal

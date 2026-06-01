@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.api.admin_markets import _get_supported_currencies
 from app.models import DividendRow, Position, Security, TransactionRow, User
 from app.services.backup import ImportResult, build_export, validate_backup
 
@@ -121,6 +122,7 @@ async def import_backup(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=errors)
 
     result = ImportResult()
+    valid_currencies = set(_get_supported_currencies(db))
 
     for pos_data in data.get("positions", []):
         ticker = pos_data.get("security_ticker", "")
@@ -179,8 +181,8 @@ async def import_backup(
                     raise ValueError("exchange_rate debe ser > 0")
                 if tx_data["type"] not in ("buy", "sell"):
                     raise ValueError("type debe ser 'buy' o 'sell'")
-                if tx_data["currency"] not in ("EUR", "USD"):
-                    raise ValueError("currency debe ser 'EUR' o 'USD'")
+                if tx_data["currency"] not in valid_currencies:
+                    raise ValueError(f"currency '{tx_data['currency']}' no está soportada")
                 # Coherencia divisa/cambio: USD con rate=1 es incoherente y
                 # romperá la carga de la cartera (el repositorio lo rechaza).
                 if tx_data["currency"] == "USD" and tx_rate == Decimal("1"):
@@ -235,8 +237,8 @@ async def import_backup(
                     raise ValueError("withholding_tax no puede ser negativo")
                 if div_rate <= 0:
                     raise ValueError("exchange_rate debe ser > 0")
-                if div_data["currency"] not in ("EUR", "USD"):
-                    raise ValueError("currency debe ser 'EUR' o 'USD'")
+                if div_data["currency"] not in valid_currencies:
+                    raise ValueError(f"currency '{div_data['currency']}' no está soportada")
             except (KeyError, TypeError, InvalidOperation, ValueError) as exc:
                 result.errors.append(
                     f"Dividendo omitido en '{ticker}': {exc}"

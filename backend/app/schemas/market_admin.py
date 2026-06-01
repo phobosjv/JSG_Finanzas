@@ -88,6 +88,10 @@ class SnapshotIntervalUpdate(BaseModel):
         return v
 
 
+class CurrenciesUpdate(BaseModel):
+    currencies: list[str]
+
+
 class AppNameUpdate(BaseModel):
     app_name: str
 

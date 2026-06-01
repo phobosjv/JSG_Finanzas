@@ -5,6 +5,30 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.16] — 2026-06-01
+
+### Añadido
+
+- **Divisas configurables** (AdminPanel → Configuración). El administrador puede
+  añadir divisas adicionales (GBP, CHF, JPY…) más allá de EUR y USD. Las divisas
+  nuevas son válidas en transacciones, dividendos, importación CSV y Ghostfolio.
+  El tipo de cambio EUR/{divisa} se consulta automáticamente vía Yahoo Finance.
+- `PATCH /api/admin/config/currencies` — actualiza la lista de divisas activas.
+- `GET /api/config` y `GET /api/admin/config` devuelven `supported_currencies`.
+- `GET /api/markets/exchange-rate` acepta ahora el parámetro `currency` (antes
+  solo devolvía EUR/USD; ahora admite cualquier par `EUR{code}=X` de Yahoo).
+- **Migración Alembic `a1b2c3d4e5f6`**: elimina los CHECK constraints
+  `ck_tx_currency` y `ck_div_currency` para permitir divisas no EUR/USD en la BD.
+
+### Cambiado
+
+- **Catálogo de valores** (AdminPanel → Catálogo): pestañas por mercado para
+  filtrar los valores. Opción "Todos" para ver el catálogo completo. Al crear
+  un valor con un mercado filtrado activo, ese mercado se preselecciona.
+- Los formularios de transacción y dividendo en SecurityDetail ahora muestran
+  todas las divisas configuradas (no solo EUR/USD) y el auto-fetch del tipo de
+  cambio funciona para cualquier divisa no-EUR.
+
 ## [1.6.15] — 2026-06-01
 
 ### Añadido

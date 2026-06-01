@@ -8,6 +8,13 @@ from typing import Literal
 from pydantic import BaseModel, field_validator, model_validator
 
 
+def _validate_currency_code(v: str) -> str:
+    v = v.strip().upper()
+    if len(v) != 3 or not v.isalpha():
+        raise ValueError("Código de divisa inválido (debe ser 3 letras, ej: EUR, USD, GBP)")
+    return v
+
+
 def _valid_date(v: str) -> str:
     """Valida que la cadena sea una fecha ISO válida (YYYY-MM-DD)."""
     try:
@@ -75,8 +82,13 @@ class TransactionCreate(BaseModel):
     shares: Decimal
     price: Decimal
     fee: Decimal = Decimal("0")
-    currency: Literal["EUR", "USD"]
+    currency: str
     exchange_rate: Decimal = Decimal("1")
+
+    @field_validator("currency")
+    @classmethod
+    def currency_code(cls, v: str) -> str:
+        return _validate_currency_code(v)
 
     @field_validator("date")
     @classmethod
@@ -125,8 +137,13 @@ class DividendCreate(BaseModel):
     gross_per_share: Decimal
     gross_amount: Decimal
     withholding_tax: Decimal = Decimal("0")
-    currency: Literal["EUR", "USD"]
+    currency: str
     exchange_rate: Decimal = Decimal("1")
+
+    @field_validator("currency")
+    @classmethod
+    def currency_code(cls, v: str) -> str:
+        return _validate_currency_code(v)
 
     @field_validator("date")
     @classmethod
@@ -247,8 +264,13 @@ class CsvRowIn(BaseModel):
     gross_amount: Decimal | None = None      # opcional dividend; calculado si None
     fee: Decimal = Decimal("0")              # solo buy/sell
     withholding_tax: Decimal = Decimal("0")  # solo dividend
-    currency: Literal["EUR", "USD"] = "EUR"
+    currency: str = "EUR"
     exchange_rate: Decimal = Decimal("1")
+
+    @field_validator("currency")
+    @classmethod
+    def currency_code(cls, v: str) -> str:
+        return _validate_currency_code(v)
 
 
 class CsvImportBody(BaseModel):

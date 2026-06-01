@@ -25,19 +25,21 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_admin
 from app.models import AppConfig, MarketRow, Security, TaxBracketRow, User
 from app.schemas.market_admin import (
-    AppNameUpdate, CatalogImportBody, LogoUpdate,
+    AppNameUpdate, CatalogImportBody, CurrenciesUpdate, LogoUpdate,
     MarketCreate, MarketOut, MarketReorderItem, MarketUpdate, SnapshotIntervalUpdate,
 )
 from app.schemas.tax_bracket import TaxBracketCreate, TaxBracketOut, TaxBracketUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-_CONFIG_INTERVAL_KEY    = "snapshot_interval_minutes"
-_CONFIG_APP_NAME_KEY    = "app_name"
-_CONFIG_LOGO_DATA_KEY   = "logo_data"
-_CONFIG_LOGO_MIME_KEY   = "logo_mime"
-_CONFIG_LOGO_UPDATED_KEY = "logo_updated_at"
-_APP_NAME_DEFAULT       = "JSG Soft."
+_CONFIG_INTERVAL_KEY      = "snapshot_interval_minutes"
+_CONFIG_APP_NAME_KEY      = "app_name"
+_CONFIG_LOGO_DATA_KEY     = "logo_data"
+_CONFIG_LOGO_MIME_KEY     = "logo_mime"
+_CONFIG_LOGO_UPDATED_KEY  = "logo_updated_at"
+_CONFIG_CURRENCIES_KEY    = "supported_currencies"
+_APP_NAME_DEFAULT         = "JSG Soft."
+_CURRENCIES_DEFAULT       = "USD"  # EUR siempre implícita; esta clave guarda las demás
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +62,15 @@ def _get_interval(db: Session) -> int:
 def _get_app_name(db: Session) -> str:
     row = db.get(AppConfig, _CONFIG_APP_NAME_KEY)
     return row.value if row else _APP_NAME_DEFAULT
+
+
+def _get_supported_currencies(db: Session) -> list[str]:
+    """EUR es la divisa base (siempre válida). La clave guarda las adicionales."""
+    row = db.get(AppConfig, _CONFIG_CURRENCIES_KEY)
+    raw = row.value if row else _CURRENCIES_DEFAULT
+    extras = [c.strip().upper() for c in raw.split(",")
+              if c.strip() and c.strip().upper() != "EUR"]
+    return ["EUR"] + extras
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +339,7 @@ def get_config(
         "app_name": _get_app_name(db),
         "has_logo": db.get(AppConfig, _CONFIG_LOGO_DATA_KEY) is not None,
         "logo_updated_at": logo_updated.value if logo_updated else None,
+        "supported_currencies": _get_supported_currencies(db),
     }
 
 
@@ -344,6 +356,30 @@ def set_app_name(
         row.value = body.app_name
     db.commit()
     return {"app_name": body.app_name}
+
+
+@router.patch("/config/currencies")
+def set_currencies(
+    body: CurrenciesUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Actualiza la lista de divisas soportadas. EUR siempre es válida (no se almacena)."""
+    # Validar formatos (3 letras) y filtrar EUR (es implícita)
+    codes = []
+    for code in body.currencies:
+        c = code.strip().upper()
+        if len(c) != 3 or not c.isalpha():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Código de divisa inválido: '{code}' (debe ser 3 letras)"
+            )
+        if c != "EUR" and c not in codes:
+            codes.append(c)
+    value = ",".join(codes) if codes else ""
+    _upsert_config(db, _CONFIG_CURRENCIES_KEY, value)
+    db.commit()
+    return {"supported_currencies": ["EUR"] + codes}
 
 
 def _upsert_config(db: Session, key: str, value: str) -> None:

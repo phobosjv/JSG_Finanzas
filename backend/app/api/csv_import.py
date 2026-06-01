@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.admin_markets import _get_supported_currencies
 from app.api.deps import get_current_user, get_db
 from app.models import DividendRow, Position, Security, TransactionRow, User
 from app.schemas.portfolio import CsvImportBody, CsvImportResult
@@ -36,6 +37,7 @@ def import_csv(
     dividends_added = 0
     skipped = 0
     errors: list[dict] = []
+    valid_currencies = set(_get_supported_currencies(db))
 
     for idx, row in enumerate(body.rows, start=1):
         ticker = (row.ticker or "").strip().upper()
@@ -74,13 +76,17 @@ def import_csv(
                 errors.append({"row": idx, "ticker": ticker,
                                "reason": "fee no puede ser negativo"})
                 continue
+            if row.currency not in valid_currencies:
+                errors.append({"row": idx, "ticker": ticker,
+                               "reason": f"divisa '{row.currency}' no soportada"})
+                continue
             if row.currency == "EUR" and row.exchange_rate != Decimal("1"):
                 errors.append({"row": idx, "ticker": ticker,
                                "reason": "currency='EUR' exige exchange_rate=1"})
                 continue
-            if row.currency == "USD" and row.exchange_rate == Decimal("1"):
+            if row.currency != "EUR" and row.exchange_rate == Decimal("1"):
                 errors.append({"row": idx, "ticker": ticker,
-                               "reason": "currency='USD' requiere exchange_rate distinto de 1"})
+                               "reason": f"currency='{row.currency}' requiere exchange_rate distinto de 1"})
                 continue
 
             # Deduplicación: misma clave que backup/import
@@ -121,13 +127,17 @@ def import_csv(
                 errors.append({"row": idx, "ticker": ticker,
                                "reason": "withholding_tax no puede ser negativo"})
                 continue
+            if row.currency not in valid_currencies:
+                errors.append({"row": idx, "ticker": ticker,
+                               "reason": f"divisa '{row.currency}' no soportada"})
+                continue
             if row.currency == "EUR" and row.exchange_rate != Decimal("1"):
                 errors.append({"row": idx, "ticker": ticker,
                                "reason": "currency='EUR' exige exchange_rate=1"})
                 continue
-            if row.currency == "USD" and row.exchange_rate == Decimal("1"):
+            if row.currency != "EUR" and row.exchange_rate == Decimal("1"):
                 errors.append({"row": idx, "ticker": ticker,
-                               "reason": "currency='USD' requiere exchange_rate distinto de 1"})
+                               "reason": f"currency='{row.currency}' requiere exchange_rate distinto de 1"})
                 continue
 
             # Calcular gross_amount si no se proporcionó

@@ -65,7 +65,7 @@ function DivRow({ div, onDelete, onEdit }) {
 }
 
 function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx = null }) {
-  const { t } = useAppConfig()
+  const { t, currencies: CURRENCIES } = useAppConfig()
   const [form, setForm] = useState(editTx ? {
     type: editTx.type,
     date: editTx.date,
@@ -82,11 +82,11 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
   const [error, setError] = useState(null)
   const [rateStatus, setRateStatus] = useState('idle') // 'idle'|'fetching'|'auto'|'not_found'
 
-  // Auto-rellenar tipo de cambio cuando la divisa es USD y cambia la fecha
+  // Auto-rellenar tipo de cambio cuando la divisa no es EUR y cambia la fecha
   useEffect(() => {
-    if (form.currency !== 'USD' || !form.date) return
+    if (form.currency === 'EUR' || !form.date) return
     setRateStatus('fetching')
-    api.get(`/markets/exchange-rate?date=${form.date}`)
+    api.get(`/markets/exchange-rate?date=${form.date}&currency=${form.currency}`)
       .then(data => {
         if (data?.rate != null) {
           setForm(f => ({ ...f, exchange_rate: String(data.rate) }))
@@ -165,21 +165,20 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.tx_currency')}</label>
               <select {...field('currency')}>
-                <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
+                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.tx_exchange_rate')}</label>
               <input type="number" step="any" min="0.000001" {...field('exchange_rate')}
                 onChange={e => { setRateStatus('idle'); setForm(f => ({ ...f, exchange_rate: e.target.value })) }} />
-              {form.currency === 'USD' && rateStatus === 'fetching' && (
+              {form.currency !== 'EUR' && rateStatus === 'fetching' && (
                 <small style={{ color: 'var(--text-muted)' }}>{t('sd.rate_fetching')}</small>
               )}
-              {form.currency === 'USD' && rateStatus === 'auto' && (
+              {form.currency !== 'EUR' && rateStatus === 'auto' && (
                 <small style={{ color: 'var(--green)' }}>✓ {t('sd.rate_auto')}</small>
               )}
-              {form.currency === 'USD' && rateStatus === 'not_found' && (
+              {form.currency !== 'EUR' && rateStatus === 'not_found' && (
                 <small style={{ color: 'var(--text-muted)' }}>{t('sd.rate_not_found')}</small>
               )}
             </div>
@@ -197,7 +196,7 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
 }
 
 function AddDivModal({ positionId, onClose, onAdded, editDiv = null, currentShares = null }) {
-  const { t } = useAppConfig()
+  const { t, currencies: CURRENCIES } = useAppConfig()
   const [form, setForm] = useState(editDiv ? {
     date: editDiv.date,
     shares_at_date: String(editDiv.shares_at_date),
@@ -225,11 +224,11 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null, currentShar
       .catch(() => {})
   }, [])
 
-  // Auto-rellenar tipo de cambio cuando la divisa es USD y cambia la fecha
+  // Auto-rellenar tipo de cambio cuando la divisa no es EUR y cambia la fecha
   useEffect(() => {
-    if (form.currency !== 'USD' || !form.date) return
+    if (form.currency === 'EUR' || !form.date) return
     setRateStatus('fetching')
-    api.get(`/markets/exchange-rate?date=${form.date}`)
+    api.get(`/markets/exchange-rate?date=${form.date}&currency=${form.currency}`)
       .then(data => {
         if (data?.rate != null) {
           setForm(f => ({ ...f, exchange_rate: String(data.rate) }))
@@ -374,21 +373,20 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null, currentShar
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.tx_currency')}</label>
               <select {...field('currency')}>
-                <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
+                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.tx_exchange_rate')}</label>
               <input type="number" step="any" min="0.000001" {...field('exchange_rate')}
                 onChange={e => { setRateStatus('idle'); setForm(f => ({ ...f, exchange_rate: e.target.value })) }} />
-              {form.currency === 'USD' && rateStatus === 'fetching' && (
+              {form.currency !== 'EUR' && rateStatus === 'fetching' && (
                 <small style={{ color: 'var(--text-muted)' }}>{t('sd.rate_fetching')}</small>
               )}
-              {form.currency === 'USD' && rateStatus === 'auto' && (
+              {form.currency !== 'EUR' && rateStatus === 'auto' && (
                 <small style={{ color: 'var(--green)' }}>✓ {t('sd.rate_auto')}</small>
               )}
-              {form.currency === 'USD' && rateStatus === 'not_found' && (
+              {form.currency !== 'EUR' && rateStatus === 'not_found' && (
                 <small style={{ color: 'var(--text-muted)' }}>{t('sd.rate_not_found')}</small>
               )}
             </div>
@@ -405,10 +403,8 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null, currentShar
   )
 }
 
-const CURRENCIES = ['EUR', 'USD']
-
 function EditSecurityModal({ security, onClose, onSaved }) {
-  const { t } = useAppConfig()
+  const { t, currencies: CURRENCIES } = useAppConfig()
   const [form, setForm] = useState({
     name:          security.name,
     isin:          security.isin          ?? '',

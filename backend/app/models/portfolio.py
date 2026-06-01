@@ -104,7 +104,7 @@ class TransactionRow(Base):
     __table_args__ = (
         CheckConstraint("type IN ('buy','sell')", name="ck_tx_type"),
         CheckConstraint("shares > 0", name="ck_tx_shares_positive"),
-        CheckConstraint("currency IN ('EUR','USD')", name="ck_tx_currency"),
+        # ck_tx_currency eliminada en v1.6.16 para soportar multi-divisa configurable
         Index("idx_tx_position_date", "position_id", "date"),
     )
 
@@ -140,7 +140,7 @@ class DividendRow(Base):
     """
     __tablename__ = "dividends"
     __table_args__ = (
-        CheckConstraint("currency IN ('EUR','USD')", name="ck_div_currency"),
+        # ck_div_currency eliminada en v1.6.16 para soportar multi-divisa configurable
         Index("idx_div_position_date", "position_id", "date"),
     )
 

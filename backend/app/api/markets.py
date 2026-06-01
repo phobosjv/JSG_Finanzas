@@ -298,44 +298,47 @@ def _require_security(db: Session, security_id: int) -> Security:
 
 
 # ---------------------------------------------------------------------------
-#  Tipo de cambio EUR/USD para una fecha concreta
+#  Tipo de cambio EUR/{currency} para una fecha concreta
 # ---------------------------------------------------------------------------
 
 @router.get("/exchange-rate")
 def get_exchange_rate(
     date_str: str = Query(..., alias="date", pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    currency: str = Query("USD", min_length=3, max_length=3),
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
     """
-    Devuelve el tipo de cambio EUR/USD para la fecha indicada.
+    Devuelve el tipo de cambio EUR/{currency} para la fecha indicada.
 
     Estrategia:
-      1. Busca en ecb_rates el registro más reciente con fecha <= date.
-      2. Si no hay dato en BD, intenta obtenerlo de Yahoo Finance (EURUSD=X).
+      1. Para USD: busca en ecb_rates (caché BCE). Para otras divisas se salta este paso.
+      2. Si no hay dato en caché, intenta Yahoo Finance (EUR{currency}=X).
       3. Si tampoco hay dato en Yahoo, devuelve rate=null.
 
     Respuesta: {rate, date, source}  donde source es "ecb"|"yahoo"|"not_found".
     """
-    # 1. Buscar en la caché BCE
-    row = db.scalar(
-        select(EcbRate)
-        .where(EcbRate.date <= date_str)
-        .order_by(EcbRate.date.desc())
-        .limit(1)
-    )
-    if row is not None:
-        return {"rate": float(row.rate), "date": row.date, "source": "ecb"}
+    currency = currency.strip().upper()
 
-    # 2. Fallback: Yahoo Finance EURUSD=X
+    # 1. Caché BCE — solo disponible para USD
+    if currency == "USD":
+        row = db.scalar(
+            select(EcbRate)
+            .where(EcbRate.date <= date_str)
+            .order_by(EcbRate.date.desc())
+            .limit(1)
+        )
+        if row is not None:
+            return {"rate": float(row.rate), "date": row.date, "source": "ecb"}
+
+    # 2. Fallback: Yahoo Finance EUR{currency}=X
     try:
         from datetime import date as date_type, timedelta
-        from decimal import Decimal
         import yfinance as yf
         import math
 
         d = date_type.fromisoformat(date_str)
-        df = yf.Ticker("EURUSD=X").history(
+        df = yf.Ticker(f"EUR{currency}=X").history(
             start=d.isoformat(),
             end=(d + timedelta(days=5)).isoformat(),
             auto_adjust=False,

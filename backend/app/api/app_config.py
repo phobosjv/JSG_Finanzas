@@ -24,6 +24,15 @@ router = APIRouter(prefix="/config", tags=["config"])
 _APP_NAME_DEFAULT = "JSG Soft."
 
 
+def _get_supported_currencies_public(db) -> list[str]:
+    """Versión pública del helper (sin import circular con admin_markets)."""
+    row = db.get(AppConfig, "supported_currencies")
+    raw = row.value if row else "USD"
+    extras = [c.strip().upper() for c in raw.split(",")
+              if c.strip() and c.strip().upper() != "EUR"]
+    return ["EUR"] + extras
+
+
 @router.get("")
 def get_public_config(db: Session = Depends(get_db)):
     name = db.get(AppConfig, "app_name")
@@ -32,6 +41,7 @@ def get_public_config(db: Session = Depends(get_db)):
         "app_name": name.value if name else _APP_NAME_DEFAULT,
         "has_logo": db.get(AppConfig, "logo_data") is not None,
         "logo_updated_at": logo_updated.value if logo_updated else None,
+        "supported_currencies": _get_supported_currencies_public(db),
     }
 
 

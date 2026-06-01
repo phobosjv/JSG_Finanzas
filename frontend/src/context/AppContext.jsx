@@ -7,15 +7,19 @@ const AppCtx = createContext(null)
 export function AppProvider({ children }) {
   const [appName, setAppNameState] = useState('JSG Soft.')
   const [logo, setLogoState] = useState({ hasLogo: false, updatedAt: null })
+  const [currencies, setCurrencies] = useState(['EUR', 'USD'])
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
   const [locale, setLocaleState] = useState(() => localStorage.getItem('locale') || 'es')
 
-  // Cargar configuración pública desde el backend (nombre + logo)
+  // Cargar configuración pública desde el backend (nombre + logo + divisas)
   const loadConfig = useCallback(() => {
     return api.get('/config')
       .then(d => {
         if (d?.app_name) setAppNameState(d.app_name)
         setLogoState({ hasLogo: !!d?.has_logo, updatedAt: d?.logo_updated_at ?? null })
+        if (Array.isArray(d?.supported_currencies) && d.supported_currencies.length > 0) {
+          setCurrencies(d.supported_currencies)
+        }
       })
       .catch(() => {})
   }, [])
@@ -68,7 +72,7 @@ export function AppProvider({ children }) {
   )
 
   return (
-    <AppCtx.Provider value={{ appName, setAppName, logoUrl, refreshLogo, theme, toggleTheme, locale, setLocale, t }}>
+    <AppCtx.Provider value={{ appName, setAppName, logoUrl, refreshLogo, currencies, theme, toggleTheme, locale, setLocale, t }}>
       {children}
     </AppCtx.Provider>
   )
