@@ -1,3 +1,24 @@
 {$DOMAIN} {
     reverse_proxy finanzas:8000
 }
+
+# Portainer (HTTPS autofirmado en el host, puerto 9443).
+# tls_insecure_skip_verify: el backend usa certificado autofirmado; el tramo
+# navegador<->Caddy sigue cifrado con Let's Encrypt. Requiere extra_hosts en
+# el servicio caddy del docker-compose y que el 9443 esté publicado en el host.
+portainer.jsg-portfolio.com {
+    reverse_proxy https://host.docker.internal:9443 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}
+
+# Webmin (HTTPS autofirmado en el host, puerto 10000).
+webmin.jsg-portfolio.com {
+    reverse_proxy https://host.docker.internal:10000 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}

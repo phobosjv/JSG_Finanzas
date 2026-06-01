@@ -5,6 +5,11 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    extra_hosts:
+      # Permite que Caddy alcance servicios publicados en el host (Portainer
+      # 9443, Webmin 10000) vía host.docker.internal. Sin esto, los subdominios
+      # de esos servicios en el Caddyfile devolverían 502.
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
