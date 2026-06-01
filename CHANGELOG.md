@@ -5,6 +5,27 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.1] — 2026-06-02
+
+### Corregido — Traspasos de fondos en backup, histórico y analytics
+
+- **backup/restore** (`backup.py`, `admin.py`): las transacciones `transfer_in` /
+  `transfer_out` ya no se descartan al restaurar un backup. Antes se rechazaban
+  silenciosamente con un error, dejando el FIFO del fondo de destino roto tras
+  una restauración.
+- **Histórico de cartera** (`/portfolio/history`): los fondos recibidos por
+  traspaso ahora aparecen en el gráfico. `first_buy_date` y `running_shares`
+  trataban `transfer_in` como si fuera una venta, excluyendo el fondo del
+  histórico.
+- **_months_held_active**: `transfer_in` ya suma participaciones en lugar de
+  restarlas; los meses activos para dividendos de fondos traspasados eran
+  incorrectos.
+- **dividends-by-security**: `total_cost_eur` incluye ahora el coste heredado
+  del `transfer_in`. Antes, un fondo sin compra directa mostraba coste = 0 y
+  el yield on cost era infinito.
+
+---
+
 ## [1.7.0] — 2026-06-02
 
 ### Añadido — Mercados de fondos de inversión
