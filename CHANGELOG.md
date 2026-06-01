@@ -5,6 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.14] — 2026-06-01
+
+### Añadido
+
+- **Importación CSV de operaciones** (Utilidades). Los usuarios pueden subir
+  un CSV con compras, ventas y dividendos de una o varias acciones. Flujo:
+  seleccionar fichero → preview en tabla → confirmar importación.
+  - Un único CSV con columna `type` (`buy`/`sell`/`dividend`) e `ticker` Yahoo.
+  - `gross_amount` del dividendo se calcula automáticamente si se omite.
+  - Deduplicación idéntica al backup import: reimportar el mismo fichero
+    es seguro.
+  - Tickers no encontrados en catálogo generan error por fila sin bloquear
+    el resto de la importación.
+  - Enlace "Descargar plantilla de ejemplo" junto al botón de importación.
+- Endpoint nuevo: `POST /api/portfolio/import-csv` (usuario autenticado).
+
 ## [1.6.13] — 2026-05-31
 
 ### Añadido

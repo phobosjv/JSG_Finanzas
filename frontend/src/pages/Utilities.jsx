@@ -2,6 +2,35 @@ import { useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
 
+// ---------------------------------------------------------------------------
+//  Parseo de CSV en el cliente (sin dependencias externas)
+// ---------------------------------------------------------------------------
+
+function parseCsv(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  const nonEmpty = lines.filter(l => l.trim() !== '')
+  if (nonEmpty.length < 2) return []
+  const headers = nonEmpty[0].split(',').map(h => h.trim().toLowerCase())
+  return nonEmpty.slice(1).map((line, i) => {
+    const vals = line.split(',').map(v => v.trim())
+    const obj = { _row: i + 2 }  // 1-based, +1 para la cabecera
+    headers.forEach((h, j) => { obj[h] = vals[j] ?? '' })
+    return obj
+  })
+}
+
+function rowHasError(row) {
+  if (!row.type || !['buy', 'sell', 'dividend'].includes(row.type)) return true
+  if (!row.ticker) return true
+  if (!row.date) return true
+  if (!row.shares || isNaN(Number(row.shares))) return true
+  if ((row.type === 'buy' || row.type === 'sell') && (!row.price || isNaN(Number(row.price)))) return true
+  if (row.type === 'dividend' && (!row.gross_per_share || isNaN(Number(row.gross_per_share)))) return true
+  return false
+}
+
+const TYPE_COLORS = { buy: 'var(--green)', sell: 'var(--red)', dividend: 'var(--accent)' }
+
 export default function Utilities() {
   const { theme, toggleTheme, locale, setLocale, t } = useAppConfig()
 
@@ -16,6 +45,56 @@ export default function Utilities() {
   const [backupMsg, setBackupMsg]   = useState(null)
   const [backupErr, setBackupErr]   = useState(null)
   const fileRef                     = useRef(null)
+
+  // CSV import
+  const csvFileRef                      = useRef(null)
+  const [csvRows, setCsvRows]           = useState(null)   // null = nada cargado
+  const [csvParseErr, setCsvParseErr]   = useState(null)
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvResult, setCsvResult]       = useState(null)
+  const [csvErr, setCsvErr]             = useState(null)
+
+  function onCsvFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCsvRows(null); setCsvParseErr(null); setCsvResult(null); setCsvErr(null)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const rows = parseCsv(ev.target.result)
+        if (rows.length === 0) { setCsvParseErr(t('utilities.csv_no_rows')); return }
+        setCsvRows(rows)
+      } catch {
+        setCsvParseErr(t('utilities.csv_parse_error'))
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  async function importCsv() {
+    if (!csvRows?.length) return
+    setCsvImporting(true); setCsvResult(null); setCsvErr(null)
+    try {
+      const rows = csvRows.map(r => ({
+        type: r.type,
+        ticker: (r.ticker || '').toUpperCase(),
+        date: r.date,
+        shares: Number(r.shares),
+        price: r.price ? Number(r.price) : undefined,
+        gross_per_share: r.gross_per_share ? Number(r.gross_per_share) : undefined,
+        gross_amount: r.gross_amount ? Number(r.gross_amount) : undefined,
+        fee: r.fee ? Number(r.fee) : 0,
+        withholding_tax: r.withholding_tax ? Number(r.withholding_tax) : 0,
+        currency: r.currency || 'EUR',
+        exchange_rate: r.exchange_rate ? Number(r.exchange_rate) : 1,
+      }))
+      const result = await api.post('/portfolio/import-csv', { rows })
+      setCsvResult(result)
+      setCsvRows(null)
+    } catch (err) { setCsvErr(err.message) }
+    finally { setCsvImporting(false) }
+  }
 
   async function exportBackup() {
     const res = await fetch('/api/backup/export', { credentials: 'include' })
@@ -174,6 +253,128 @@ export default function Utilities() {
             onChange={importBackup}
           />
         </div>
+      </div>
+
+      {/* Importar CSV */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>{t('utilities.csv_title')}</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 12, fontSize: '0.9rem' }}>
+          {t('utilities.csv_desc')}
+        </p>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+          <button className="btn-primary btn-sm" onClick={() => csvFileRef.current?.click()}>
+            {t('utilities.csv_select')}
+          </button>
+          <input
+            ref={csvFileRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={onCsvFile}
+          />
+          <a
+            href="/plantilla-importacion.csv"
+            download
+            style={{ fontSize: '0.85rem', color: 'var(--accent)', textDecoration: 'underline' }}
+          >
+            {t('utilities.csv_template')}
+          </a>
+        </div>
+
+        {csvParseErr && (
+          <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{csvParseErr}</div>
+        )}
+        {csvErr && (
+          <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{csvErr}</div>
+        )}
+        {csvResult && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ color: 'var(--green)', padding: '6px 0' }}>
+              {t('utilities.csv_result')
+                .replace('{tx}', csvResult.transactions_added)
+                .replace('{div}', csvResult.dividends_added)
+                .replace('{sk}', csvResult.skipped)}
+            </div>
+            {csvResult.errors?.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <span style={{ color: 'var(--red)', fontWeight: 600, fontSize: '0.85rem' }}>
+                  {t('utilities.csv_errors')}
+                </span>
+                <ul style={{ marginTop: 4, paddingLeft: 20, fontSize: '0.82rem', color: 'var(--red)' }}>
+                  {csvResult.errors.map((e, i) => (
+                    <li key={i}>
+                      {t('utilities.csv_error_row')
+                        .replace('{row}', e.row)
+                        .replace('{ticker}', e.ticker)
+                        .replace('{reason}', e.reason)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Preview del CSV parseado */}
+        {csvRows && csvRows.length > 0 && (
+          <div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+              {t('utilities.csv_preview')} — {csvRows.length} {csvRows.length === 1 ? 'fila' : 'filas'}
+            </p>
+            <div className="table-wrap" style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 12 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t('utilities.csv_col_row')}</th>
+                    <th>{t('utilities.csv_col_type')}</th>
+                    <th>{t('utilities.csv_col_ticker')}</th>
+                    <th>{t('utilities.csv_col_date')}</th>
+                    <th className="num">{t('utilities.csv_col_shares')}</th>
+                    <th className="num">{t('utilities.csv_col_price')}</th>
+                    <th>{t('utilities.csv_col_currency')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {csvRows.map((row, i) => {
+                    const hasErr = rowHasError(row)
+                    return (
+                      <tr key={i} style={hasErr ? { background: 'rgba(229,57,53,0.08)' } : {}}>
+                        <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{row._row}</td>
+                        <td>
+                          <span style={{
+                            fontWeight: 600, fontSize: '0.8rem',
+                            color: TYPE_COLORS[row.type] ?? 'var(--text-muted)',
+                          }}>
+                            {row.type || '—'}
+                          </span>
+                        </td>
+                        <td className="ticker">{row.ticker || <span style={{ color: 'var(--red)' }}>!</span>}</td>
+                        <td style={{ fontSize: '0.85rem' }}>{row.date || '—'}</td>
+                        <td className="num">{row.shares || '—'}</td>
+                        <td className="num">
+                          {row.type === 'dividend'
+                            ? (row.gross_per_share || '—')
+                            : (row.price || '—')}
+                        </td>
+                        <td>{row.currency || 'EUR'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <button
+              className="btn-primary btn-sm"
+              disabled={csvImporting}
+              onClick={importCsv}
+            >
+              {csvImporting
+                ? t('utilities.csv_importing')
+                : `${t('utilities.csv_import_btn')} (${csvRows.length})`}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

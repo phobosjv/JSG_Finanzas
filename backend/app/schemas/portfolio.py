@@ -229,3 +229,34 @@ class SecurityDividendSummary(BaseModel):
     total_eur: float       # suma de gross_amount_eur de todos los cobros
     total_cost_eur: float  # capital total invertido (suma de todas las compras en EUR)
     yield_on_cost: float   # (total_eur / years_held) / total_cost_eur × 100 (anualizado)
+
+
+# ---------------------------------------------------------------------------
+#  Importación CSV de operaciones
+# ---------------------------------------------------------------------------
+
+class CsvRowIn(BaseModel):
+    """Una fila del CSV de importación. El frontend parsea el CSV y envía
+    la lista de filas como JSON. Los campos no aplicables se ignoran."""
+    type: Literal["buy", "sell", "dividend"]
+    ticker: str
+    date: str
+    shares: Decimal                          # acciones (buy/sell) o shares_at_date (dividend)
+    price: Decimal | None = None             # obligatorio para buy/sell
+    gross_per_share: Decimal | None = None   # obligatorio para dividend
+    gross_amount: Decimal | None = None      # opcional dividend; calculado si None
+    fee: Decimal = Decimal("0")              # solo buy/sell
+    withholding_tax: Decimal = Decimal("0")  # solo dividend
+    currency: Literal["EUR", "USD"] = "EUR"
+    exchange_rate: Decimal = Decimal("1")
+
+
+class CsvImportBody(BaseModel):
+    rows: list[CsvRowIn]
+
+
+class CsvImportResult(BaseModel):
+    transactions_added: int
+    dividends_added: int
+    skipped: int
+    errors: list[dict]  # [{"row": int, "ticker": str, "reason": str}]
