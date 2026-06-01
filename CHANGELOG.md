@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.6.20] — 2026-06-01
+
+### Añadido
+
+- **Botón "Listar todos"** en el explorador Yahoo Finance por mercado.
+  Trae el listado COMPLETO de acciones del exchange (vía screener de Yahoo,
+  `yf.screen` + `EquityQuery`, paginando hasta 2000), marcando cuáles ya
+  están en el catálogo y ordenando primero las que faltan por añadir.
+  Muestra contador "N valores en el mercado · M sin añadir".
+- Nuevo endpoint: `GET /api/admin/markets/{code}/yahoo-list-all` (admin).
+
+### Nota / limitación
+
+- El listado completo usa `EquityQuery`, que devuelve **acciones** (EQUITY).
+  Los ETFs y cripto usan otro tipo de query de Yahoo y pueden no aparecer
+  en el listado completo; para esos casos sigue disponible la búsqueda por texto.
+- Tope de seguridad de 2000 valores por exchange para evitar tiempos excesivos.
+
 ## [1.6.19] — 2026-06-01
 
 ### Añadido

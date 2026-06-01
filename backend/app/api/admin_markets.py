@@ -664,3 +664,93 @@ def search_yahoo_by_market(
         })
 
     return {"error": None, "results": results}
+
+
+# Tope de seguridad: nº máximo de valores a traer de un exchange (evita
+# exchanges enormes que tardarían demasiado o agotarían rate-limit de Yahoo).
+_SCREEN_PAGE_SIZE = 250
+_SCREEN_MAX_TOTAL = 2000
+
+
+@router.get("/markets/{code}/yahoo-list-all")
+def list_all_yahoo_by_market(
+    code: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Lista TODOS los valores (acciones) del exchange Yahoo del mercado dado.
+
+    Usa el screener de Yahoo (yf.screen + EquityQuery) paginando de 250 en 250
+    hasta agotar resultados o alcanzar el tope de seguridad. Marca cuáles ya
+    están en el catálogo.
+
+    Limitación: EquityQuery lista acciones (EQUITY). ETFs y cripto usan otro
+    tipo de query y pueden no aparecer; para esos mercados, usar la búsqueda
+    por texto.
+    """
+    market = _require_market(db, code)
+
+    if not market.yahoo_exchange:
+        return {"error": "no_exchange_configured", "results": [], "total": 0}
+
+    import yfinance as yf
+
+    exchange = market.yahoo_exchange.upper()
+
+    try:
+        query = yf.EquityQuery("eq", ["exchange", exchange])
+        all_quotes: list[dict] = []
+        total_reported = 0
+        offset = 0
+        while offset < _SCREEN_MAX_TOTAL:
+            res = yf.screen(query, offset=offset, size=_SCREEN_PAGE_SIZE)
+            if not isinstance(res, dict):
+                break
+            total_reported = res.get("total", total_reported)
+            page = res.get("quotes", []) or []
+            if not page:
+                break
+            all_quotes.extend(page)
+            if len(page) < _SCREEN_PAGE_SIZE:
+                break
+            offset += _SCREEN_PAGE_SIZE
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Yahoo Finance no disponible: {exc}",
+        )
+
+    if not all_quotes:
+        return {"error": None, "results": [], "total": 0}
+
+    # Comprobar cuáles ya están en el catálogo (una sola consulta)
+    tickers = [item.get("symbol", "").upper() for item in all_quotes if item.get("symbol")]
+    existing: dict[str, str] = {}
+    if tickers:
+        rows = db.scalars(
+            select(Security).where(Security.yahoo_ticker.in_(tickers))
+        ).all()
+        existing = {sec.yahoo_ticker.upper(): sec.market for sec in rows}
+
+    results = []
+    seen: set[str] = set()
+    for item in all_quotes:
+        symbol = (item.get("symbol") or "").upper()
+        if not symbol or symbol in seen:
+            continue
+        seen.add(symbol)
+        name = item.get("shortName") or item.get("longName") or symbol
+        results.append({
+            "ticker":         symbol,
+            "name":           name,
+            "exchange":       item.get("exchDisp") or item.get("exchange") or exchange,
+            "type":           item.get("quoteType") or "",
+            "currency":       (item.get("currency") or "").upper() or None,
+            "in_catalog":     symbol in existing,
+            "catalog_market": existing.get(symbol),
+        })
+
+    # Ordenar: primero los que faltan por añadir, luego por ticker
+    results.sort(key=lambda r: (r["in_catalog"], r["ticker"]))
+
+    return {"error": None, "results": results, "total": total_reported or len(results)}

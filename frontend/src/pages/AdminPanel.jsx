@@ -1033,6 +1033,7 @@ function MarketsSection() {
   const [mktYfResults, setMktYfResults] = useState(null)
   const [mktYfLoading, setMktYfLoading] = useState(false)
   const [mktYfError, setMktYfError]     = useState(null)
+  const [mktTotal, setMktTotal]         = useState(null)
 
   async function load() { setMarkets(await api.get('/admin/markets')) }
   useEffect(() => { load() }, [])
@@ -1103,6 +1104,22 @@ function MarketsSection() {
   function openMktExplorer(code) {
     if (mktExplorer === code) { setMktExplorer(null); return }
     setMktExplorer(code); setMktYfQuery(''); setMktYfResults(null); setMktYfError(null)
+    setMktTotal(null)
+  }
+
+  async function listAllMkt() {
+    if (!mktExplorer) return
+    setMktYfLoading(true); setMktYfError(null); setMktYfResults(null); setMktTotal(null)
+    try {
+      const data = await api.get(`/admin/markets/${mktExplorer}/yahoo-list-all`)
+      if (data.error === 'no_exchange_configured') {
+        setMktYfError(t('admin.market_no_exchange'))
+      } else {
+        setMktYfResults(data.results || [])
+        setMktTotal(data.total ?? (data.results || []).length)
+      }
+    } catch (err) { setMktYfError(err.message) }
+    finally { setMktYfLoading(false) }
   }
 
   /** Añade un valor de Yahoo directamente al mercado que se está explorando. */
@@ -1286,19 +1303,37 @@ function MarketsSection() {
               <strong style={{ fontSize: '0.9rem' }}>🔍 {m.name} · {m.yahoo_exchange}</strong>
               <button className="btn-ghost btn-sm" onClick={() => setMktExplorer(null)}>✕</button>
             </div>
-            <form onSubmit={searchMktYahoo} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <form onSubmit={searchMktYahoo} style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
               <input
                 type="text"
                 value={mktYfQuery}
                 onChange={e => setMktYfQuery(e.target.value)}
                 placeholder={ph}
-                style={{ flex: 1 }}
+                style={{ flex: 1, minWidth: 180 }}
                 autoFocus
               />
               <button type="submit" className="btn-primary btn-sm" disabled={mktYfLoading || !mktYfQuery.trim()}>
                 {mktYfLoading ? t('admin.yf_searching') : t('admin.yf_search_btn')}
               </button>
+              <button type="button" className="btn-ghost btn-sm" disabled={mktYfLoading} onClick={listAllMkt}>
+                📋 {t('admin.market_list_all')}
+              </button>
             </form>
+
+            {mktYfLoading && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 8 }}>
+                <div className="spinner" style={{ width: 16, height: 16, flexShrink: 0 }} />
+                <span>{t('admin.market_listing')}</span>
+              </div>
+            )}
+
+            {mktTotal !== null && mktYfResults && !mktYfLoading && (
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                {t('admin.market_list_count')
+                  .replace('{n}', mktTotal)
+                  .replace('{missing}', mktYfResults.filter(r => !r.in_catalog).length)}
+              </div>
+            )}
 
             {mktYfError && <div className="state-error" style={{ padding: 8, marginBottom: 8 }}>{mktYfError}</div>}
             {mktYfResults !== null && mktYfResults.length === 0 && !mktYfLoading && (

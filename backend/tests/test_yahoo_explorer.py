@@ -49,11 +49,36 @@ class _FakeSearch:
         ]
 
 
+def _fake_screen(query, offset=None, size=None, **kwargs):
+    """Simula yfinance.screen(): una sola página de 2 acciones del exchange MCE."""
+    if offset and offset > 0:
+        return {"total": 2, "quotes": []}
+    return {
+        "total": 2,
+        "quotes": [
+            {"symbol": "SAN.MC", "shortName": "Banco Santander",
+             "exchange": "MCE", "exchDisp": "Madrid",
+             "quoteType": "EQUITY", "currency": "EUR"},
+            {"symbol": "BBVA.MC", "shortName": "BBVA",
+             "exchange": "MCE", "exchDisp": "Madrid",
+             "quoteType": "EQUITY", "currency": "EUR"},
+        ],
+    }
+
+
+class _FakeEquityQuery:
+    def __init__(self, operator, operands):
+        self.operator = operator
+        self.operands = operands
+
+
 @pytest.fixture(autouse=True)
 def mock_yf_search(monkeypatch):
-    """Reemplaza yf.Search en el módulo del endpoint para evitar llamadas reales."""
+    """Reemplaza yf.Search/screen/EquityQuery para evitar llamadas reales."""
     import yfinance as yf
     monkeypatch.setattr(yf, "Search", _FakeSearch)
+    monkeypatch.setattr(yf, "screen", _fake_screen, raising=False)
+    monkeypatch.setattr(yf, "EquityQuery", _FakeEquityQuery, raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -136,4 +161,46 @@ def test_market_sin_exchange_da_error_configurable(admin_client, seed_markets):
 
 def test_market_yahoo_search_no_admin(auth_client, seed_markets):
     r = auth_client.get("/api/admin/markets/ibex35/yahoo-securities?q=banco")
+    assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+#  Tests listado completo del mercado (yahoo-list-all)
+# ---------------------------------------------------------------------------
+
+def test_list_all_devuelve_todos(admin_client, seed_markets):
+    """Lista todos los valores del exchange del mercado (sin búsqueda por texto)."""
+    _crear_market_con_exchange(admin_client, code="ibex35", exchange="MCE")
+    r = admin_client.get("/api/admin/markets/ibex35/yahoo-list-all")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["error"] is None
+    tickers = {item["ticker"] for item in data["results"]}
+    assert tickers == {"SAN.MC", "BBVA.MC"}
+    assert data["total"] == 2
+
+
+def test_list_all_marca_in_catalog(admin_client, seed_markets):
+    """Los que ya están en catálogo se marcan; el orden pone los que faltan primero."""
+    _crear_market_con_exchange(admin_client, code="ibex35", exchange="MCE")
+    _crear_security(admin_client, ticker="SAN.MC", market="ibex35")
+    r = admin_client.get("/api/admin/markets/ibex35/yahoo-list-all")
+    data = r.json()["results"]
+    san = next(d for d in data if d["ticker"] == "SAN.MC")
+    bbva = next(d for d in data if d["ticker"] == "BBVA.MC")
+    assert san["in_catalog"] is True
+    assert san["catalog_market"] == "ibex35"
+    assert bbva["in_catalog"] is False
+    # El que falta (BBVA) aparece antes que el que ya está (SAN)
+    assert data[0]["ticker"] == "BBVA.MC"
+
+
+def test_list_all_sin_exchange_da_error(admin_client, seed_markets):
+    r = admin_client.get("/api/admin/markets/ibex35/yahoo-list-all")
+    assert r.status_code == 200
+    assert r.json()["error"] == "no_exchange_configured"
+
+
+def test_list_all_no_admin(auth_client, seed_markets):
+    r = auth_client.get("/api/admin/markets/ibex35/yahoo-list-all")
     assert r.status_code == 403
