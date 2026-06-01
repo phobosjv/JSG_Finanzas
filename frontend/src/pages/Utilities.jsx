@@ -280,6 +280,14 @@ export default function Utilities() {
           >
             {t('utilities.csv_template')}
           </a>
+          <a
+            href="/manual-importacion-csv.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textDecoration: 'underline' }}
+          >
+            {t('utilities.csv_manual')}
+          </a>
         </div>
 
         {csvParseErr && (
