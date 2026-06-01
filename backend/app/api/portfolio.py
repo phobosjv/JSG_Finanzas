@@ -339,7 +339,7 @@ def get_portfolio_history(
             continue
 
         first_buy_date = next(
-            (tx.date for tx in tx_rows if tx.type == "buy"), None
+            (tx.date for tx in tx_rows if tx.type in ("buy", "transfer_in")), None
         )
         if not first_buy_date:
             continue
@@ -381,7 +381,7 @@ def get_portfolio_history(
             while tx_idx < n_tx and tx_rows[tx_idx].date <= price_row.date:
                 tx = tx_rows[tx_idx]
                 adj = _adj_shares(tx.date, tx.shares)
-                running_shares += adj if tx.type == "buy" else -adj
+                running_shares += adj if tx.type in ("buy", "transfer_in") else -adj
                 tx_idx += 1
 
             if running_shares > Decimal("0"):
@@ -564,7 +564,7 @@ def _months_held_active(txs: list) -> int:
     for tx in events:
         if prev_date is not None and shares > Decimal("0"):
             total_days += (tx.date - prev_date).days
-        shares += tx.shares if tx.type == "buy" else -tx.shares
+        shares += tx.shares if tx.type in ("buy", "transfer_in") else -tx.shares
         prev_date = tx.date
 
     # Si todavía tiene acciones (posición abierta), contar hasta hoy
@@ -628,7 +628,7 @@ def get_dividends_by_security(
         # Capital total invertido (todas las compras en EUR)
         total_cost_eur = float(sum(
             tx.price * tx.shares / tx.exchange_rate + tx.fee / tx.exchange_rate
-            for tx in all_txs if tx.type == "buy"
+            for tx in all_txs if tx.type in ("buy", "transfer_in")
         ))
 
         # Yield por dividendo: gross_eur / capital_en_fecha

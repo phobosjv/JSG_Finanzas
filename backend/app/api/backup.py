@@ -179,8 +179,8 @@ async def import_backup(
                     raise ValueError("fee no puede ser negativo")
                 if tx_rate <= 0:
                     raise ValueError("exchange_rate debe ser > 0")
-                if tx_data["type"] not in ("buy", "sell"):
-                    raise ValueError("type debe ser 'buy' o 'sell'")
+                if tx_data["type"] not in ("buy", "sell", "transfer_in", "transfer_out"):
+                    raise ValueError("type debe ser 'buy', 'sell', 'transfer_in' o 'transfer_out'")
                 if tx_data["currency"] not in valid_currencies:
                     raise ValueError(f"currency '{tx_data['currency']}' no está soportada")
                 # Coherencia divisa/cambio: USD con rate=1 es incoherente y
