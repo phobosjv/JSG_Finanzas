@@ -37,7 +37,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.models import (
-    AppConfig, EcbRate, Position, PriceHistory, PriceSnapshot,
+    AppConfig, EcbRate, Favorite, Position, PriceHistory, PriceSnapshot,
     RecurringPlanRow, Security, TransactionRow,
 )
 from app.models.market import MarketRow
@@ -234,29 +234,111 @@ def _fund_market_codes(db: Session) -> set[str]:
     )
 
 
-def update_snapshots(db: Session, include_funds: bool = True) -> None:
+# Pausa entre snapshots para no saturar Yahoo (rate-limiting / 429).
+_SNAPSHOT_SLEEP = 0.3
+
+
+def _active_security_ids(db: Session) -> set[int]:
+    """
+    Valores "en uso": los que algún usuario posee (positions) o sigue
+    (favorites). Solo estos se actualizan en el job en vivo de cada N minutos;
+    el resto del catálogo se refresca en el barrido nocturno o bajo demanda.
+    """
+    pos_ids = db.scalars(select(Position.security_id).distinct()).all()
+    fav_ids = db.scalars(select(Favorite.security_id).distinct()).all()
+    return set(pos_ids) | set(fav_ids)
+
+
+def _is_rate_limited(exc: Exception) -> bool:
+    """Heurística: ¿la excepción de yfinance indica rate-limit/baneo de Yahoo?"""
+    msg = str(exc).lower()
+    return "429" in msg or "too many requests" in msg or "rate limit" in msg
+
+
+def update_snapshots(
+    db: Session,
+    include_funds: bool = True,
+    only_ids: set[int] | None = None,
+    with_dividends: bool = True,
+) -> None:
     """
     Actualiza los snapshots de precio en vivo.
 
-    Si include_funds es False, omite los valores de mercados de fondos: su NAV
-    es diario y no cambia intradía, así que no tiene sentido consultarlo cada
-    pocos minutos. El job nocturno siempre los incluye (include_funds=True).
+    - include_funds=False omite los mercados de fondos (NAV diario; no cambia
+      intradía). El job nocturno los incluye.
+    - only_ids: si se indica, solo se actualizan esos valores (conjunto activo
+      del job en vivo). None = todo el catálogo (barrido nocturno).
+    - with_dividends: el path en vivo lo pone a False para no hacer la petición
+      extra de dividendos a Yahoo; se capturan en el barrido nocturno.
+
+    Si Yahoo responde rate-limit (429) se interrumpe la pasada para no insistir.
     """
-    securities = db.scalars(select(Security)).all()
+    q = select(Security)
+    if only_ids is not None:
+        if not only_ids:
+            return
+        q = q.where(Security.id.in_(only_ids))
+    securities = db.scalars(q).all()
     fund_codes = _fund_market_codes(db) if not include_funds else set()
 
     for sec in securities:
         if not include_funds and sec.market in fund_codes:
             continue
         try:
-            _update_snapshot_for_security(db, sec)
-        except Exception:
-            log.exception("Error actualizando snapshot de %s", sec.yahoo_ticker)
+            _update_snapshot_for_security(db, sec, with_dividends=with_dividends)
+        except Exception as exc:
             db.rollback()
+            if _is_rate_limited(exc):
+                log.warning(
+                    "Yahoo rate-limit al actualizar %s; se interrumpe la pasada de snapshots",
+                    sec.yahoo_ticker,
+                )
+                break
+            log.exception("Error actualizando snapshot de %s", sec.yahoo_ticker)
+        time.sleep(_SNAPSHOT_SLEEP)
 
 
-def _update_snapshot_for_security(db: Session, sec: Security) -> None:
-    quote = _yahoo.fetch_live_quote(sec.yahoo_ticker)
+def refresh_market_snapshots(market_code: str, with_dividends: bool = False) -> int:
+    """
+    Refresca en SEGUNDO PLANO (sesión propia) los snapshots de un mercado.
+    Usado por el refresco bajo demanda de Top movers al abrir el Dashboard.
+    Paced + corte ante rate-limit. Devuelve cuántos se intentaron.
+    """
+    from app.database import SessionLocal
+    db = SessionLocal()
+    n = 0
+    try:
+        secs = db.scalars(select(Security).where(Security.market == market_code)).all()
+        for sec in secs:
+            try:
+                _update_snapshot_for_security(db, sec, with_dividends=with_dividends)
+                n += 1
+            except Exception as exc:
+                db.rollback()
+                if _is_rate_limited(exc):
+                    log.warning("Yahoo rate-limit en refresh de mercado %s; corto", market_code)
+                    break
+            time.sleep(_SNAPSHOT_SLEEP)
+    finally:
+        db.close()
+    return n
+
+
+def refresh_all_full() -> None:
+    """Barrido completo (histórico + snapshots) en SEGUNDO PLANO, sesión propia."""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        update_price_history(db)
+        update_snapshots(db, include_funds=True, with_dividends=True)
+    finally:
+        db.close()
+
+
+def _update_snapshot_for_security(
+    db: Session, sec: Security, with_dividends: bool = True
+) -> None:
+    quote = _yahoo.fetch_live_quote(sec.yahoo_ticker, with_dividends=with_dividends)
     # Si no hay precio (mercado cerrado, festivo), conservar el snapshot anterior
     if quote.last_price is None:
         return
@@ -269,6 +351,15 @@ def _update_snapshot_for_security(db: Session, sec: Security) -> None:
     ).all()
     closes = [(date.fromisoformat(r.date), r.close) for r in rows]
     stats = compute_ranges(closes)
+
+    # En el path en vivo no se consulta el dividendo (with_dividends=False) para
+    # ahorrar una petición a Yahoo: conservamos el último dividendo ya guardado
+    # (lo captura el barrido nocturno) en lugar de sobrescribirlo con None.
+    if with_dividends:
+        last_dividend_value = quote.last_dividend
+    else:
+        existing = db.get(PriceSnapshot, sec.id)
+        last_dividend_value = existing.last_dividend if existing else None
 
     # Si Yahoo proporcionó el timestamp del último trade, lo preferimos sobre
     # el datetime actual: refleja cuándo se actualizaron los precios EN ORIGEN.
@@ -291,7 +382,7 @@ def _update_snapshot_for_security(db: Session, sec: Security) -> None:
             max_1y=stats.max_1y,
             min_2y=stats.min_2y,
             min_5y=stats.min_5y,
-            last_dividend=quote.last_dividend,
+            last_dividend=last_dividend_value,
             updated_at=updated_at_value,
         )
         .on_conflict_do_update(
@@ -304,7 +395,7 @@ def _update_snapshot_for_security(db: Session, sec: Security) -> None:
                 "max_1y": stats.max_1y,
                 "min_2y": stats.min_2y,
                 "min_5y": stats.min_5y,
-                "last_dividend": quote.last_dividend,
+                "last_dividend": last_dividend_value,
                 "updated_at": updated_at_value,
             },
         )
@@ -393,8 +484,13 @@ def update_snapshots_live(db: Session) -> None:
     """
     now = datetime.now()
     include_funds = _should_refresh_funds_live(db, now)
-    log.info("Actualizacion live de snapshots (fondos=%s)", include_funds)
-    update_snapshots(db, include_funds=include_funds)
+    active = _active_security_ids(db)
+    log.info(
+        "Actualizacion live de snapshots (activos=%d, fondos=%s)",
+        len(active), include_funds,
+    )
+    # Solo el conjunto activo (poseídos/favoritos) y sin la petición de dividendos.
+    update_snapshots(db, include_funds=include_funds, only_ids=active, with_dividends=False)
     if include_funds:
         _mark_funds_refreshed(db, now)
     log.info("Snapshots live completados")

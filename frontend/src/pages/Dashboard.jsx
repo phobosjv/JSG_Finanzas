@@ -188,10 +188,22 @@ function MoverCard({ market, t, navigate }) {
   const [down, setDown] = useState(null)
 
   useEffect(() => {
-    Promise.all([
-      api.get(`/markets/top-movers?market=${market.code}&n=5&direction=up`),
-      api.get(`/markets/top-movers?market=${market.code}&n=5&direction=down`),
-    ]).then(([u, d]) => { setUp(u); setDown(d) }).catch(() => { setUp([]); setDown([]) })
+    let cancelled = false
+    function load() {
+      Promise.all([
+        api.get(`/markets/top-movers?market=${market.code}&n=5&direction=up`),
+        api.get(`/markets/top-movers?market=${market.code}&n=5&direction=down`),
+      ]).then(([u, d]) => { if (!cancelled) { setUp(u); setDown(d) } })
+        .catch(() => { if (!cancelled) { setUp([]); setDown([]) } })
+    }
+    // Refresco bajo demanda de los snapshots del mercado (background en el
+    // servidor, throttled 15 min y con tope de tamaño). Muestra ya lo que hay
+    // en BD y refresca una vez tras un pequeño retardo por si terminó (mercados
+    // pequeños como IBEX). Los grandes quedarán frescos en la siguiente visita.
+    api.post(`/markets/${market.code}/refresh-movers`).catch(() => {})
+    load()
+    const tmr = setTimeout(load, 7000)
+    return () => { cancelled = true; clearTimeout(tmr) }
   }, [market.code])
 
   if (up === null || down === null) return (
@@ -459,6 +471,10 @@ export default function Dashboard() {
         setPositions(pos)
         setFavorites(favs)
         setAllMarkets(mkts)
+        // Sanear selección persistida contra los tipos realmente presentes.
+        const avail = presentTypes(pos || [])
+        const clean = segTypes.filter(tp => avail.includes(tp))
+        if (clean.length !== segTypes.length) changeSeg(clean)
       })
       .catch(err => setError(err.message))
   }, [])

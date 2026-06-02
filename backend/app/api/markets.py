@@ -18,12 +18,12 @@ from __future__ import annotations
 import time
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import outerjoin, select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from sqlalchemy import func, outerjoin, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_admin
-from app.models import EcbRate, Favorite, MarketRow, PriceHistory, PriceSnapshot, Security, User
+from app.models import EcbRate, Favorite, MarketRow, Position, PriceHistory, PriceSnapshot, Security, User
 from app.schemas.market import (
     IndexQuote, PriceHistoryPoint, SecurityOverview, SnapshotOut,
 )
@@ -34,6 +34,13 @@ _INDEX_QUOTE_CACHE: dict[str, tuple[float, IndexQuote]] = {}
 _INDEX_HIST_CACHE:  dict[str, tuple[float, list]]       = {}
 _QUOTE_TTL = 900   # 15 min
 _HIST_TTL  = 3600  # 1 hora
+
+# Anti-rebote del refresco bajo demanda (en memoria; un solo worker uvicorn).
+_LAST_LAZY_REFRESH:   dict[int, float] = {}   # security_id -> monotonic
+_LAST_MOVERS_REFRESH: dict[str, float] = {}   # market_code -> monotonic
+_LAZY_TTL          = 3600   # no re-pedir un valor suelto en <1 h
+_MOVERS_TTL        = 900    # refrescar un mercado de movers como mucho cada 15 min
+_MOVERS_MAX_SECS   = 250    # no escanear mercados gigantes bajo demanda
 
 
 def _get_market_or_404(db: Session, code: str) -> MarketRow:
@@ -269,19 +276,51 @@ def get_snapshot(
 
 @router.post("/refresh-all", status_code=status.HTTP_202_ACCEPTED)
 def refresh_all(
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    """Fuerza actualización de histórico y snapshot para todos los valores del catálogo (solo admin)."""
-    from app.scheduler.jobs import _update_history_for_security, _update_snapshot_for_security
-    secs = db.scalars(select(Security)).all()
-    for sec in secs:
-        try:
-            _update_history_for_security(db, sec, date.today())
-            _update_snapshot_for_security(db, sec)
-        except Exception:
-            pass
-    return {"detail": f"Actualizados {len(secs)} valores"}
+    """
+    Lanza en SEGUNDO PLANO un barrido completo (histórico + snapshots) de todo
+    el catálogo (solo admin). No bloquea la petición ni hace ráfaga síncrona:
+    el barrido va paced y corta ante rate-limit de Yahoo.
+    """
+    from app.scheduler.jobs import refresh_all_full
+    n = db.scalar(select(func.count()).select_from(Security)) or 0
+    background.add_task(refresh_all_full)
+    return {"detail": f"Barrido de {n} valores iniciado en segundo plano"}
+
+
+@router.post("/{market}/refresh-movers", status_code=status.HTTP_202_ACCEPTED)
+def refresh_movers(
+    market: str,
+    background: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """
+    Refresco bajo demanda de los snapshots de un mercado (para Top movers), al
+    abrir el Dashboard. Throttled (1×/15 min por mercado) y con tope de tamaño
+    para no escanear catálogos enormes. Se ejecuta en segundo plano.
+    """
+    _get_market_or_404(db, market)
+    now = time.monotonic()
+    last = _LAST_MOVERS_REFRESH.get(market)
+    if last is not None and now - last < _MOVERS_TTL:
+        return {"scheduled": False, "reason": "throttled"}
+
+    n = db.scalar(
+        select(func.count()).select_from(Security).where(Security.market == market)
+    ) or 0
+    if n == 0:
+        return {"scheduled": False, "reason": "empty"}
+    if n > _MOVERS_MAX_SECS:
+        return {"scheduled": False, "reason": "too_large"}
+
+    _LAST_MOVERS_REFRESH[market] = now  # marcar antes para evitar duplicados
+    from app.scheduler.jobs import refresh_market_snapshots
+    background.add_task(refresh_market_snapshots, market)
+    return {"scheduled": True, "count": n}
 
 
 @router.post("/{security_id}/refresh", status_code=status.HTTP_202_ACCEPTED)
@@ -295,6 +334,45 @@ def refresh_security(
     _update_history_for_security(db, sec, date.today())
     _update_snapshot_for_security(db, sec)
     return {"detail": f"Actualizado {sec.yahoo_ticker}"}
+
+
+@router.post("/{security_id}/refresh-if-stale", status_code=status.HTTP_200_OK)
+def refresh_if_stale(
+    security_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """
+    Refresco PEREZOSO al examinar un valor: si no está en el conjunto activo
+    (nadie lo posee ni lo sigue) y no se ha pedido en la última hora, refresca
+    su snapshot en ese momento. No lo mete en la programación de cada N min.
+
+    Si el valor es activo o se refrescó hace poco, no hace nada (lo cubren el
+    job en vivo o el anti-rebote). Devuelve {refreshed: bool}.
+    """
+    sec = _require_security(db, security_id)
+
+    # ¿Está en el conjunto activo? Entonces ya lo cubre el job en vivo.
+    in_use = db.scalar(
+        select(Position.id).where(Position.security_id == security_id).limit(1)
+    ) or db.scalar(
+        select(Favorite.security_id).where(Favorite.security_id == security_id).limit(1)
+    )
+    if in_use:
+        return {"refreshed": False, "reason": "active"}
+
+    now = time.monotonic()
+    last = _LAST_LAZY_REFRESH.get(security_id)
+    if last is not None and now - last < _LAZY_TTL:
+        return {"refreshed": False, "reason": "recent"}
+
+    _LAST_LAZY_REFRESH[security_id] = now
+    from app.scheduler.jobs import _update_snapshot_for_security
+    try:
+        _update_snapshot_for_security(db, sec, with_dividends=False)
+    except Exception:
+        return {"refreshed": False, "reason": "error"}
+    return {"refreshed": True}
 
 
 def _require_security(db: Session, security_id: int) -> Security:

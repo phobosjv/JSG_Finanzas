@@ -73,7 +73,14 @@ class YahooProvider(PriceProvider):
             ))
         return bars
 
-    def fetch_live_quote(self, ticker: str) -> LiveQuote:
+    def fetch_live_quote(self, ticker: str, with_dividends: bool = True) -> LiveQuote:
+        """
+        Cotización en vivo. 'with_dividends=False' omite la consulta de
+        dividendos (t.dividends), que es una petición ADICIONAL a Yahoo: el job
+        en vivo (cada pocos min) no la necesita y así reduce a la mitad las
+        peticiones. El dividendo se captura en el barrido nocturno
+        (with_dividends=True).
+        """
         t = yf.Ticker(ticker)
         # auto_adjust=False para obtener el precio REAL de mercado.
         # auto_adjust=True ajustaría retroactivamente los precios por dividendos

@@ -5,6 +5,40 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.7] — 2026-06-02
+
+### Cambiado — Actualización de precios por "conjunto activo" (robustez Yahoo)
+
+Reduce drásticamente las peticiones a Yahoo Finance (riesgo de rate-limit/baneo)
+al dejar de actualizar todo el catálogo cada pocos minutos.
+
+- **Conjunto activo**: el job en vivo (cada N min) solo actualiza los valores
+  **en uso** (poseídos en `positions` o seguidos en `favorites`), no el catálogo
+  entero. `update_snapshots(only_ids=...)`.
+- **Barrido nocturno** sigue refrescando histórico + snapshot de **todo** el
+  catálogo una vez al día (base para navegar el explorador).
+- **Refresco perezoso** (`POST /markets/{id}/refresh-if-stale`): al examinar un
+  valor que no está en uso, se actualiza en ese momento (anti-rebote 1 h) sin
+  meterlo en la programación.
+- **Top movers bajo demanda** (`POST /markets/{market}/refresh-movers`): al abrir
+  el Dashboard se refrescan en segundo plano los mercados de la sección Movers,
+  con throttle (15 min) y tope de tamaño (250) para no escanear catálogos
+  enormes. Base diaria garantizada por el barrido nocturno.
+- **Menos coste por valor**: el path en vivo ya **no** consulta dividendos
+  (petición extra a Yahoo); se capturan en el barrido nocturno.
+- **Pausa entre peticiones** y **corte ante 429** (rate-limit) en las pasadas de
+  snapshots. `refresh-all` (admin) pasa a ejecutarse **en segundo plano** y
+  paced, sin bloquear la petición.
+
+### Corregido
+
+- Segmentación: la selección persistida se sanea contra los tipos realmente
+  presentes (ya no queda una vista vacía sin chip resaltado tras vender todo de
+  un tipo).
+- Eliminadas traducciones huérfanas (`admin.market_is_fund*`, `market_fund_badge`).
+
+---
+
 ## [1.7.6] — 2026-06-02
 
 ### Añadido — Segmentación por tipo de producto

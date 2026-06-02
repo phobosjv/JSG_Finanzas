@@ -746,6 +746,13 @@ export default function SecurityDetail() {
       setSnapshot(snap)
       setHistory(hist.slice(-365))
       setIsFav(favs.some(f => f.security_id === secId))
+
+      // Refresco perezoso: si el valor no está "en uso" y su snapshot está
+      // rancio, el backend lo actualiza ahora (anti-rebote 1 h). No entra en la
+      // programación de cada N min. Si refresca, recargamos el snapshot.
+      api.post(`/markets/${secId}/refresh-if-stale`)
+        .then(r => { if (r?.refreshed) api.get(`/markets/${secId}/snapshot`).then(setSnapshot).catch(() => {}) })
+        .catch(() => {})
       setIsFundMarket(markets.some(m => m.code === sec.market && m.is_fund_market))
 
       // Planes de aportación periódica activos para este valor.

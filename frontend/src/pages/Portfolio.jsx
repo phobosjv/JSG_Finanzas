@@ -145,6 +145,12 @@ export default function Portfolio() {
         setClosed(cls)
         setClosedAn(analytics || [])
         setDivsBySec(divsBySec || [])
+        // Sanear selección persistida: descartar tipos que ya no existen en la
+        // cartera (evita una vista vacía sin chip resaltado al haber vendido todo
+        // de un tipo previamente seleccionado).
+        const avail = presentTypes([...(open || []), ...(cls || [])])
+        const clean = segTypes.filter(tp => avail.includes(tp))
+        if (clean.length !== segTypes.length) changeSeg(clean)
       })
       .catch(err => setError(err.message))
   }, [])
