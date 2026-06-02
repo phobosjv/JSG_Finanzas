@@ -19,10 +19,54 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.api.admin_markets import _get_supported_currencies
-from app.models import DividendRow, Position, Security, TransactionRow, User
+from app.models import DividendRow, Position, RecurringPlanRow, Security, TransactionRow, User
 from app.services.backup import ImportResult, build_export, validate_backup
 
 router = APIRouter(prefix="/backup", tags=["backup"])
+
+_VALID_FREQ = ("weekly", "monthly", "quarterly", "yearly")
+
+
+def import_recurring_plans(db: Session, position_id: int, plans_data: list | None) -> int:
+    """
+    Importa planes de aportación periódica para una posición (idempotente).
+    Dedup por (frecuencia, fecha inicio, total, importe). Devuelve cuántos creó.
+    Reutilizado por el backup de usuario y el de admin.
+    """
+    if not plans_data:
+        return 0
+    existing = {
+        (p.frequency, p.start_date, p.total_count, str(p.amount_per_period))
+        for p in db.scalars(
+            select(RecurringPlanRow).where(RecurringPlanRow.position_id == position_id)
+        ).all()
+    }
+    added = 0
+    for pd in plans_data:
+        try:
+            amount = Decimal(str(pd["amount_per_period"]))
+            fee = Decimal(str(pd.get("fee_per_period", "0")))
+            freq = pd["frequency"]
+            start = pd["start_date"]
+            total = int(pd["total_count"])
+            done = int(pd.get("done_count", 0))
+            currency = pd.get("currency", "EUR")
+            if amount <= 0 or total < 1 or freq not in _VALID_FREQ:
+                continue
+            done = max(0, min(done, total))
+        except (KeyError, TypeError, InvalidOperation, ValueError):
+            continue
+        key = (freq, start, total, str(amount))
+        if key in existing:
+            continue
+        db.add(RecurringPlanRow(
+            position_id=position_id, amount_per_period=amount, fee_per_period=fee,
+            frequency=freq, start_date=start, total_count=total, done_count=done,
+            currency=currency,
+        ))
+        existing.add(key)
+        added += 1
+    return added
 
 
 # ---------------------------------------------------------------------------
@@ -60,11 +104,27 @@ def export_backup(
             .order_by(DividendRow.date)
         ).all()
 
+        plans = db.scalars(
+            select(RecurringPlanRow).where(RecurringPlanRow.position_id == pos.id)
+        ).all()
+
         positions_data.append({
             "security_ticker": sec.yahoo_ticker,
             "security_name": sec.name,
             "notes": pos.notes,
             "target_sell_price": str(pos.target_sell_price) if pos.target_sell_price else None,
+            "recurring_plans": [
+                {
+                    "amount_per_period": str(p.amount_per_period),
+                    "fee_per_period": str(p.fee_per_period),
+                    "frequency": p.frequency,
+                    "start_date": p.start_date,
+                    "total_count": p.total_count,
+                    "done_count": p.done_count,
+                    "currency": p.currency,
+                }
+                for p in plans
+            ],
             "transactions": [
                 {
                     "type": tx.type,
@@ -260,6 +320,9 @@ async def import_backup(
                 exchange_rate=div_rate,
             ))
             result.dividends_added += 1
+
+        # Planes de aportación periódica (v1.7.8)
+        import_recurring_plans(db, pos.id, pos_data.get("recurring_plans"))
 
     db.commit()
     return result.to_dict()

@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.7.7** · **Tests: 345 en verde** · Aplicación web personal
+> **Versión actual: 1.7.8** · **Tests: 349 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.

@@ -13,9 +13,11 @@ de negocio: ticker en catálogo, coherencia divisa/exchange_rate, FIFO, etc.
 """
 from __future__ import annotations
 
+import csv
+import io
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -25,6 +27,79 @@ from app.models import DividendRow, Position, Security, TransactionRow, User
 from app.schemas.portfolio import CsvImportBody, CsvImportResult
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
+
+# Columnas del CSV (mismas que la plantilla de importación → round-trip).
+_CSV_COLUMNS = [
+    "type", "ticker", "date", "shares", "price", "gross_per_share",
+    "gross_amount", "fee", "withholding_tax", "currency", "exchange_rate",
+]
+
+
+@router.get("/export-csv")
+def export_csv(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Exporta las operaciones del usuario a CSV, con las mismas columnas que la
+    plantilla de importación (round-trip con /portfolio/import-csv).
+
+    Incluye compras, ventas y dividendos. Los traspasos y los planes de
+    aportación periódica NO se representan en CSV (formato plano): para fidelidad
+    completa se usa el backup JSON.
+    """
+    positions = db.scalars(
+        select(Position).where(Position.user_id == user.id)
+    ).all()
+
+    rows: list[dict] = []
+    for pos in positions:
+        ticker = pos.security.yahoo_ticker
+        txs = db.scalars(
+            select(TransactionRow)
+            .where(TransactionRow.position_id == pos.id)
+            .order_by(TransactionRow.date)
+        ).all()
+        for tx in txs:
+            if tx.type not in ("buy", "sell"):
+                continue  # transfer_in/out no son representables en CSV
+            rows.append({
+                "type": tx.type, "ticker": ticker, "date": str(tx.date),
+                "shares": str(tx.shares), "price": str(tx.price),
+                "gross_per_share": "", "gross_amount": "",
+                "fee": str(tx.fee), "withholding_tax": "",
+                "currency": tx.currency, "exchange_rate": str(tx.exchange_rate),
+            })
+        divs = db.scalars(
+            select(DividendRow)
+            .where(DividendRow.position_id == pos.id)
+            .order_by(DividendRow.date)
+        ).all()
+        for d in divs:
+            rows.append({
+                "type": "dividend", "ticker": ticker, "date": str(d.date),
+                "shares": str(d.shares_at_date), "price": "",
+                "gross_per_share": str(d.gross_per_share),
+                "gross_amount": str(d.gross_amount),
+                "fee": "", "withholding_tax": str(d.withholding_tax),
+                "currency": d.currency, "exchange_rate": str(d.exchange_rate),
+            })
+
+    # Orden estable por ticker y fecha para un fichero legible.
+    rows.sort(key=lambda r: (r["ticker"], r["date"], r["type"]))
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=_CSV_COLUMNS)
+    writer.writeheader()
+    writer.writerows(rows)
+
+    from datetime import date as _date
+    filename = f"finanzas_operaciones_{_date.today().isoformat()}.csv"
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/import-csv", response_model=CsvImportResult)

@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.8] — 2026-06-02
+
+### Añadido — Import/export completados
+
+- **Export a CSV** (`GET /api/portfolio/export-csv`): descarga las operaciones
+  (compras, ventas y dividendos) con las mismas columnas que la plantilla de
+  importación → round-trip con `import-csv`. Botón en Utilidades. Los traspasos
+  y planes de aportación no se representan en CSV (formato plano); para fidelidad
+  completa, el backup JSON.
+- **Planes de aportación periódica en los backups**: el backup de usuario y el
+  de admin ahora **exportan e importan** `recurring_plans` (antes se perdían en
+  un backup/restore). Importación idempotente (dedup por frecuencia/inicio/total/
+  importe).
+- **Mercados en el backup admin**: el backup completo incluye los mercados (con
+  `market_type`); al importar se crean los que falten **antes** que los valores,
+  para que un restore en BD limpia no deje valores "huérfanos" sin mercado.
+  Compatible con backups admin anteriores (deriva el tipo si falta).
+
+---
+
 ## [1.7.7] — 2026-06-02
 
 ### Cambiado — Actualización de precios por "conjunto activo" (robustez Yahoo)

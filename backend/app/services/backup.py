@@ -47,11 +47,15 @@ class ImportResult:
         }
 
 
-def build_admin_export(users: list[dict], securities: list[dict], portfolios: list[dict]) -> dict:
+def build_admin_export(
+    users: list[dict], securities: list[dict], portfolios: list[dict],
+    markets: list[dict] | None = None,
+) -> dict:
     """Envuelve el snapshot completo del sistema en el sobre de backup admin."""
     return {
         "version": ADMIN_BACKUP_VERSION,
         "exported_at": datetime.utcnow().isoformat(timespec="seconds"),
+        "markets": markets or [],
         "users": users,
         "securities": securities,
         "portfolios": portfolios,
@@ -100,6 +104,9 @@ def validate_admin_backup(data: dict) -> list[str]:
             errors.append(f"Falta la clave '{key}'")
         elif not isinstance(data[key], list):
             errors.append(f"'{key}' debe ser una lista")
+    # 'markets' es opcional (backups admin anteriores a v1.7.8 no lo traen).
+    if "markets" in data and not isinstance(data["markets"], list):
+        errors.append("'markets' debe ser una lista")
     return errors
 
 

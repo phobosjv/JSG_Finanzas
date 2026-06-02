@@ -132,6 +132,19 @@ export default function Utilities() {
     URL.revokeObjectURL(url)
   }
 
+  async function exportCsv() {
+    const res = await fetch('/api/portfolio/export-csv', { credentials: 'include' })
+    if (!res.ok) { setCsvErr(t('utilities.csv_export_error')); return }
+    const blob = await res.blob()
+    const cd = res.headers.get('Content-Disposition') ?? ''
+    const match = cd.match(/filename="([^"]+)"/)
+    const filename = match ? match[1] : 'finanzas_operaciones.csv'
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function importBackup(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -288,6 +301,9 @@ export default function Utilities() {
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
           <button className="btn-primary btn-sm" onClick={() => csvFileRef.current?.click()}>
             {t('utilities.csv_select')}
+          </button>
+          <button className="btn-ghost btn-sm" onClick={exportCsv}>
+            {t('utilities.csv_export')}
           </button>
           <input
             ref={csvFileRef}

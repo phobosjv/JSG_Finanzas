@@ -27,11 +27,15 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
 from app.auth.security import hash_password
-from app.models import DividendRow, Favorite, Position, Security, TransactionRow, User, UserStatusLog
+from app.models import (
+    DividendRow, Favorite, MarketRow, Position, RecurringPlanRow,
+    Security, TransactionRow, User, UserStatusLog,
+)
 from app.schemas.auth import (
     ChangePasswordRequest, CreateUserRequest, UserAdminOut,
     UserStatusIn, UserExpiryIn, UserStatusLogOut,
 )
+from app.api.backup import import_recurring_plans
 from app.services.backup import (
     AdminImportResult,
     build_admin_export,
@@ -334,6 +338,21 @@ def admin_export_backup(
         for u in db.scalars(select(User).order_by(User.id)).all()
     ]
 
+    markets_data = [
+        {
+            "code": m.code,
+            "name": m.name,
+            "index_ticker": m.index_ticker,
+            "currency": m.currency,
+            "fiscal_window_days": m.fiscal_window_days,
+            "sort_order": m.sort_order,
+            "yahoo_exchange": m.yahoo_exchange,
+            "market_type": m.market_type,
+            "is_fund_market": m.is_fund_market,
+        }
+        for m in db.scalars(select(MarketRow).order_by(MarketRow.code)).all()
+    ]
+
     securities_data = [
         {
             "yahoo_ticker": s.yahoo_ticker,
@@ -365,10 +384,25 @@ def admin_export_backup(
                 .where(DividendRow.position_id == pos.id)
                 .order_by(DividendRow.date)
             ).all()
+            plans = db.scalars(
+                select(RecurringPlanRow).where(RecurringPlanRow.position_id == pos.id)
+            ).all()
             positions_data.append({
                 "security_ticker": sec.yahoo_ticker,
                 "notes": pos.notes,
                 "target_sell_price": str(pos.target_sell_price) if pos.target_sell_price else None,
+                "recurring_plans": [
+                    {
+                        "amount_per_period": str(p.amount_per_period),
+                        "fee_per_period": str(p.fee_per_period),
+                        "frequency": p.frequency,
+                        "start_date": p.start_date,
+                        "total_count": p.total_count,
+                        "done_count": p.done_count,
+                        "currency": p.currency,
+                    }
+                    for p in plans
+                ],
                 "transactions": [
                     {
                         "type": tx.type,
@@ -413,7 +447,7 @@ def admin_export_backup(
             "favorites": favorites_data,
         })
 
-    payload = build_admin_export(users_data, securities_data, portfolios_data)
+    payload = build_admin_export(users_data, securities_data, portfolios_data, markets_data)
     json_bytes = json.dumps(payload, ensure_ascii=False, indent=2, default=_decimal_default).encode("utf-8")
     return Response(
         content=json_bytes,
@@ -462,6 +496,38 @@ async def admin_import_backup(
                 is_admin=u_data.get("is_admin", False),
             ))
             result.users_created += 1
+    db.flush()
+
+    # --- Mercados (antes que los valores, que dependen de ellos) ---
+    # Solo se crean los que falten (el código es PK); deriva market_type si no
+    # viene (backups admin anteriores a v1.7.8).
+    from datetime import datetime as _dt
+    for m_data in data.get("markets", []):
+        code = (m_data.get("code") or "").strip().lower()
+        if not code or db.get(MarketRow, code) is not None:
+            continue
+        mt = m_data.get("market_type")
+        if mt not in ("stock", "fund", "etf", "crypto"):
+            if m_data.get("is_fund_market"):
+                mt = "fund"
+            elif "etf" in code:
+                mt = "etf"
+            elif "crypto" in code:
+                mt = "crypto"
+            else:
+                mt = "stock"
+        db.add(MarketRow(
+            code=code,
+            name=(m_data.get("name") or code).strip(),
+            index_ticker=m_data.get("index_ticker") or None,
+            currency=(m_data.get("currency") or "EUR").upper(),
+            fiscal_window_days=max(1, m_data.get("fiscal_window_days") or 60),
+            sort_order=m_data.get("sort_order", 0),
+            yahoo_exchange=m_data.get("yahoo_exchange") or None,
+            market_type=mt,
+            is_fund_market=(mt == "fund"),
+            created_at=_dt.now().isoformat(),
+        ))
     db.flush()
 
     # --- Valores (catálogo) ---
@@ -619,6 +685,9 @@ async def admin_import_backup(
                     exchange_rate=div_rate,
                 ))
                 result.dividends_added += 1
+
+            # Planes de aportación periódica (v1.7.8)
+            import_recurring_plans(db, pos.id, pos_data.get("recurring_plans"))
 
         # Favoritos
         for fav_data in portfolio.get("favorites", []):
