@@ -123,6 +123,10 @@ class TransactionRow(Base):
     currency: Mapped[str] = mapped_column(String, nullable=False)
     # EUR/USD del BCE en 'date'; 1 si la operacion es en EUR.
     exchange_rate: Mapped["object"] = mapped_column(Money, nullable=False, default=1)
+    # Vincula las dos filas (transfer_out + transfer_in) de un mismo traspaso,
+    # para poder deshacerlo atomicamente. NULL en buy/sell y en traspasos
+    # creados antes de v1.7.2.
+    transfer_group_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.datetime("now")
     )

@@ -75,6 +75,7 @@ export const translations = {
     'badge.stock':   'Acción',
     'badge.etf':     'ETF',
     'badge.crypto':  'Crypto',
+    'badge.fund':    'Fondo',
 
     // ── Cartera ──────────────────────────────────────────────────────────
     'portfolio.title':          'Mi cartera',
@@ -153,6 +154,8 @@ export const translations = {
     'sd.transfer_submit':      'Traspasar',
     'sd.transfer_err_dest':    'Selecciona el fondo de destino.',
     'sd.transfer_err_shares':  'Las participaciones deben ser mayores que 0.',
+    'sd.transfer_undo':        'Deshacer',
+    'sd.transfer_confirm_delete': '¿Deshacer este traspaso? Se borrarán las dos operaciones (salida y entrada) y el fondo de origen recuperará sus participaciones.',
     'sd.btn_start_tracking':   '+ Empezar a seguir',
     'sd.btn_starting':         'Creando…',
     'sd.no_buys':              'Sin compras registradas',
@@ -451,6 +454,7 @@ export const translations = {
     'badge.stock':   'Stock',
     'badge.etf':     'ETF',
     'badge.crypto':  'Crypto',
+    'badge.fund':    'Fund',
 
     // ── Portfolio ─────────────────────────────────────────────────────────
     'portfolio.title':          'My Portfolio',
@@ -529,6 +533,8 @@ export const translations = {
     'sd.transfer_submit':      'Transfer',
     'sd.transfer_err_dest':    'Select the destination fund.',
     'sd.transfer_err_shares':  'Units must be greater than 0.',
+    'sd.transfer_undo':        'Undo',
+    'sd.transfer_confirm_delete': 'Undo this transfer? Both operations (out and in) will be deleted and the source fund will recover its units.',
     'sd.btn_start_tracking':   '+ Start tracking',
     'sd.btn_starting':         'Creating…',
     'sd.no_buys':              'No purchases recorded',

@@ -378,6 +378,7 @@ def admin_export_backup(
                         "fee": str(tx.fee),
                         "currency": tx.currency,
                         "exchange_rate": str(tx.exchange_rate),
+                        "transfer_group_id": tx.transfer_group_id,
                     }
                     for tx in txs
                 ],
@@ -570,6 +571,7 @@ async def admin_import_backup(
                     fee=tx_fee,
                     currency=tx_data["currency"],
                     exchange_rate=tx_rate,
+                    transfer_group_id=tx_data.get("transfer_group_id"),
                 ))
                 result.transactions_added += 1
 

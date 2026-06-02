@@ -68,6 +68,11 @@ def _load_securities_with_snapshots(
 
     rows = db.execute(query).all()
 
+    fund_markets: set[str] = {
+        m.code
+        for m in db.scalars(select(MarketRow).where(MarketRow.is_fund_market.is_(True))).all()
+    }
+
     favs: dict[int, object] = {
         f.security_id: f.target_buy_price
         for f in db.scalars(
@@ -88,6 +93,7 @@ def _load_securities_with_snapshots(
             google_ticker=sec.google_ticker,
             market=sec.market,
             currency=sec.currency,
+            is_fund_market=sec.market in fund_markets,
             last_price=snap.last_price if snap else None,
             daily_change_pct=snap.daily_change_pct if snap else None,
             min_1y=snap.min_1y if snap else None,

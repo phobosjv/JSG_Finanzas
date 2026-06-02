@@ -11,15 +11,16 @@ import PortfolioChartsPanel, {
   DividendScatterChart,
 } from '../components/PortfolioChartsPanel'
 
-function assetTypeKey(marketCode) {
+function assetTypeKey(marketCode, isFund) {
+  if (isFund) return 'fund'
   const c = (marketCode ?? '').toLowerCase()
   if (c.includes('etf'))    return 'etf'
   if (c.includes('crypto')) return 'crypto'
   return 'stock'
 }
 
-function AssetBadge({ marketCode, t }) {
-  const type = assetTypeKey(marketCode)
+function AssetBadge({ marketCode, isFund, t }) {
+  const type = assetTypeKey(marketCode, isFund)
   return <span className={`badge-asset ${type}`}>{t(`badge.${type}`)}</span>
 }
 
@@ -242,7 +243,7 @@ export default function Portfolio() {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <div className="ticker">{p.yahoo_ticker}</div>
-                          <AssetBadge marketCode={p.market_code} t={t} />
+                          <AssetBadge marketCode={p.market_code} isFund={p.is_fund_market} t={t} />
                         </div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{p.name}</div>
                       </td>

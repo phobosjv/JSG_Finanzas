@@ -127,6 +127,7 @@ class TransactionOut(BaseModel):
     fee: Decimal
     currency: str
     exchange_rate: Decimal
+    transfer_group_id: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -163,6 +164,7 @@ class TransferResult(BaseModel):
     transfer_out_id: int
     transfer_in_id: int
     inherited_cost_eur: Decimal
+    transfer_group_id: str
 
 
 class DividendCreate(BaseModel):
@@ -220,6 +222,7 @@ class PositionSummary(BaseModel):
     name: str
     currency: str                # divisa nativa del valor ('EUR' o 'USD')
     market_code: str             # código de mercado (para badge ETF/Crypto/Acción)
+    is_fund_market: bool = False # True si el mercado es de fondos de inversión
     has_sells: bool              # True si existe alguna venta (impide borrar la posición completa)
     # Acciones y coste
     shares: Decimal
@@ -251,6 +254,7 @@ class ClosedPositionSummary(BaseModel):
     yahoo_ticker: str
     name: str
     market_code: str             # código de mercado (para badge ETF/Crypto/Acción)
+    is_fund_market: bool = False # True si el mercado es de fondos de inversión
     shares_sold: Decimal
     cost_eur: Decimal            # coste total de adquisición
     proceeds_eur: Decimal        # ingresos totales de la venta

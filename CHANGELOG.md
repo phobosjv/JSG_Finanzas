@@ -5,6 +5,43 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.2] — 2026-06-02
+
+### Añadido — Badge "Fondo"
+
+- Los valores de mercados de fondos muestran ahora un badge ámbar **"Fondo"**
+  (en vez de "Acción") en el explorador de mercados, las tarjetas y la cartera.
+  El backend expone `is_fund_market` en `SecurityOverview`, `PositionSummary` y
+  `ClosedPositionSummary` para que el frontend distinga el tipo de activo.
+
+### Añadido — Deshacer traspaso
+
+- Nuevo endpoint `DELETE /api/portfolio/transfer/{group_id}`: deshace un
+  traspaso borrando **atómicamente** sus dos filas acopladas (`transfer_out`
+  en el origen + `transfer_in` en el destino). Valida antes que la operación
+  no deje ventas posteriores sin respaldo en ninguna de las dos posiciones
+  (si el fondo de destino ya reembolsó, se rechaza con 422).
+- Las dos filas de un traspaso se vinculan con un `transfer_group_id` (UUID).
+  Migración Alembic `f6a1b2c3d4e5`: nueva columna en `transactions`.
+- **SecurityDetail**: botón "Deshacer" en la tabla de traspasos (solo para
+  traspasos creados desde v1.7.2, que llevan `transfer_group_id`).
+- El backup/restore (usuario y admin) preserva `transfer_group_id`, de modo
+  que los traspasos siguen siendo anulables tras una restauración.
+
+### Corregido / Blindaje
+
+- **Posición fantasma**: un fondo traspasado al 100% (cerrado por
+  `transfer_out`, sin venta real) ya no aparece en `/portfolio/closed` como
+  una fila cerrada con todo a cero. Coherente con `closed-analytics`.
+- **CRUD de transacciones blindado**: editar (`PATCH`) o borrar (`DELETE`) una
+  fila `transfer_in` / `transfer_out` suelta desde el endpoint genérico de
+  transacciones se rechaza con 422. Los traspasos solo se gestionan vía los
+  endpoints de traspaso, evitando que se rompa la pareja o el coste heredado.
+- `crear-tablas.sql` (esquema de referencia) actualizado: `ck_tx_type` con los
+  tipos de traspaso, `currency` sin CHECK (multi-divisa), y `transfer_group_id`.
+
+---
+
 ## [1.7.1] — 2026-06-02
 
 ### Corregido — Traspasos de fondos en backup, histórico y analytics

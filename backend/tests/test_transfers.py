@@ -193,6 +193,31 @@ def test_traspaso_participaciones_insuficientes_falla(admin_client):
     assert resp.status_code == 422
 
 
+def test_fondo_traspasado_no_aparece_como_cerrado(admin_client):
+    """
+    Regresión: un fondo cuyas participaciones se traspasan ÍNTEGRAMENTE queda
+    con 0 participaciones (is_closed=True) pero SIN sale_matches (el traspaso
+    no genera resultado fiscal). No debe aparecer en /portfolio/closed como
+    una posición cerrada fantasma con todo a cero: su valor se difirió al
+    fondo de destino, no se realizó ninguna venta.
+    """
+    sec_a, sec_b = _crear_fondos(admin_client)
+    pos_a = admin_client.post("/api/portfolio/positions", json={"security_id": sec_a}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos_a}/transactions", json={
+        "type": "buy", "date": "2023-01-10", "shares": "100", "price": "10",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    # Traspaso íntegro A → B: A queda a 0 participaciones.
+    admin_client.post("/api/portfolio/transfer", json={
+        "origin_position_id": pos_a, "shares": "100",
+        "dest_security_id": sec_b, "dest_shares": "120", "date": "2023-06-01",
+    })
+
+    closed = admin_client.get("/api/portfolio/closed").json()
+    # El fondo origen NO debe figurar como posición cerrada (no hubo reembolso).
+    assert [c for c in closed if c["security_id"] == sec_a] == []
+
+
 def test_traspaso_no_genera_resultado_fiscal(admin_client):
     """Un traspaso (sin reembolso posterior) no aporta ganancias al informe."""
     sec_a, sec_b = _crear_fondos(admin_client)
@@ -208,6 +233,91 @@ def test_traspaso_no_genera_resultado_fiscal(admin_client):
     report = admin_client.get("/api/reports/tax/2023/summary").json()
     assert float(report["total_gains_eur"]) == 0.0
     assert float(report["net_capital_result_eur"]) == 0.0
+
+
+# ---------------------------------------------------------------------------
+#  Deshacer traspaso (DELETE /portfolio/transfer/{group_id})
+# ---------------------------------------------------------------------------
+
+def _traspaso_simple(admin_client):
+    """Crea A (100 @ 10) y traspasa todo a B (120 part). Devuelve (sec_a, sec_b, pos_a, resp)."""
+    sec_a, sec_b = _crear_fondos(admin_client)
+    pos_a = admin_client.post("/api/portfolio/positions", json={"security_id": sec_a}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos_a}/transactions", json={
+        "type": "buy", "date": "2023-01-10", "shares": "100", "price": "10",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    resp = admin_client.post("/api/portfolio/transfer", json={
+        "origin_position_id": pos_a, "shares": "100",
+        "dest_security_id": sec_b, "dest_shares": "120", "date": "2023-06-01",
+    })
+    return sec_a, sec_b, pos_a, resp
+
+
+def test_deshacer_traspaso_restaura_origen(admin_client):
+    """Deshacer un traspaso borra ambas filas y devuelve el origen a su estado previo."""
+    sec_a, sec_b, pos_a, resp = _traspaso_simple(admin_client)
+    group_id = resp.json()["transfer_group_id"]
+
+    d = admin_client.delete(f"/api/portfolio/transfer/{group_id}")
+    assert d.status_code == 204, d.text
+
+    # El origen vuelve a tener sus 100 participaciones (abierto de nuevo).
+    open_pos = admin_client.get("/api/portfolio").json()
+    a_open = [p for p in open_pos if p["security_id"] == sec_a]
+    assert len(a_open) == 1
+    assert float(a_open[0]["shares"]) == 100.0
+    # El destino ya no tiene participaciones del traspaso deshecho.
+    b_open = [p for p in open_pos if p["security_id"] == sec_b]
+    assert b_open == [] or float(b_open[0]["shares"]) == 0
+
+    # Las dos filas del traspaso ya no existen en el origen.
+    txs_a = admin_client.get(f"/api/portfolio/{pos_a}/transactions").json()
+    assert all(t["type"] not in ("transfer_in", "transfer_out") for t in txs_a)
+
+
+def test_deshacer_traspaso_inexistente_404(admin_client):
+    """Deshacer un group_id que no existe → 404."""
+    resp = admin_client.delete("/api/portfolio/transfer/noexiste123")
+    assert resp.status_code == 404
+
+
+def test_deshacer_traspaso_con_reembolso_posterior_falla(admin_client):
+    """
+    Si el destino ya reembolsó las participaciones heredadas, deshacer el
+    traspaso las dejaría sin respaldo → 422 (no se permite).
+    """
+    sec_a, sec_b, pos_a, resp = _traspaso_simple(admin_client)
+    group_id = resp.json()["transfer_group_id"]
+    dest_pos_id = resp.json()["dest_position_id"]
+
+    # Reembolso (venta) en el destino de las 120 participaciones heredadas.
+    admin_client.post(f"/api/portfolio/{dest_pos_id}/transactions", json={
+        "type": "sell", "date": "2024-03-01", "shares": "120", "price": "15",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+
+    d = admin_client.delete(f"/api/portfolio/transfer/{group_id}")
+    assert d.status_code == 422
+
+
+def test_editar_transaccion_traspaso_bloqueada(admin_client):
+    """Una fila transfer_in/transfer_out no se edita por el CRUD genérico → 422."""
+    sec_a, sec_b, pos_a, resp = _traspaso_simple(admin_client)
+    out_id = resp.json()["transfer_out_id"]
+    r = admin_client.patch(f"/api/portfolio/{pos_a}/transactions/{out_id}", json={
+        "type": "buy", "date": "2023-06-01", "shares": "100", "price": "10",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    assert r.status_code == 422
+
+
+def test_borrar_transaccion_traspaso_bloqueada(admin_client):
+    """Una fila transfer_in/transfer_out no se borra suelta por el CRUD genérico → 422."""
+    sec_a, sec_b, pos_a, resp = _traspaso_simple(admin_client)
+    out_id = resp.json()["transfer_out_id"]
+    r = admin_client.delete(f"/api/portfolio/{pos_a}/transactions/{out_id}")
+    assert r.status_code == 422
 
 
 # ---------------------------------------------------------------------------

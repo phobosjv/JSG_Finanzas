@@ -98,13 +98,16 @@ CREATE TABLE positions (
 CREATE TABLE transactions (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     position_id   INTEGER NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
-    type          TEXT    NOT NULL CHECK (type IN ('buy','sell')),
+    -- transfer_in / transfer_out (v1.7.0): traspasos de fondos fiscalmente neutros
+    type          TEXT    NOT NULL CHECK (type IN ('buy','sell','transfer_in','transfer_out')),
     date          TEXT    NOT NULL,            -- 'YYYY-MM-DD'
     shares        REAL    NOT NULL CHECK (shares > 0),
     price         REAL    NOT NULL,            -- precio por acción, divisa de la operación
     fee           REAL    NOT NULL DEFAULT 0,  -- comisión, misma divisa
-    currency      TEXT    NOT NULL CHECK (currency IN ('EUR','USD')),
+    currency      TEXT    NOT NULL,            -- divisa configurable (multi-divisa v1.6.16)
     exchange_rate REAL    NOT NULL DEFAULT 1,  -- EUR/USD del BCE de 'date'; 1 si EUR
+    -- vincula transfer_out + transfer_in de un mismo traspaso para deshacerlo (v1.7.2)
+    transfer_group_id TEXT,
     created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 

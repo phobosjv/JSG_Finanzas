@@ -9,6 +9,8 @@ POST   /portfolio/positions                           — crear posicion para un
 GET    /portfolio/{position_id}/transactions          — transacciones.
 POST   /portfolio/{position_id}/transactions          — nueva transaccion.
 DELETE /portfolio/{position_id}/transactions/{tx_id}  — borrar transaccion.
+POST   /portfolio/transfer                            — traspaso de fondos (fiscalmente neutro).
+DELETE /portfolio/transfer/{group_id}                 — deshacer un traspaso (borra la pareja).
 GET    /portfolio/{position_id}/dividends             — dividendos.
 POST   /portfolio/{position_id}/dividends             — nuevo dividendo.
 DELETE /portfolio/{position_id}/dividends/{div_id}    — borrar dividendo.
@@ -16,6 +18,7 @@ DELETE /portfolio/{position_id}/dividends/{div_id}    — borrar dividendo.
 
 from __future__ import annotations
 
+import uuid
 from datetime import date as date_type
 from decimal import Decimal
 
@@ -103,6 +106,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
     total_profit_eur = unrealized_pnl_eur + realized_pnl_eur + dividends_eur
     fees_eur         = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
 
+    market_row = db.get(MarketRow, sec.market)
     return PositionSummary(
         position_id=pos.id,
         security_id=sec.id,
@@ -110,6 +114,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         name=sec.name,
         currency=sec.currency,
         market_code=sec.market,
+        is_fund_market=market_row.is_fund_market if market_row else False,
         has_sells=any(tx.type == "sell" for tx in txs),
         shares=shares,
         avg_cost_eur=avg_cost_eur,
@@ -226,6 +231,9 @@ def create_transfer(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
+    # Identificador único que vincula las dos filas del traspaso para deshacerlo.
+    group_id = uuid.uuid4().hex
+
     # transfer_out en el origen (precio informativo = coste heredado por participación)
     out_price = inherited_cost_eur / body.shares
     out_row = TransactionRow(
@@ -237,6 +245,7 @@ def create_transfer(
         fee=Decimal("0"),
         currency="EUR",
         exchange_rate=Decimal("1"),
+        transfer_group_id=group_id,
     )
 
     # Posición de destino (crear si no existe)
@@ -262,6 +271,7 @@ def create_transfer(
         fee=Decimal("0"),
         currency="EUR",
         exchange_rate=Decimal("1"),
+        transfer_group_id=group_id,
     )
 
     db.add(out_row)
@@ -276,7 +286,77 @@ def create_transfer(
         transfer_out_id=out_row.id,
         transfer_in_id=in_row.id,
         inherited_cost_eur=inherited_cost_eur,
+        transfer_group_id=group_id,
     )
+
+
+@router.delete("/transfer/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_transfer(
+    group_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Deshace un traspaso: borra ATÓMICAMENTE las dos filas acopladas
+    (transfer_out en el origen + transfer_in en el destino) que comparten el
+    'transfer_group_id'.
+
+    Antes de borrar valida que la eliminación no deja transacciones
+    posteriores sin respaldo en NINGUNA de las dos posiciones afectadas: si el
+    fondo de destino ya reembolsó o volvió a traspasar las participaciones
+    heredadas, deshacer el traspaso dejaría esas ventas sin lotes y se rechaza
+    con 422.
+    """
+    rows = db.scalars(
+        select(TransactionRow)
+        .join(Position, TransactionRow.position_id == Position.id)
+        .where(
+            TransactionRow.transfer_group_id == group_id,
+            Position.user_id == user.id,
+        )
+    ).all()
+    if not rows:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Traspaso no encontrado")
+
+    ids_to_delete = {r.id for r in rows}
+    affected_positions = {r.position_id for r in rows}
+
+    # Validar cada posición afectada con las transacciones que QUEDARÍAN.
+    repo = PortfolioRepository(db)
+    for pos_id in affected_positions:
+        sec_id = db.get(Position, pos_id).security_id
+        splits = repo.splits_for_security(sec_id)
+        remaining_rows = db.scalars(
+            select(TransactionRow).where(
+                TransactionRow.position_id == pos_id,
+                TransactionRow.id.notin_(ids_to_delete),
+            )
+        ).all()
+        remaining = [
+            Transaction(
+                type=r.type,
+                date=date_type.fromisoformat(r.date),
+                shares=r.shares,
+                price=r.price,
+                fee=r.fee,
+                exchange_rate=r.exchange_rate,
+            )
+            for r in remaining_rows
+        ]
+        try:
+            compute_position(remaining, [], splits)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    "No se puede deshacer el traspaso: dejaría operaciones "
+                    f"posteriores sin participaciones que las respalden ({exc})."
+                ),
+            )
+
+    for r in rows:
+        db.delete(r)
+    db.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -432,6 +512,10 @@ def get_closed_positions(
         select(Position).where(Position.user_id == user.id)
     ).all()
     repo = PortfolioRepository(db)
+    fund_markets: set[str] = {
+        m.code
+        for m in db.scalars(select(MarketRow).where(MarketRow.is_fund_market.is_(True))).all()
+    }
     result = []
 
     for pos in positions:
@@ -443,6 +527,12 @@ def get_closed_positions(
         splits = repo.splits_for_security(sec.id)
         computed = compute_position(txs, divs, splits)
         if not computed.is_closed:
+            continue
+        # Una posición cerrada SIN sale_matches lo está por un traspaso íntegro
+        # (transfer_out), no por una venta. No es un reembolso: su valor se
+        # difirió al fondo de destino. No debe figurar como posición cerrada
+        # (evita filas fantasma con todo a cero). Coherente con closed-analytics.
+        if not computed.sale_matches:
             continue
 
         # shares_sold se obtiene de computed.sale_matches (ya normalizadas a
@@ -461,6 +551,7 @@ def get_closed_positions(
             yahoo_ticker=sec.yahoo_ticker,
             name=sec.name,
             market_code=sec.market,
+            is_fund_market=sec.market in fund_markets,
             shares_sold=shares_sold,
             cost_eur=cost_eur,
             proceeds_eur=proceeds_eur,
@@ -490,6 +581,10 @@ def get_closed_analytics(
         select(Position).where(Position.user_id == user.id)
     ).all()
     repo = PortfolioRepository(db)
+    fund_markets: set[str] = {
+        m.code
+        for m in db.scalars(select(MarketRow).where(MarketRow.is_fund_market.is_(True))).all()
+    }
     result = []
 
     for pos in positions:
@@ -529,6 +624,7 @@ def get_closed_analytics(
             yahoo_ticker=sec.yahoo_ticker,
             name=sec.name,
             market_code=sec.market,
+            is_fund_market=sec.market in fund_markets,
             shares_sold=shares_sold,
             cost_eur=cost_eur,
             proceeds_eur=proceeds_eur,
@@ -797,6 +893,15 @@ def update_transaction(
     if tx is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
 
+    # Las filas de traspaso (transfer_in/transfer_out) forman pareja entre dos
+    # posiciones y NO se editan sueltas: hacerlo rompería el coste heredado y el
+    # diferimiento fiscal. Se gestionan solo vía POST/DELETE /portfolio/transfer.
+    if tx.type in ("transfer_in", "transfer_out"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Una transacción de traspaso no se edita; deshaz el traspaso y vuelve a crearlo.",
+        )
+
     # Validar siempre: editar una compra a menos acciones puede dejar ventas sin respaldo.
     repo = PortfolioRepository(db)
     splits = repo.splits_for_security(pos.security_id)
@@ -856,6 +961,14 @@ def delete_transaction(
     )
     if tx is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
+
+    # Las filas de traspaso no se borran sueltas: dejarían la pareja huérfana en
+    # la otra posición. Se deshacen como pareja vía DELETE /portfolio/transfer.
+    if tx.type in ("transfer_in", "transfer_out"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Una transacción de traspaso no se borra suelta; usa «deshacer traspaso».",
+        )
 
     # Validar que eliminar esta transacción no deja las ventas sin respaldo
     repo = PortfolioRepository(db)

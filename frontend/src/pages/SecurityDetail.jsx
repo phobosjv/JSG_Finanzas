@@ -679,6 +679,16 @@ export default function SecurityDetail() {
     } catch (err) { setOpError(err.message) }
   }
 
+  async function deleteTransfer(groupId) {
+    if (!groupId) return
+    if (!confirm(t('sd.transfer_confirm_delete'))) return
+    setOpError(null)
+    try {
+      await api.delete(`/portfolio/transfer/${groupId}`)
+      loadAll()  // afecta a dos posiciones: recargar el estado completo
+    } catch (err) { setOpError(err.message) }
+  }
+
   async function saveNotes() {
     setEditingNotes(false)
     try {
@@ -1045,6 +1055,7 @@ export default function SecurityDetail() {
                     <th>{t('sd.transfer_direction')}</th>
                     <th className="num">{t('sd.col_shares')}</th>
                     <th className="num">{t('sd.transfer_cost')}</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1054,6 +1065,17 @@ export default function SecurityDetail() {
                       <td>{tx.type === 'transfer_in' ? `↓ ${t('sd.transfer_in')}` : `↑ ${t('sd.transfer_out')}`}</td>
                       <td className="num">{fmtShares(tx.shares)}</td>
                       <td className="num">{fmt(Number(tx.shares) * Number(tx.price))} €</td>
+                      <td className="num">
+                        {tx.transfer_group_id && (
+                          <button
+                            className="btn-ghost btn-sm"
+                            title={t('sd.transfer_undo')}
+                            onClick={() => deleteTransfer(tx.transfer_group_id)}
+                          >
+                            {t('sd.transfer_undo')}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
