@@ -5,6 +5,38 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.6] — 2026-06-02
+
+### Añadido — Segmentación por tipo de producto
+
+- Nuevo campo **`market_type`** por mercado (`stock`/`fund`/`etf`/`crypto`),
+  editable por el admin (sustituye el checkbox "Mercado de fondos" por un
+  selector "Tipo"). `is_fund_market` se mantiene **derivado** del tipo para la
+  lógica fiscal. Migración `b2c3d4e5f7a8` con autorelleno (fondos→fund;
+  código con "etf"/"crypto"→etf/crypto; resto→stock).
+- **Mi Cartera** y **Dashboard**: segmentador de **chips multiselección**
+  (Todo · Acciones · Fondos · ETF · Crypto). Filtra resumen, posiciones,
+  gráficos, cerradas y dividendos; los informes que quedan vacíos se ocultan.
+  La selección se recuerda por pantalla.
+- **`GET /api/portfolio/history?types=`**: el histórico (agregado en backend)
+  acepta filtro por tipos para segmentar el gráfico de evolución.
+- **Mercados**: menú de **dos niveles** — Tipo de producto (Acciones/Fondos/
+  ETF/Crypto) + botón ★ Favoritos; segundo nivel con los mercados del tipo
+  (si solo hay uno, se muestra directo).
+- El tipo se expone por valor en `SecurityOverview`, `PositionSummary`,
+  `ClosedPositionSummary` y dividendos-por-valor; el badge usa el tipo
+  explícito en vez de heurística por código.
+
+### Import / export adaptados
+
+- **Catálogo (JSON)**: export incluye `market_type`; import lo respeta y, si
+  falta (catálogos anteriores a v1.7.6), lo deriva. Se mantiene `is_fund_market`
+  por compatibilidad.
+- **CSV, Ghostfolio y backup**: operan por *ticker* sobre valores existentes;
+  el tipo lo hereda el valor de su mercado, sin cambios de formato.
+
+---
+
 ## [1.7.5] — 2026-06-02
 
 ### Cambiado — Aportaciones periódicas por rango de fechas

@@ -94,6 +94,11 @@ def create_market(
     if db.get(MarketRow, body.code):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail=f"El código de mercado '{body.code}' ya existe")
+    # market_type manda; is_fund_market se deriva. Compat: un cliente antiguo que
+    # solo manda is_fund_market=True (sin tipo) se interpreta como 'fund'.
+    market_type = body.market_type
+    if market_type == "stock" and body.is_fund_market:
+        market_type = "fund"
     market = MarketRow(
         code=body.code,
         name=body.name,
@@ -102,7 +107,8 @@ def create_market(
         fiscal_window_days=body.fiscal_window_days,
         sort_order=body.sort_order,
         yahoo_exchange=body.yahoo_exchange.strip().upper() if body.yahoo_exchange else None,
-        is_fund_market=body.is_fund_market,
+        market_type=market_type,
+        is_fund_market=(market_type == "fund"),
         created_at=datetime.now().isoformat(),
     )
     db.add(market)
@@ -132,8 +138,17 @@ def update_market(
     if body.yahoo_exchange is not None:
         # Guardar None si se envía string vacío (para "borrar" el exchange)
         market.yahoo_exchange = body.yahoo_exchange.strip().upper() or None
-    if body.is_fund_market is not None:
+    # El tipo manda y deriva is_fund_market. Si solo llega is_fund_market (cliente
+    # antiguo), se ajusta el tipo en consecuencia.
+    if body.market_type is not None:
+        market.market_type = body.market_type
+        market.is_fund_market = (body.market_type == "fund")
+    elif body.is_fund_market is not None:
         market.is_fund_market = body.is_fund_market
+        if body.is_fund_market:
+            market.market_type = "fund"
+        elif market.market_type == "fund":
+            market.market_type = "stock"
     db.commit()
     db.refresh(market)
     return market
@@ -203,7 +218,8 @@ def export_catalog(
                 "currency": m.currency,
                 "fiscal_window_days": m.fiscal_window_days,
                 "sort_order": m.sort_order,
-                "is_fund_market": m.is_fund_market,
+                "market_type": m.market_type,
+                "is_fund_market": m.is_fund_market,  # derivado; se mantiene por compat
             }
             for m in markets
         ],
@@ -257,6 +273,18 @@ def import_catalog(
             markets_skipped += 1
             continue
         if db.get(MarketRow, code) is None:
+            # market_type: usar el del fichero o derivarlo (compat con exports
+            # anteriores a v1.7.6 que no lo traían).
+            mt = m.market_type
+            if mt is None:
+                if m.is_fund_market:
+                    mt = "fund"
+                elif "etf" in code:
+                    mt = "etf"
+                elif "crypto" in code:
+                    mt = "crypto"
+                else:
+                    mt = "stock"
             db.add(
                 MarketRow(
                     code=code,
@@ -265,7 +293,8 @@ def import_catalog(
                     currency=(m.currency or "EUR").upper(),
                     fiscal_window_days=max(1, m.fiscal_window_days or 60),
                     sort_order=m.sort_order,
-                    is_fund_market=m.is_fund_market,
+                    market_type=mt,
+                    is_fund_market=(mt == "fund"),
                     created_at=datetime.now().isoformat(),
                 )
             )

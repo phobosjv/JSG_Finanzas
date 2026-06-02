@@ -22,7 +22,8 @@ function fmt(val, dec = 2) {
   })
 }
 
-function assetTypeKey(marketCode, isFund) {
+function assetTypeKey(marketCode, isFund, marketType) {
+  if (marketType) return marketType
   if (isFund) return 'fund'
   const c = (marketCode ?? '').toLowerCase()
   if (c.includes('etf'))    return 'etf'
@@ -30,8 +31,8 @@ function assetTypeKey(marketCode, isFund) {
   return 'stock'
 }
 
-function AssetBadge({ market, isFund, t }) {
-  const type = assetTypeKey(market, isFund)
+function AssetBadge({ market, isFund, marketType, t }) {
+  const type = assetTypeKey(market, isFund, marketType)
   return (
     <span className={`badge-asset ${type}`}>{t(`badge.${type}`)}</span>
   )
@@ -88,7 +89,7 @@ export default function SecurityCard({ sec, favoritesTab = false, onToggleFav, o
         <div>
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
             <span className="ticker">{sec.yahoo_ticker}</span>
-            <AssetBadge market={sec.market} isFund={sec.is_fund_market} t={t} />
+            <AssetBadge market={sec.market} isFund={sec.is_fund_market} marketType={sec.market_type} t={t} />
           </div>
           <div className="sec-name">{sec.name}</div>
           {badge && <span className="badge-min" style={{ marginTop: 2 }}>{badge}</span>}

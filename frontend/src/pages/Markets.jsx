@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
 import SecurityTable from '../components/SecurityTable'
 import SecurityCard from '../components/SecurityCard'
+import { ASSET_TYPE_ORDER } from '../components/AssetTypeFilter'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
 function fmtDateTime(dt) {
@@ -83,49 +84,62 @@ function IndexHeader({ market }) {
 
 export default function Markets() {
   const { t } = useAppConfig()
-  const [tabs, setTabs]             = useState([])
-  const [activeTab, setActiveTab]   = useState(null)
+  const [marketsList, setMarketsList] = useState([])
+  const [activeType, setActiveType]     = useState(null)  // tipo de producto | 'favoritos'
+  const [activeMarket, setActiveMarket] = useState(null)  // código de mercado (null en favoritos)
   const [securities, setSecurities] = useState([])
   const [search, setSearch]         = useState('')
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
   const isMobile = useMediaQuery('(max-width: 767px)')
 
-  // Construir la pestaña Favoritos con la etiqueta traducida
-  const FAV_TAB = { key: 'favoritos', label: t('markets.favorites_tab') }
+  const typeOf = m => m.market_type || 'stock'
 
-  // Load dynamic market tabs on mount
+  // Cargar mercados al montar y elegir el primer tipo/mercado disponible
   useEffect(() => {
     api.get('/markets/list').then(mks => {
-      const tabs = mks.map(m => ({ key: m.code, label: m.name }))
-      tabs.push(FAV_TAB)
-      setTabs(tabs)
-      if (!activeTab) setActiveTab(tabs[0]?.key ?? 'favoritos')
-    }).catch(() => {
-      setTabs([FAV_TAB])
-      if (!activeTab) setActiveTab('favoritos')
-    })
+      setMarketsList(mks)
+      const present = ASSET_TYPE_ORDER.filter(tp => mks.some(m => typeOf(m) === tp))
+      if (present.length) {
+        setActiveType(present[0])
+        setActiveMarket(mks.find(m => typeOf(m) === present[0])?.code ?? null)
+      } else {
+        setActiveType('favoritos')
+      }
+    }).catch(() => setActiveType('favoritos'))
   }, [])
 
-  async function loadTab(tab) {
+  // (Re)cargar valores al cambiar de tipo/mercado
+  useEffect(() => {
+    if (!activeType) return
+    const url = activeType === 'favoritos'
+      ? '/markets/overview?favorites_only=true'
+      : (activeMarket ? `/markets/overview?market=${activeMarket}` : null)
+    if (!url) { setSecurities([]); setLoading(false); return }
     setLoading(true); setError(null)
-    try {
-      const url = tab === 'favoritos'
-        ? '/markets/overview?favorites_only=true'
-        : `/markets/overview?market=${tab}`
-      const data = await api.get(url)
-      setSecurities(data)
-    } catch (err) { setError(err.message) }
-    finally { setLoading(false) }
+    api.get(url)
+      .then(setSecurities)
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [activeType, activeMarket])
+
+  // Tipos presentes (primer nivel) y mercados del tipo activo (segundo nivel)
+  const typesPresent = ASSET_TYPE_ORDER.filter(tp => marketsList.some(m => typeOf(m) === tp))
+  const marketsOfType = activeType && activeType !== 'favoritos'
+    ? marketsList.filter(m => typeOf(m) === activeType)
+    : []
+
+  function handleTypeChange(type) {
+    setActiveType(type)
+    setSearch('')
+    if (type !== 'favoritos') {
+      setActiveMarket(marketsList.find(m => typeOf(m) === type)?.code ?? null)
+    }
   }
 
-  useEffect(() => {
-    if (activeTab) loadTab(activeTab)
-  }, [activeTab])
-
-  function handleTabChange(tab) {
-    setActiveTab(tab)
-    setSearch('')           // limpiar buscador al cambiar de pestaña
+  function handleMarketChange(code) {
+    setActiveMarket(code)
+    setSearch('')
   }
 
   // Filtro local: ticker o nombre, case-insensitive
@@ -156,7 +170,7 @@ export default function Markets() {
             ? { ...s, is_favorite: !isFav, target_buy_price: isFav ? null : s.target_buy_price }
             : s
         )
-        if (activeTab === 'favoritos' && isFav) {
+        if (activeType === 'favoritos' && isFav) {
           return updated.filter(s => s.id !== secId)
         }
         return updated
@@ -174,23 +188,43 @@ export default function Markets() {
     <div>
       <h1>{t('markets.title')}</h1>
 
-      {/* Pestañas dinámicas con scroll horizontal */}
+      {/* Primer nivel: tipo de producto + Favoritos */}
       <div className="tabs">
-        {tabs.map(tab => (
+        {typesPresent.map(tp => (
           <button
-            key={tab.key}
-            className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
-            onClick={() => handleTabChange(tab.key)}
+            key={tp}
+            className={`tab-btn ${activeType === tp ? 'active' : ''}`}
+            onClick={() => handleTypeChange(tp)}
           >
-            {tab.label}
-            {tab.key === 'favoritos' && securities.length > 0 && activeTab === 'favoritos'
-              ? ` (${securities.length})` : ''}
+            {t(`seg.${tp}`)}
           </button>
         ))}
+        <button
+          className={`tab-btn ${activeType === 'favoritos' ? 'active' : ''}`}
+          onClick={() => handleTypeChange('favoritos')}
+        >
+          ★ {t('markets.favorites_tab')}
+          {securities.length > 0 && activeType === 'favoritos' ? ` (${securities.length})` : ''}
+        </button>
       </div>
 
-      {/* Cabecera del índice */}
-      {activeTab && <IndexHeader market={activeTab} />}
+      {/* Segundo nivel: mercados del tipo activo (solo si hay más de uno) */}
+      {marketsOfType.length > 1 && (
+        <div className="tabs tabs-sub">
+          {marketsOfType.map(m => (
+            <button
+              key={m.code}
+              className={`tab-btn ${activeMarket === m.code ? 'active' : ''}`}
+              onClick={() => handleMarketChange(m.code)}
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Cabecera del índice (solo en mercados reales) */}
+      {activeType !== 'favoritos' && activeMarket && <IndexHeader market={activeMarket} />}
 
       {/* Hint de navegación */}
       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>
@@ -255,7 +289,7 @@ export default function Markets() {
         <div className="state-loading"><div className="spinner" /></div>
       ) : securities.length === 0 ? (
         <div className="state-empty">
-          {activeTab === 'favoritos'
+          {activeType === 'favoritos'
             ? t('markets.no_favorites')
             : t('markets.no_securities')}
         </div>
@@ -266,7 +300,7 @@ export default function Markets() {
           <SecurityCard
             key={s.id}
             sec={s}
-            favoritesTab={activeTab === 'favoritos'}
+            favoritesTab={activeType === 'favoritos'}
             onToggleFav={handleToggleFav}
             onTargetUpdate={handleTargetUpdate}
           />
@@ -275,7 +309,7 @@ export default function Markets() {
         <div className="card">
           <SecurityTable
             securities={filtered}
-            favoritesTab={activeTab === 'favoritos'}
+            favoritesTab={activeType === 'favoritos'}
             onToggleFav={handleToggleFav}
             onTargetUpdate={handleTargetUpdate}
           />

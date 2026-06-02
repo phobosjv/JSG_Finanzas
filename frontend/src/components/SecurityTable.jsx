@@ -24,8 +24,9 @@ function fmt(val, dec = 2) {
   })
 }
 
-/** Deriva el tipo de activo desde el código de mercado y el flag de fondo. */
-function assetTypeKey(marketCode, isFund) {
+/** Tipo de activo: usa market_type explícito si existe; si no, heurística. */
+function assetTypeKey(marketCode, isFund, marketType) {
+  if (marketType) return marketType
   if (isFund) return 'fund'
   const c = (marketCode ?? '').toLowerCase()
   if (c.includes('etf'))    return 'etf'
@@ -34,8 +35,8 @@ function assetTypeKey(marketCode, isFund) {
 }
 
 /** Badge de tipo de activo (ETF / Crypto / Fondo / Acción). */
-function AssetBadge({ market, isFund, t }) {
-  const type = assetTypeKey(market, isFund)
+function AssetBadge({ market, isFund, marketType, t }) {
+  const type = assetTypeKey(market, isFund, marketType)
   const key  = `badge.${type}`
   return (
     <span className={`badge-asset ${type}`}>{t(key)}</span>
@@ -171,7 +172,7 @@ export default function SecurityTable({ securities, favoritesTab = false, onTogg
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
                     <span className="ticker">{sec.yahoo_ticker}</span>
-                    <AssetBadge market={sec.market} isFund={sec.is_fund_market} t={t} />
+                    <AssetBadge market={sec.market} isFund={sec.is_fund_market} marketType={sec.market_type} t={t} />
                   </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{sec.name}</div>
                 </td>

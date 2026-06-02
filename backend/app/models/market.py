@@ -16,19 +16,32 @@ Campos:
                       Opcional. Permite filtrar búsquedas del explorador de valores.
   is_fund_market    — True si el mercado agrupa fondos de inversión. Los fondos se
                       excluyen del informe fiscal PDF (la retención la gestiona la entidad).
+                      Se mantiene DERIVADO de market_type ('fund') para no romper la
+                      lógica fiscal/scheduler existente.
+  market_type       — tipo de producto del mercado (v1.7.6): 'stock' | 'fund' |
+                      'etf' | 'crypto'. Base de la segmentación de Cartera/Dashboard
+                      y de la agrupación del menú de Mercados.
   created_at        — timestamp de creación
 """
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
 
+# Tipos de producto soportados. 'stock' es el valor por defecto.
+MARKET_TYPES = ("stock", "fund", "etf", "crypto")
+
 
 class MarketRow(Base):
     __tablename__ = "markets"
+    __table_args__ = (
+        CheckConstraint(
+            "market_type IN ('stock','fund','etf','crypto')", name="ck_market_type"
+        ),
+    )
 
     code: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -38,6 +51,7 @@ class MarketRow(Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     yahoo_exchange: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_fund_market: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    market_type: Mapped[str] = mapped_column(String, nullable=False, default="stock")
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
     def __repr__(self) -> str:

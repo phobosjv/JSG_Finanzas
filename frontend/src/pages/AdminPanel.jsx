@@ -1016,7 +1016,7 @@ function ForceHistoryUpdateSection() {
 //  Gestión de mercados (catálogo dinámico)
 // ---------------------------------------------------------------------------
 
-const EMPTY_MARKET = { code: '', name: '', index_ticker: '', currency: 'EUR', fiscal_window_days: 60, yahoo_exchange: '', is_fund_market: false }
+const EMPTY_MARKET = { code: '', name: '', index_ticker: '', currency: 'EUR', fiscal_window_days: 60, yahoo_exchange: '', market_type: 'stock' }
 
 function MarketsSection() {
   const { t } = useAppConfig()
@@ -1058,7 +1058,7 @@ function MarketsSection() {
           currency: body.currency,
           fiscal_window_days: body.fiscal_window_days,
           yahoo_exchange: body.yahoo_exchange || null,
-          is_fund_market: body.is_fund_market,
+          market_type: body.market_type,
         })
         setMsg('Mercado actualizado')
       } else {
@@ -1082,7 +1082,7 @@ function MarketsSection() {
 
   function startEdit(m) {
     setEditing(m)
-    setForm({ code: m.code, name: m.name, index_ticker: m.index_ticker ?? '', currency: m.currency, fiscal_window_days: m.fiscal_window_days, yahoo_exchange: m.yahoo_exchange ?? '', is_fund_market: m.is_fund_market ?? false })
+    setForm({ code: m.code, name: m.name, index_ticker: m.index_ticker ?? '', currency: m.currency, fiscal_window_days: m.fiscal_window_days, yahoo_exchange: m.yahoo_exchange ?? '', market_type: m.market_type ?? 'stock' })
     setShowForm(true)
     setErr(null); setMsg(null)
   }
@@ -1216,17 +1216,16 @@ function MarketsSection() {
                   {t('admin.market_yahoo_exchange_help')}
                 </small>
               </div>
-              <div className="form-group" style={{ flex: 1, justifyContent: 'flex-end' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 24 }}>
-                  <input
-                    type="checkbox"
-                    checked={!!form.is_fund_market}
-                    onChange={e => setForm(f => ({ ...f, is_fund_market: e.target.checked }))}
-                  />
-                  {t('admin.market_is_fund')}
-                </label>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>{t('admin.market_type')}</label>
+                <select {...field('market_type')}>
+                  <option value="stock">{t('seg.stock')}</option>
+                  <option value="fund">{t('seg.fund')}</option>
+                  <option value="etf">{t('seg.etf')}</option>
+                  <option value="crypto">{t('seg.crypto')}</option>
+                </select>
                 <small style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                  {t('admin.market_is_fund_help')}
+                  {t('admin.market_type_help')}
                 </small>
               </div>
             </div>
@@ -1249,7 +1248,7 @@ function MarketsSection() {
               <th>Divisa</th>
               <th>Ventana fiscal</th>
               <th>Yahoo Exch.</th>
-              <th>{t('admin.market_is_fund')}</th>
+              <th>{t('admin.market_type')}</th>
               <th></th>
             </tr>
           </thead>
@@ -1284,11 +1283,9 @@ function MarketsSection() {
                   {m.yahoo_exchange || '—'}
                 </td>
                 <td style={{ textAlign: 'center' }}>
-                  {m.is_fund_market && (
-                    <span style={{ background: '#1e40af', color: '#bfdbfe', borderRadius: 4, padding: '1px 7px', fontSize: '0.75rem', fontWeight: 600 }}>
-                      {t('admin.market_fund_badge')}
-                    </span>
-                  )}
+                  <span className={`badge-asset ${m.market_type ?? 'stock'}`}>
+                    {t(`seg.${m.market_type ?? 'stock'}`)}
+                  </span>
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>

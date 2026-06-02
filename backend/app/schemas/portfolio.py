@@ -301,6 +301,7 @@ class PositionSummary(BaseModel):
     name: str
     currency: str                # divisa nativa del valor ('EUR' o 'USD')
     market_code: str             # código de mercado (para badge ETF/Crypto/Acción)
+    market_type: str = "stock"   # tipo de producto: stock|fund|etf|crypto (segmentación)
     is_fund_market: bool = False # True si el mercado es de fondos de inversión
     has_sells: bool              # True si existe alguna venta (impide borrar la posición completa)
     # Acciones y coste
@@ -333,6 +334,7 @@ class ClosedPositionSummary(BaseModel):
     yahoo_ticker: str
     name: str
     market_code: str             # código de mercado (para badge ETF/Crypto/Acción)
+    market_type: str = "stock"   # tipo de producto: stock|fund|etf|crypto (segmentación)
     is_fund_market: bool = False # True si el mercado es de fondos de inversión
     shares_sold: Decimal
     cost_eur: Decimal            # coste total de adquisición
@@ -355,6 +357,7 @@ class SecurityDividendSummary(BaseModel):
     security_id: int
     yahoo_ticker: str
     name: str
+    market_type: str = "stock"  # tipo de producto: stock|fund|etf|crypto (segmentación)
     count: int             # número de cobros de dividendo
     months_held: int       # meses con ≥1 acción (ceil), solo periodos activos
     years_held: float      # months_held / 12

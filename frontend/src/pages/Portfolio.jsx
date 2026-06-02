@@ -10,8 +10,15 @@ import PortfolioChartsPanel, {
   DividendBarChart,
   DividendScatterChart,
 } from '../components/PortfolioChartsPanel'
+import AssetTypeFilter, { matchesTypes, presentTypes } from '../components/AssetTypeFilter'
 
-function assetTypeKey(marketCode, isFund) {
+// Persistencia de la selección de tipos por pantalla.
+function loadSegTypes(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || [] } catch { return [] }
+}
+
+function assetTypeKey(marketCode, isFund, marketType) {
+  if (marketType) return marketType
   if (isFund) return 'fund'
   const c = (marketCode ?? '').toLowerCase()
   if (c.includes('etf'))    return 'etf'
@@ -19,8 +26,8 @@ function assetTypeKey(marketCode, isFund) {
   return 'stock'
 }
 
-function AssetBadge({ marketCode, isFund, t }) {
-  const type = assetTypeKey(marketCode, isFund)
+function AssetBadge({ marketCode, isFund, marketType, t }) {
+  const type = assetTypeKey(marketCode, isFund, marketType)
   return <span className={`badge-asset ${type}`}>{t(`badge.${type}`)}</span>
 }
 
@@ -123,25 +130,35 @@ export default function Portfolio() {
   const [dividendsBySec, setDivsBySec]    = useState([])
   const [error, setError]                 = useState(null)
   const [deleting, setDeleting]           = useState(null)
+  const [segTypes, setSegTypes]           = useState(() => loadSegTypes('portfolioSegTypes'))
   const navigate = useNavigate()
 
   useEffect(() => {
     Promise.all([
       api.get('/portfolio'),
       api.get('/portfolio/closed'),
-      api.get('/portfolio/history'),
       api.get('/portfolio/closed-analytics').catch(() => []),
       api.get('/portfolio/dividends-by-security').catch(() => []),
     ])
-      .then(([open, cls, hist, analytics, divsBySec]) => {
+      .then(([open, cls, analytics, divsBySec]) => {
         setPositions(open)
         setClosed(cls)
-        setHistory(hist)
         setClosedAn(analytics || [])
         setDivsBySec(divsBySec || [])
       })
       .catch(err => setError(err.message))
   }, [])
+
+  // El histórico se agrega en el backend; se re-pide al cambiar la segmentación.
+  useEffect(() => {
+    const qs = segTypes.length ? `?types=${segTypes.join(',')}` : ''
+    api.get(`/portfolio/history${qs}`).then(setHistory).catch(() => setHistory([]))
+  }, [segTypes])
+
+  function changeSeg(next) {
+    setSegTypes(next)
+    localStorage.setItem('portfolioSegTypes', JSON.stringify(next))
+  }
 
   function handleTargetUpdate(positionId, newPrice) {
     setPositions(prev =>
@@ -165,22 +182,31 @@ export default function Portfolio() {
   if (error)      return <div className="state-error">{error}</div>
   if (!positions) return <div className="state-loading"><div className="spinner" /></div>
 
-  const totalValue    = positions.reduce((s, p) => s + Number(p.market_value_eur), 0)
-  const totalCost     = positions.reduce((s, p) => s + Number(p.cost_eur), 0)
-  const totalPnL      = positions.reduce((s, p) => s + Number(p.unrealized_pnl_eur), 0)
-  const totalDivs     = positions.reduce((s, p) => s + Number(p.dividends_eur), 0)
-                      + closed.reduce((s, p) => s + Number(p.dividends_eur), 0)
-  const totalDayEur   = positions.reduce((s, p) => s + (p.daily_change_eur != null ? Number(p.daily_change_eur) : 0), 0)
-  const realizedNet   = positions.reduce((s, p) => s + Number(p.realized_pnl_eur), 0)
-                      + closed.reduce((s, p) => s + Number(p.realized_pnl_eur), 0)
-  const totalFees     = positions.reduce((s, p) => s + Number(p.fees_eur), 0)
-                      + closed.reduce((s, p) => s + Number(p.fees_eur), 0)
+  // Tipos presentes (abiertas + cerradas) y datasets filtrados por la segmentación.
+  const available  = presentTypes([...positions, ...closed])
+  const fPositions = positions.filter(p => matchesTypes(p, segTypes))
+  const fClosed    = closed.filter(p => matchesTypes(p, segTypes))
+  const fClosedAn  = closedAnalytics.filter(p => matchesTypes(p, segTypes))
+  const fDivsBySec = dividendsBySec.filter(d => matchesTypes(d, segTypes))
+
+  const totalValue    = fPositions.reduce((s, p) => s + Number(p.market_value_eur), 0)
+  const totalCost     = fPositions.reduce((s, p) => s + Number(p.cost_eur), 0)
+  const totalPnL      = fPositions.reduce((s, p) => s + Number(p.unrealized_pnl_eur), 0)
+  const totalDivs     = fPositions.reduce((s, p) => s + Number(p.dividends_eur), 0)
+                      + fClosed.reduce((s, p) => s + Number(p.dividends_eur), 0)
+  const totalDayEur   = fPositions.reduce((s, p) => s + (p.daily_change_eur != null ? Number(p.daily_change_eur) : 0), 0)
+  const realizedNet   = fPositions.reduce((s, p) => s + Number(p.realized_pnl_eur), 0)
+                      + fClosed.reduce((s, p) => s + Number(p.realized_pnl_eur), 0)
+  const totalFees     = fPositions.reduce((s, p) => s + Number(p.fees_eur), 0)
+                      + fClosed.reduce((s, p) => s + Number(p.fees_eur), 0)
   const grossRealized = realizedNet + totalFees
   const bpTotal       = totalPnL + realizedNet + totalDivs
 
   return (
     <div>
       <h1>{t('portfolio.title')}</h1>
+
+      <AssetTypeFilter value={segTypes} available={available} onChange={changeSeg} />
 
       {/* 1. Tarjetas resumen */}
       <div className="card-row">
@@ -195,17 +221,17 @@ export default function Portfolio() {
       </div>
 
       {/* 2. Evolución de cartera (ancho completo) */}
-      {positions.length > 0 && (
+      {fPositions.length > 0 && (
         <HistoryChart history={history} t={t} />
       )}
 
       {/* 3. Tabla posiciones abiertas */}
-      {positions.length === 0 ? (
+      {fPositions.length === 0 ? (
         <div className="state-empty">{t('portfolio.open')}</div>
       ) : (
         <div className="card">
           <h2>{t('portfolio.open')}</h2>
-          <div className="table-wrap" style={tableScrollStyle(positions.length)}>
+          <div className="table-wrap" style={tableScrollStyle(fPositions.length)}>
             <table>
               <thead>
                 <tr>
@@ -229,7 +255,7 @@ export default function Portfolio() {
                 </tr>
               </thead>
               <tbody>
-                {positions.map(p => {
+                {fPositions.map(p => {
                   const isSellAlert = p.target_sell_price != null
                     && p.current_price != null
                     && Number(p.current_price) >= Number(p.target_sell_price)
@@ -243,7 +269,7 @@ export default function Portfolio() {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <div className="ticker">{p.yahoo_ticker}</div>
-                          <AssetBadge marketCode={p.market_code} isFund={p.is_fund_market} t={t} />
+                          <AssetBadge marketCode={p.market_code} isFund={p.is_fund_market} marketType={p.market_type} t={t} />
                         </div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{p.name}</div>
                       </td>
@@ -301,22 +327,22 @@ export default function Portfolio() {
       )}
 
       {/* 4. Distribución + B/P por acción (posiciones abiertas, flex responsive) */}
-      {positions.length > 0 && (
+      {fPositions.length > 0 && (
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16, alignItems: 'flex-start' }}>
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <DistributionChart positions={positions} t={t} navigate={navigate} />
+            <DistributionChart positions={fPositions} t={t} navigate={navigate} />
           </div>
           <div style={{ flex: '2 1 400px', minWidth: 0 }}>
-            <PnLChart positions={positions} t={t} navigate={navigate} />
+            <PnLChart positions={fPositions} t={t} navigate={navigate} />
           </div>
         </div>
       )}
 
       {/* 5. Tabla posiciones cerradas */}
-      {closed.length > 0 && (
+      {fClosed.length > 0 && (
         <div className="card">
           <h2>{t('portfolio.closed')}</h2>
-          <div className="table-wrap" style={tableScrollStyle(closed.length)}>
+          <div className="table-wrap" style={tableScrollStyle(fClosed.length)}>
             <table>
               <thead>
                 <tr>
@@ -330,12 +356,12 @@ export default function Portfolio() {
                 </tr>
               </thead>
               <tbody>
-                {closed.map(p => (
+                {fClosed.map(p => (
                   <tr key={p.position_id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/securities/${p.security_id}`)}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <div className="ticker">{p.yahoo_ticker}</div>
-                        <AssetBadge marketCode={p.market_code} t={t} />
+                        <AssetBadge marketCode={p.market_code} isFund={p.is_fund_market} marketType={p.market_type} t={t} />
                       </div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{p.name}</div>
                     </td>
@@ -354,15 +380,15 @@ export default function Portfolio() {
       )}
 
       {/* 6. Scatter plot posiciones cerradas */}
-      {closedAnalytics.length > 0 && (
-        <ClosedScatterChart data={closedAnalytics} t={t} />
+      {fClosedAn.length > 0 && (
+        <ClosedScatterChart data={fClosedAn} t={t} />
       )}
 
       {/* 7. Tabla dividendos por acción */}
-      {dividendsBySec.length > 0 && (
+      {fDivsBySec.length > 0 && (
         <div className="card" style={{ marginTop: 24 }}>
           <h2>{t('portfolio.div_by_security_title')}</h2>
-          <div className="table-wrap" style={tableScrollStyle(dividendsBySec.length)}>
+          <div className="table-wrap" style={tableScrollStyle(fDivsBySec.length)}>
             <table>
               <thead>
                 <tr>
@@ -375,7 +401,7 @@ export default function Portfolio() {
                 </tr>
               </thead>
               <tbody>
-                {dividendsBySec.map(d => (
+                {fDivsBySec.map(d => (
                   <tr key={d.security_id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/securities/${d.security_id}`)}>
                     <td>
                       <div className="ticker">{d.yahoo_ticker}</div>
@@ -395,10 +421,10 @@ export default function Portfolio() {
       )}
 
       {/* 8. Gráficas dividendos: bar chart + scatter yield on cost */}
-      {dividendsBySec.length > 0 && (
+      {fDivsBySec.length > 0 && (
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16 }}>
-          <DividendBarChart data={dividendsBySec} t={t} navigate={navigate} />
-          <DividendScatterChart data={dividendsBySec} t={t} />
+          <DividendBarChart data={fDivsBySec} t={t} navigate={navigate} />
+          <DividendScatterChart data={fDivsBySec} t={t} />
         </div>
       )}
     </div>

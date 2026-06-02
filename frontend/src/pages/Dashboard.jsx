@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useAppConfig } from '../context/AppContext'
 import PortfolioChartsPanel from '../components/PortfolioChartsPanel'
+import AssetTypeFilter, { matchesTypes, presentTypes } from '../components/AssetTypeFilter'
 import './Dashboard.css'
 
 // ─── Utilidades ──────────────────────────────────────────────────────────────
@@ -443,23 +444,35 @@ export default function Dashboard() {
   const [error,      setError]      = useState(null)
   const [configOpen, setConfigOpen] = useState(false)
   const [config,     setConfig]     = useState(loadConfig)
+  const [segTypes,   setSegTypes]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem('dashboardSegTypes')) || [] } catch { return [] }
+  })
 
-  // Carga inicial: portfolio, favoritos, mercados e histórico de cartera
+  // Carga inicial: portfolio, favoritos y mercados
   useEffect(() => {
     Promise.all([
       api.get('/portfolio'),
       api.get('/favorites'),
       api.get('/markets/list'),
-      api.get('/portfolio/history'),
     ])
-      .then(([pos, favs, mkts, hist]) => {
+      .then(([pos, favs, mkts]) => {
         setPositions(pos)
         setFavorites(favs)
         setAllMarkets(mkts)
-        setHistory(hist)
       })
       .catch(err => setError(err.message))
   }, [])
+
+  // El histórico se agrega en el backend; se re-pide al cambiar la segmentación.
+  useEffect(() => {
+    const qs = segTypes.length ? `?types=${segTypes.join(',')}` : ''
+    api.get(`/portfolio/history${qs}`).then(setHistory).catch(() => setHistory([]))
+  }, [segTypes])
+
+  function changeSeg(next) {
+    setSegTypes(next)
+    localStorage.setItem('dashboardSegTypes', JSON.stringify(next))
+  }
 
   function handleSaveConfig(newConfig) {
     setConfig(newConfig)
@@ -474,13 +487,17 @@ export default function Dashboard() {
 
   const showEmpty = positions.length === 0 && favorites.length === 0
 
+  // Posiciones filtradas por la segmentación (afecta a KPIs, posiciones y gráficos).
+  const available  = presentTypes(positions)
+  const fPositions = positions.filter(p => matchesTypes(p, segTypes))
+
   function renderSection(s) {
     if (!s.enabled) return null
     switch (s.id) {
       case 'kpis':
-        return <KpisSection key="kpis" positions={positions} t={t} />
+        return <KpisSection key="kpis" positions={fPositions} t={t} />
       case 'positions':
-        return <PositionsSection key="positions" positions={positions} navigate={navigate} t={t} />
+        return <PositionsSection key="positions" positions={fPositions} navigate={navigate} t={t} />
       case 'favorites':
         return <FavoritesSection key="favorites" favorites={favorites} navigate={navigate} t={t} />
       case 'movers':
@@ -497,7 +514,7 @@ export default function Dashboard() {
         return (
           <ChartsSection
             key="charts"
-            positions={positions}
+            positions={fPositions}
             history={history}
             chartsVisible={config.chartsVisible}
             t={t}
@@ -521,6 +538,11 @@ export default function Dashboard() {
           <button className="btn-ghost btn-sm" onClick={logout}>{t('dashboard.logout')}</button>
         </div>
       </div>
+
+      {/* Segmentador por tipo de producto (afecta a resumen, posiciones y gráficos) */}
+      {positions.length > 0 && (
+        <AssetTypeFilter value={segTypes} available={available} onChange={changeSeg} />
+      )}
 
       {/* Secciones configurables */}
       {orderedSections.map(s => renderSection(s))}

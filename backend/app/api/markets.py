@@ -68,9 +68,9 @@ def _load_securities_with_snapshots(
 
     rows = db.execute(query).all()
 
-    fund_markets: set[str] = {
-        m.code
-        for m in db.scalars(select(MarketRow).where(MarketRow.is_fund_market.is_(True))).all()
+    market_types: dict[str, str] = {
+        m.code: m.market_type
+        for m in db.scalars(select(MarketRow)).all()
     }
 
     favs: dict[int, object] = {
@@ -93,7 +93,8 @@ def _load_securities_with_snapshots(
             google_ticker=sec.google_ticker,
             market=sec.market,
             currency=sec.currency,
-            is_fund_market=sec.market in fund_markets,
+            market_type=market_types.get(sec.market, "stock"),
+            is_fund_market=market_types.get(sec.market) == "fund",
             last_price=snap.last_price if snap else None,
             daily_change_pct=snap.daily_change_pct if snap else None,
             min_1y=snap.min_1y if snap else None,

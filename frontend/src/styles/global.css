@@ -348,6 +348,9 @@ input:focus, select:focus { border-color: var(--accent); }
 
 .tab-btn:hover { color: var(--text); opacity: 1; }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+/* Segundo nivel de pestañas (submercados dentro de un tipo) */
+.tabs-sub { margin-top: -4px; margin-bottom: 8px; }
+.tabs-sub .tab-btn { font-size: 0.84rem; padding-top: 4px; padding-bottom: 4px; }
 
 /* =========================================================
    Cabecera de índice de mercado
@@ -405,6 +408,30 @@ input:focus, select:focus { border-color: var(--accent); }
 .badge-asset.etf    { background: rgba(96,165,250,0.12); color: #60a5fa; }
 .badge-asset.crypto { background: rgba(167,139,250,0.12); color: #a78bfa; }
 .badge-asset.fund   { background: rgba(251,191,36,0.12);  color: #f59e0b; }
+
+/* Segmentador por tipo de producto (chips multiselección) */
+.seg-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.seg-chip {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.seg-chip:hover { color: var(--text); border-color: var(--text-muted); }
+.seg-chip.active {
+  background: var(--accent, #2563eb);
+  border-color: var(--accent, #2563eb);
+  color: #fff;
+}
 
 /* =========================================================
    Alerta "¡Comprar!" parpadeante

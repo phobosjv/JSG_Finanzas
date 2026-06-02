@@ -37,6 +37,7 @@ class SecurityOverview(BaseModel):
     google_ticker: str | None
     market: str
     currency: str
+    market_type: str = "stock"
     is_fund_market: bool = False
     last_price: Decimal | None
     daily_change_pct: Decimal | None

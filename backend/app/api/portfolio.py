@@ -23,7 +23,7 @@ import uuid
 from datetime import date as date_type
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -117,6 +117,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         name=sec.name,
         currency=sec.currency,
         market_code=sec.market,
+        market_type=market_row.market_type if market_row else "stock",
         is_fund_market=market_row.is_fund_market if market_row else False,
         has_sells=any(tx.type == "sell" for tx in txs),
         shares=shares,
@@ -389,6 +390,7 @@ def get_portfolio(
 
 @router.get("/history")
 def get_portfolio_history(
+    types: str | None = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -397,10 +399,22 @@ def get_portfolio_history(
     Para cada fecha de precio calcula las acciones en posesión en ese momento
     (buys acumulados - sells acumulados hasta esa fecha). Incluye posiciones
     cerradas durante el periodo que estuvieron abiertas.
+
+    'types' (opcional): lista separada por comas de tipos de producto
+    (stock,fund,etf,crypto) para segmentar el histórico por tipo. Si se omite,
+    incluye todas las posiciones.
     """
     positions = db.scalars(
         select(Position).where(Position.user_id == user.id)
     ).all()
+
+    # Filtro opcional por tipo de producto del mercado.
+    selected_types: set[str] | None = None
+    if types:
+        selected_types = {t.strip() for t in types.split(",") if t.strip()}
+    market_types: dict[str, str] = {
+        m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
+    }
 
     rate_row = db.scalar(select(EcbRate).order_by(EcbRate.date.desc()))
     current_rate = rate_row.rate if rate_row else Decimal("1")
@@ -409,6 +423,8 @@ def get_portfolio_history(
 
     for pos in positions:
         sec: Security = pos.security
+        if selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
+            continue
         rate = current_rate if sec.currency == "USD" else Decimal("1")
 
         # Transacciones ordenadas por fecha (strings YYYY-MM-DD, orden lexicográfico correcto)
@@ -515,9 +531,8 @@ def get_closed_positions(
         select(Position).where(Position.user_id == user.id)
     ).all()
     repo = PortfolioRepository(db)
-    fund_markets: set[str] = {
-        m.code
-        for m in db.scalars(select(MarketRow).where(MarketRow.is_fund_market.is_(True))).all()
+    market_types: dict[str, str] = {
+        m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
     }
     result = []
 
@@ -554,7 +569,8 @@ def get_closed_positions(
             yahoo_ticker=sec.yahoo_ticker,
             name=sec.name,
             market_code=sec.market,
-            is_fund_market=sec.market in fund_markets,
+            market_type=market_types.get(sec.market, "stock"),
+            is_fund_market=market_types.get(sec.market) == "fund",
             shares_sold=shares_sold,
             cost_eur=cost_eur,
             proceeds_eur=proceeds_eur,
@@ -584,9 +600,8 @@ def get_closed_analytics(
         select(Position).where(Position.user_id == user.id)
     ).all()
     repo = PortfolioRepository(db)
-    fund_markets: set[str] = {
-        m.code
-        for m in db.scalars(select(MarketRow).where(MarketRow.is_fund_market.is_(True))).all()
+    market_types: dict[str, str] = {
+        m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
     }
     result = []
 
@@ -627,7 +642,8 @@ def get_closed_analytics(
             yahoo_ticker=sec.yahoo_ticker,
             name=sec.name,
             market_code=sec.market,
-            is_fund_market=sec.market in fund_markets,
+            market_type=market_types.get(sec.market, "stock"),
+            is_fund_market=market_types.get(sec.market) == "fund",
             shares_sold=shares_sold,
             cost_eur=cost_eur,
             proceeds_eur=proceeds_eur,
@@ -693,6 +709,10 @@ def get_dividends_by_security(
     pos_by_sec: dict[int, list[Position]] = defaultdict(list)
     for pos in positions:
         pos_by_sec[pos.security.id].append(pos)
+
+    market_types: dict[str, str] = {
+        m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
+    }
 
     repo = PortfolioRepository(db)
     summaries: list[SecurityDividendSummary] = []
@@ -773,6 +793,7 @@ def get_dividends_by_security(
             security_id=sec_id,
             yahoo_ticker=sec.yahoo_ticker,
             name=sec.name,
+            market_type=market_types.get(sec.market, "stock"),
             count=len(all_divs_rows),
             months_held=months_held,
             years_held=round(years_held, 2),

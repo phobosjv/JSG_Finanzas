@@ -77,6 +77,13 @@ export const translations = {
     'badge.crypto':  'Crypto',
     'badge.fund':    'Fondo',
 
+    // ── Segmentador por tipo de producto ─────────────────────────────────
+    'seg.all':       'Todo',
+    'seg.stock':     'Acciones',
+    'seg.fund':      'Fondos',
+    'seg.etf':       'ETF',
+    'seg.crypto':    'Crypto',
+
     // ── Cartera ──────────────────────────────────────────────────────────
     'portfolio.title':          'Mi cartera',
     'portfolio.invested':       'Importe invertido',
@@ -363,6 +370,8 @@ export const translations = {
     'admin.market_is_fund':             'Mercado de fondos',
     'admin.market_is_fund_help':        'Los fondos se excluyen del informe fiscal PDF (la retención la gestiona la entidad).',
     'admin.market_fund_badge':          'Fondos',
+    'admin.market_type':                'Tipo de producto',
+    'admin.market_type_help':           'Acciones / Fondos / ETF / Crypto. Define la segmentación de Cartera y Dashboard y la agrupación del menú de Mercados. Los Fondos se excluyen del informe fiscal PDF.',
     'admin.market_yahoo_btn':           'Ver en Yahoo',
     'admin.market_yahoo_search_ph':     'Buscar en {name} ({exchange})…',
     'admin.market_no_exchange':         'Este mercado no tiene exchange Yahoo configurado. Edítalo y añade el código (ej: MCE).',
@@ -485,6 +494,13 @@ export const translations = {
     'badge.etf':     'ETF',
     'badge.crypto':  'Crypto',
     'badge.fund':    'Fund',
+
+    // ── Asset type segmenter ──────────────────────────────────────────────
+    'seg.all':       'All',
+    'seg.stock':     'Stocks',
+    'seg.fund':      'Funds',
+    'seg.etf':       'ETF',
+    'seg.crypto':    'Crypto',
 
     // ── Portfolio ─────────────────────────────────────────────────────────
     'portfolio.title':          'My Portfolio',
@@ -772,6 +788,8 @@ export const translations = {
     'admin.market_is_fund':             'Fund market',
     'admin.market_is_fund_help':        'Funds are excluded from the fiscal PDF report (withholding tax is managed by the financial entity).',
     'admin.market_fund_badge':          'Funds',
+    'admin.market_type':                'Product type',
+    'admin.market_type_help':           'Stocks / Funds / ETF / Crypto. Drives Portfolio and Dashboard segmentation and the Markets menu grouping. Funds are excluded from the fiscal PDF report.',
     'admin.market_yahoo_btn':           'View in Yahoo',
     'admin.market_yahoo_search_ph':     'Search in {name} ({exchange})…',
     'admin.market_no_exchange':         'This market has no Yahoo exchange configured. Edit it and add the code (e.g. MCE).',

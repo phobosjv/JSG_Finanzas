@@ -8,6 +8,9 @@ from typing import Literal
 
 from pydantic import BaseModel, field_validator
 
+# Tipo de producto de un mercado (v1.7.6).
+MarketType = Literal["stock", "fund", "etf", "crypto"]
+
 
 class MarketCreate(BaseModel):
     code: str
@@ -17,6 +20,9 @@ class MarketCreate(BaseModel):
     fiscal_window_days: int = 60
     sort_order: int = 0
     yahoo_exchange: str | None = None
+    market_type: MarketType = "stock"
+    # is_fund_market se deriva de market_type ('fund'); se acepta por
+    # compatibilidad con clientes antiguos pero el tipo manda.
     is_fund_market: bool = False
 
     @field_validator("code")
@@ -54,6 +60,7 @@ class MarketUpdate(BaseModel):
     fiscal_window_days: int | None = None
     sort_order: int | None = None
     yahoo_exchange: str | None = None
+    market_type: MarketType | None = None
     is_fund_market: bool | None = None
 
     @field_validator("fiscal_window_days")
@@ -72,6 +79,7 @@ class MarketOut(BaseModel):
     fiscal_window_days: int
     sort_order: int = 0
     yahoo_exchange: str | None = None
+    market_type: str = "stock"
     is_fund_market: bool = False
 
     model_config = {"from_attributes": True}
@@ -173,13 +181,19 @@ class LogoUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CatalogMarketIn(BaseModel):
-    """Un mercado en el JSON de catálogo (importación/exportación)."""
+    """Un mercado en el JSON de catálogo (importación/exportación).
+
+    market_type es opcional para compatibilidad con catálogos exportados antes
+    de v1.7.6: si falta, el importador lo deriva (fondo / 'etf'/'crypto' en el
+    código / resto stock).
+    """
     code: str
     name: str
     index_ticker: str | None = None
     currency: str = "EUR"
     fiscal_window_days: int = 60
     sort_order: int = 0
+    market_type: MarketType | None = None
     is_fund_market: bool = False
 
 
