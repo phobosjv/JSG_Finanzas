@@ -30,16 +30,21 @@ from __future__ import annotations
 import logging
 import time
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from app.models import AppConfig, EcbRate, PriceHistory, PriceSnapshot, Security
+from app.models import (
+    AppConfig, EcbRate, Position, PriceHistory, PriceSnapshot,
+    RecurringPlanRow, Security, TransactionRow,
+)
 from app.models.market import MarketRow
 from app.providers.yahoo import YahooProvider
 from app.providers.ecb import EcbProvider
 from app.services.indicators import compute_ranges
+from app.services.recurring import nth_contribution_date
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +62,91 @@ def daily_update(db: Session) -> None:
     update_price_history(db)
     update_snapshots(db)
     update_ecb_rates(db)
+    # Tras refrescar precios y tipos, ejecutar las aportaciones periódicas
+    # vencidas: cada plan crea las compras pendientes con el precio del día.
+    execute_due_recurring_plans(db)
     log.info("Actualizacion diaria completada")
+
+
+# ---------------------------------------------------------------------------
+#  Aportaciones periódicas (DCA): ejecutar planes vencidos
+# ---------------------------------------------------------------------------
+
+def execute_due_recurring_plans(db: Session, today: date | None = None) -> int:
+    """
+    Crea las compras de los planes de aportación periódica cuyas fechas ya han
+    llegado (<= hoy). Para cada aportación pendiente usa el precio del día (o el
+    del día hábil anterior) y el tipo de cambio de esa fecha.
+
+    Recupera de caídas (catch-up): si el scheduler no corrió en varios días,
+    ejecuta todas las aportaciones vencidas de una vez. Un hueco permanente en
+    el pasado (sin precio anterior) se salta para no bloquear el plan; una fecha
+    de HOY aún sin precio se deja pendiente para la siguiente ejecución.
+
+    Devuelve el número de compras creadas. Borra los planes ya completados.
+    """
+    today = today or date.today()
+    plans = db.scalars(select(RecurringPlanRow)).all()
+    created = 0
+
+    for plan in plans:
+        start = date.fromisoformat(plan.start_date)
+        pos = db.get(Position, plan.position_id)
+        if pos is None:
+            db.delete(plan)
+            continue
+        sec = db.get(Security, pos.security_id)
+
+        while plan.done_count < plan.total_count:
+            nd = nth_contribution_date(start, plan.frequency, plan.done_count)
+            if nd > today:
+                break  # la próxima aportación aún no ha llegado
+            nd_str = nd.isoformat()
+
+            price_row = db.scalar(
+                select(PriceHistory)
+                .where(PriceHistory.security_id == sec.id, PriceHistory.date <= nd_str)
+                .order_by(PriceHistory.date.desc())
+            )
+            if price_row is None or price_row.close <= Decimal("0"):
+                if nd < today:
+                    plan.done_count += 1  # hueco pasado sin precio: saltar
+                    continue
+                break  # hoy sin precio todavía: reintentar en la próxima pasada
+
+            if sec.currency == "EUR":
+                rate = Decimal("1")
+            else:
+                rate_row = db.scalar(
+                    select(EcbRate).where(EcbRate.date <= nd_str).order_by(EcbRate.date.desc())
+                )
+                if rate_row is None:
+                    if nd < today:
+                        plan.done_count += 1
+                        continue
+                    break
+                rate = rate_row.rate
+
+            db.add(TransactionRow(
+                position_id=plan.position_id,
+                type="buy",
+                date=nd_str,
+                shares=plan.amount_per_period / price_row.close,
+                price=price_row.close,
+                fee=plan.fee_per_period,
+                currency=sec.currency,
+                exchange_rate=rate,
+            ))
+            plan.done_count += 1
+            created += 1
+
+        if plan.done_count >= plan.total_count:
+            db.delete(plan)
+
+    db.commit()
+    if created:
+        log.info("Aportaciones periódicas creadas: %d", created)
+    return created
 
 
 # ---------------------------------------------------------------------------

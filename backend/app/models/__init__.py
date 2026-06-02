@@ -12,7 +12,9 @@ from app.models.security import Security, SecuritySplit
 from app.models.market import MarketRow
 from app.models.config import AppConfig
 from app.models.price import EcbRate, PriceHistory, PriceSnapshot
-from app.models.portfolio import DividendRow, Favorite, Position, TransactionRow
+from app.models.portfolio import (
+    DividendRow, Favorite, Position, RecurringPlanRow, TransactionRow,
+)
 from app.models.tax_bracket import TaxBracketRow
 
 __all__ = [
@@ -30,6 +32,7 @@ __all__ = [
     "DividendRow",
     "Favorite",
     "Position",
+    "RecurringPlanRow",
     "TransactionRow",
     "TaxBracketRow",
 ]

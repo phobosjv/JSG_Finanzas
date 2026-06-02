@@ -39,6 +39,27 @@ def _add_months(d: date, months: int) -> date:
     return date(year, month, min(d.day, last_day))
 
 
+def nth_contribution_date(start: date, frequency: Frequency, index: int) -> date:
+    """
+    Fecha de la aportación de índice 'index' (0 = la primera, en 'start').
+
+    Se calcula SIEMPRE desde 'start' (no incrementando la fecha anterior) para
+    evitar el "drift" de día de mes: si una fecha se recortó (p. ej. 31→28), la
+    siguiente vuelve a anclar al día original de 'start'.
+
+    Lanza ValueError si la frecuencia no está soportada.
+    """
+    if frequency == "weekly":
+        return start + timedelta(weeks=index)
+    if frequency == "monthly":
+        return _add_months(start, index)
+    if frequency == "quarterly":
+        return _add_months(start, 3 * index)
+    if frequency == "yearly":
+        return _add_months(start, 12 * index)
+    raise ValueError(f"Frecuencia no soportada: {frequency!r}")
+
+
 def generate_contribution_dates(
     start: date, frequency: Frequency, count: int,
 ) -> list[date]:
@@ -53,17 +74,4 @@ def generate_contribution_dates(
         raise ValueError("El número de aportaciones debe ser >= 1")
     if count > MAX_CONTRIBUTIONS:
         raise ValueError(f"Demasiadas aportaciones (máximo {MAX_CONTRIBUTIONS})")
-
-    dates: list[date] = []
-    for i in range(count):
-        if frequency == "weekly":
-            dates.append(start + timedelta(weeks=i))
-        elif frequency == "monthly":
-            dates.append(_add_months(start, i))
-        elif frequency == "quarterly":
-            dates.append(_add_months(start, 3 * i))
-        elif frequency == "yearly":
-            dates.append(_add_months(start, 12 * i))
-        else:
-            raise ValueError(f"Frecuencia no soportada: {frequency!r}")
-    return dates
+    return [nth_contribution_date(start, frequency, i) for i in range(count)]

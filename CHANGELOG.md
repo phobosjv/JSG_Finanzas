@@ -5,6 +5,33 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.4] — 2026-06-02
+
+### Cambiado — Aportaciones periódicas: modelo híbrido (pasado + futuro)
+
+Replanteamiento del DCA de 1.7.3, que solo sabía registrar aportaciones
+**pasadas** (calculaba participaciones con el precio histórico) y omitía en
+silencio las futuras —imposibles de valorar sin cotización—. Ahora:
+
+- **Aportaciones pasadas** (fecha <= hoy): se registran ya como compras
+  (backfill) con el precio histórico de cada fecha, como antes.
+- **Aportaciones futuras** (fecha > hoy): se guardan como un **plan** que el
+  scheduler ejecuta al llegar cada fecha, creando la compra con el precio real
+  de ese día. Ya no se pierden ni exigen conocer las participaciones por
+  adelantado.
+- Nueva tabla `recurring_plans` (migración `a1b2c3d4e5f7`). El calendario se
+  ancla a la fecha de inicio para no acumular "drift" de día de mes.
+- `execute_due_recurring_plans` corre en el job nocturno (con catch-up si el
+  scheduler estuvo caído). Un hueco de precio en el pasado se salta; una fecha
+  de hoy sin precio aún se reintenta en la siguiente pasada.
+- Endpoints: `GET /api/portfolio/recurring-plans` (planes activos),
+  `DELETE /api/portfolio/recurring-plans/{id}` (cancelar, sin tocar compras ya
+  creadas). El POST devuelve el backfill creado **y** el plan futuro.
+- **SecurityDetail**: el resumen muestra compras creadas + plan futuro; nueva
+  tabla de planes activos con botón "Cancelar".
+
+---
+
 ## [1.7.3] — 2026-06-02
 
 ### Añadido — Aportaciones periódicas (DCA)

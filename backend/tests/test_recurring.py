@@ -16,8 +16,9 @@ from decimal import Decimal as D
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models import EcbRate, PriceHistory
-from app.services.recurring import generate_contribution_dates
+from app.models import EcbRate, PriceHistory, RecurringPlanRow
+from app.scheduler.jobs import execute_due_recurring_plans
+from app.services.recurring import generate_contribution_dates, nth_contribution_date
 
 
 # ---------------------------------------------------------------------------
@@ -132,18 +133,108 @@ def test_aportacion_sin_precio_se_omite(admin_client, seed_markets, engine):
     assert all("precio" in s["reason"] for s in data["skipped"])
 
 
-def test_aportacion_futura_se_omite(admin_client, seed_markets, engine):
-    """Las fechas futuras (sin cotización aún) se omiten."""
+def test_aportacion_futura_crea_plan_no_compras(admin_client, seed_markets, engine):
+    """
+    Las fechas futuras NO se crean como compras (no hay cotización): se guardan
+    como un plan que el scheduler ejecutará. El caso que reportó el usuario.
+    """
     sec, pos = _crear_sec_pos(admin_client)
-    _seed_prices(engine, sec, [("2099-01-01", "10")])  # precio ficticio futuro
     resp = admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
+        "amount_per_period": "200", "frequency": "monthly",
+        "start_date": "2099-01-01", "count": 3,
+    })
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+    assert data["created"] == 0          # nada se crea por adelantado
+    assert data["skipped"] == []
+    assert data["plan"] is not None
+    assert data["plan"]["remaining"] == 3
+    assert data["plan"]["next_date"] == "2099-01-01"
+    assert float(data["plan"]["amount_per_period"]) == 200.0
+
+    # No se ha creado ninguna compra todavía.
+    txs = admin_client.get(f"/api/portfolio/{pos}/transactions").json()
+    assert [t for t in txs if t["type"] == "buy"] == []
+
+    # El plan aparece en la lista de planes activos.
+    plans = admin_client.get("/api/portfolio/recurring-plans").json()
+    assert len(plans) == 1
+    assert plans[0]["security_id"] == sec
+
+
+def test_scheduler_ejecuta_plan_vencido(admin_client, seed_markets, engine):
+    """El scheduler crea las compras de un plan cuando llegan sus fechas."""
+    from sqlalchemy.orm import Session
+    sec, pos = _crear_sec_pos(admin_client)
+    # Plan futuro de 2 aportaciones mensuales de 100€.
+    admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "100", "frequency": "monthly",
         "start_date": "2099-01-01", "count": 2,
     })
+    _seed_prices(engine, sec, [("2099-01-01", "10"), ("2099-02-01", "20")])
+
+    # Ejecutar con 'hoy' = 2099-02-01: las dos aportaciones están vencidas.
+    with Session(engine) as s:
+        created = execute_due_recurring_plans(s, today=date(2099, 2, 1))
+    assert created == 2
+
+    txs = admin_client.get(f"/api/portfolio/{pos}/transactions").json()
+    buys = sorted([t for t in txs if t["type"] == "buy"], key=lambda t: t["date"])
+    assert len(buys) == 2
+    assert float(buys[0]["shares"]) == 10.0   # 100/10
+    assert float(buys[1]["shares"]) == 5.0    # 100/20
+
+    # Plan completado → ya no figura como activo.
+    assert admin_client.get("/api/portfolio/recurring-plans").json() == []
+
+
+def test_scheduler_no_ejecuta_aportaciones_no_vencidas(admin_client, seed_markets, engine):
+    """Solo se ejecutan las aportaciones cuya fecha ya llegó (<= hoy)."""
+    from sqlalchemy.orm import Session
+    sec, pos = _crear_sec_pos(admin_client)
+    admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
+        "amount_per_period": "100", "frequency": "monthly",
+        "start_date": "2099-01-01", "count": 3,
+    })
+    _seed_prices(engine, sec, [("2099-01-01", "10"), ("2099-02-01", "20")])
+
+    # 'hoy' = 2099-01-15: solo la primera (01-01) está vencida.
+    with Session(engine) as s:
+        created = execute_due_recurring_plans(s, today=date(2099, 1, 15))
+    assert created == 1
+
+    plans = admin_client.get("/api/portfolio/recurring-plans").json()
+    assert len(plans) == 1
+    assert plans[0]["remaining"] == 2            # quedan 2 por ejecutar
+    assert plans[0]["next_date"] == "2099-02-01"
+
+
+def test_cancelar_plan(admin_client, seed_markets, engine):
+    """Cancelar un plan lo elimina sin tocar las compras ya creadas."""
+    sec, pos = _crear_sec_pos(admin_client)
+    admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
+        "amount_per_period": "100", "frequency": "monthly",
+        "start_date": "2099-01-01", "count": 3,
+    })
+    plans = admin_client.get("/api/portfolio/recurring-plans").json()
+    plan_id = plans[0]["id"]
+    d = admin_client.delete(f"/api/portfolio/recurring-plans/{plan_id}")
+    assert d.status_code == 204
+    assert admin_client.get("/api/portfolio/recurring-plans").json() == []
+
+
+def test_backfill_pasado_no_crea_plan(admin_client, seed_markets, engine):
+    """Una serie totalmente pasada se registra como compras y NO deja plan."""
+    sec, pos = _crear_sec_pos(admin_client)
+    _seed_prices(engine, sec, [("2024-01-15", "10"), ("2024-02-15", "20")])
+    resp = admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
+        "amount_per_period": "100", "frequency": "monthly",
+        "start_date": "2024-01-15", "count": 2,
+    })
     data = resp.json()
-    assert data["created"] == 0
-    assert len(data["skipped"]) == 2
-    assert all("futura" in s["reason"] for s in data["skipped"])
+    assert data["created"] == 2
+    assert data["plan"] is None
+    assert admin_client.get("/api/portfolio/recurring-plans").json() == []
 
 
 def test_aportacion_usd_usa_tipo_de_cambio(admin_client, seed_markets, engine):

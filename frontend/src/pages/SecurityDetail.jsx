@@ -332,6 +332,11 @@ function RecurringBuyModal({ positionId, currency, onClose, onDone }) {
               {t('sd.rec_created')}: <strong>{result.created}</strong>
               {result.created > 0 && <> · {t('sd.rec_invested')}: <strong>{fmt(result.total_invested_native)} {currency}</strong> · {fmt(result.total_shares, 4)} {t('sd.rec_units')}</>}
             </div>
+            {result.plan && (
+              <div className="state-ok" style={{ padding: 10, marginBottom: 12 }}>
+                {t('sd.rec_plan_created')}: <strong>{result.plan.remaining}</strong> {t('sd.rec_units_left')} · {t('sd.rec_next')}: <strong>{result.plan.next_date}</strong>
+              </div>
+            )}
             {result.skipped?.length > 0 && (
               <div className="table-wrap" style={tableScrollStyle(result.skipped.length)}>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('sd.rec_skipped')}: {result.skipped.length}</p>
@@ -712,6 +717,7 @@ export default function SecurityDetail() {
   const [editingDiv, setEditingDiv]   = useState(null)
   const [showTransfer, setShowTransfer] = useState(false)
   const [showRecurring, setShowRecurring] = useState(false)
+  const [plans, setPlans] = useState([])
   const [isFundMarket, setIsFundMarket] = useState(false)
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesVal, setNotesVal]         = useState('')
@@ -739,6 +745,10 @@ export default function SecurityDetail() {
       setHistory(hist.slice(-365))
       setIsFav(favs.some(f => f.security_id === secId))
       setIsFundMarket(markets.some(m => m.code === sec.market && m.is_fund_market))
+
+      // Planes de aportación periódica activos para este valor.
+      const allPlans = await api.get('/portfolio/recurring-plans').catch(() => [])
+      setPlans(allPlans.filter(p => p.security_id === secId))
 
       if (posResult) {
         // Posición abierta encontrada directamente
@@ -798,6 +808,15 @@ export default function SecurityDetail() {
     try {
       await api.delete(`/portfolio/transfer/${groupId}`)
       loadAll()  // afecta a dos posiciones: recargar el estado completo
+    } catch (err) { setOpError(err.message) }
+  }
+
+  async function cancelPlan(planId) {
+    if (!confirm(t('sd.rec_confirm_cancel'))) return
+    setOpError(null)
+    try {
+      await api.delete(`/portfolio/recurring-plans/${planId}`)
+      setPlans(ps => ps.filter(p => p.id !== planId))
     } catch (err) { setOpError(err.message) }
   }
 
@@ -1106,6 +1125,39 @@ export default function SecurityDetail() {
               </thead>
               <tbody>{buys.map(tx => <TxRow key={tx.id} tx={tx} onDelete={deleteTx} onEdit={tx => { setEditingTx(tx); setTxModal(true) }} />)}</tbody>
             </table>
+          </div>
+        )}
+
+        {/* Planes de aportación periódica activos (futuros) */}
+        {plans.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <h3 style={{ marginBottom: 8, fontSize: '0.95rem' }}>{t('sd.rec_plans_title')}</h3>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t('sd.rec_amount')}</th>
+                    <th>{t('sd.rec_frequency')}</th>
+                    <th>{t('sd.rec_next')}</th>
+                    <th className="num">{t('sd.rec_remaining')}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plans.map(p => (
+                    <tr key={p.id}>
+                      <td>{fmt(p.amount_per_period)} {p.currency}</td>
+                      <td>{t(`sd.rec_${p.frequency}`)}</td>
+                      <td>{p.next_date}</td>
+                      <td className="num">{p.remaining}</td>
+                      <td className="num">
+                        <button className="btn-ghost btn-sm" onClick={() => cancelPlan(p.id)}>{t('sd.rec_cancel')}</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

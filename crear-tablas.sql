@@ -130,3 +130,23 @@ CREATE TABLE dividends (
 );
 
 CREATE INDEX idx_div_position_date ON dividends (position_id, date);
+
+-- =====================================================================
+--  APORTACIONES PERIÓDICAS (DCA) — planes futuros (v1.7.4)
+-- =====================================================================
+-- El scheduler crea las compras cuando llega cada fecha. Las aportaciones
+-- pasadas se registran como compras directas y no viven aquí.
+CREATE TABLE recurring_plans (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    position_id       INTEGER NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
+    amount_per_period REAL    NOT NULL,          -- importe por aportación, divisa nativa
+    fee_per_period    REAL    NOT NULL DEFAULT 0,
+    frequency         TEXT    NOT NULL CHECK (frequency IN ('weekly','monthly','quarterly','yearly')),
+    start_date        TEXT    NOT NULL,          -- ancla del calendario 'YYYY-MM-DD'
+    total_count       INTEGER NOT NULL,          -- nº total de aportaciones del plan
+    done_count        INTEGER NOT NULL DEFAULT 0,-- aportaciones ya consumidas (pasadas/ejecutadas)
+    currency          TEXT    NOT NULL,
+    created_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_recplan_position ON recurring_plans (position_id);

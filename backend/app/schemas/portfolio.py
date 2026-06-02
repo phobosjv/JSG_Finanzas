@@ -213,18 +213,39 @@ class RecurringBuyCreate(BaseModel):
 
 
 class SkippedContribution(BaseModel):
-    """Una aportación de la serie que no se pudo crear, con su motivo."""
+    """Una aportación PASADA que no se pudo registrar (backfill), con su motivo."""
     date: str
     reason: str
 
 
+class RecurringPlanOut(BaseModel):
+    """Plan de aportaciones periódicas futuras (lo ejecuta el scheduler)."""
+    id: int
+    security_id: int
+    yahoo_ticker: str
+    name: str
+    amount_per_period: Decimal
+    fee_per_period: Decimal
+    frequency: str
+    currency: str
+    next_date: str          # próxima aportación pendiente (calculada)
+    remaining: int          # aportaciones futuras que quedan por ejecutar
+
+
 class RecurringBuyResult(BaseModel):
-    """Resultado de generar una serie de aportaciones periódicas."""
+    """
+    Resultado de crear una serie de aportaciones periódicas (DCA).
+
+    Parte PASADA: se registran ya como compras (backfill) con precio histórico
+    (created/skipped/totales). Parte FUTURA: queda como plan que el scheduler
+    ejecutará al llegar cada fecha (campo 'plan', None si no hay fechas futuras).
+    """
     created: int
     skipped: list[SkippedContribution] = []
     total_invested_native: Decimal = Decimal("0")
     total_shares: Decimal = Decimal("0")
     currency: str = "EUR"
+    plan: RecurringPlanOut | None = None
 
 
 class DividendCreate(BaseModel):

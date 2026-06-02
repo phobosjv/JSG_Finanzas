@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from collections import defaultdict
 
-from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, Security, SecuritySplit, TransactionRow, User
+from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, RecurringPlanRow, Security, SecuritySplit, TransactionRow, User
 from app.repositories.portfolio_repository import PortfolioRepository
 from app.models.market import MarketRow
 from app.schemas.portfolio import (
@@ -40,7 +40,7 @@ from app.schemas.portfolio import (
     NotesUpdate, TargetSellUpdate,
     PositionCreate, PositionOut,
     PositionSummary,
-    RecurringBuyCreate, RecurringBuyResult, SkippedContribution,
+    RecurringBuyCreate, RecurringBuyResult, RecurringPlanOut, SkippedContribution,
     SecurityDividendSummary,
     TransactionCreate, TransactionOut,
     TransferCreate, TransferResult,
@@ -49,7 +49,7 @@ from app.services.calculations import (
     Transaction, compute_position, consumed_cost_fifo, daily_change,
     normalize_splits, value_position,
 )
-from app.services.recurring import generate_contribution_dates
+from app.services.recurring import generate_contribution_dates, nth_contribution_date
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -1009,6 +1009,26 @@ def delete_transaction(
 #  Aportaciones periódicas (DCA)
 # ---------------------------------------------------------------------------
 
+def _plan_out(db: Session, plan: RecurringPlanRow) -> RecurringPlanOut:
+    """Construye el RecurringPlanOut de un plan (próxima fecha y restantes)."""
+    pos = db.get(Position, plan.position_id)
+    sec = db.get(Security, pos.security_id)
+    start = date_type.fromisoformat(plan.start_date)
+    next_date = nth_contribution_date(start, plan.frequency, plan.done_count)
+    return RecurringPlanOut(
+        id=plan.id,
+        security_id=sec.id,
+        yahoo_ticker=sec.yahoo_ticker,
+        name=sec.name,
+        amount_per_period=plan.amount_per_period,
+        fee_per_period=plan.fee_per_period,
+        frequency=plan.frequency,
+        currency=plan.currency,
+        next_date=next_date.isoformat(),
+        remaining=plan.total_count - plan.done_count,
+    )
+
+
 @router.post(
     "/{position_id}/recurring-buys",
     response_model=RecurringBuyResult,
@@ -1021,15 +1041,17 @@ def create_recurring_buys(
     user: User = Depends(get_current_user),
 ):
     """
-    Genera una serie de compras periódicas (DCA) con importe fijo por
-    aportación. Para cada fecha de la serie resuelve el precio histórico del
-    valor (price_history, día hábil anterior si esa fecha no cotiza) y calcula
-    participaciones = importe / precio. Para valores en divisa distinta de EUR
-    usa el tipo EUR/USD del BCE de esa fecha.
+    Crea una serie de aportaciones periódicas (DCA) con importe fijo.
 
-    Las aportaciones que no se pueden valorar (sin precio histórico, sin tipo
-    de cambio, o con fecha futura) se OMITEN y se devuelven en 'skipped' con su
-    motivo; el resto se crean igualmente.
+    Las aportaciones PASADAS (fecha <= hoy) se registran ya como compras
+    (backfill): para cada fecha se resuelve el precio histórico del valor
+    (price_history, día hábil anterior si no cotiza ese día) y participaciones =
+    importe / precio. Para divisas distintas de EUR usa el tipo BCE de la fecha.
+    Las pasadas que no se pueden valorar se devuelven en 'skipped'.
+
+    Las aportaciones FUTURAS (fecha > hoy) NO se crean ahora —es imposible saber
+    las participaciones sin cotización—: se guardan como un PLAN que el
+    scheduler ejecutará al llegar cada fecha, con el precio real de ese día.
     """
     pos = _require_position(db, position_id, user.id)
     sec: Security = pos.security
@@ -1042,12 +1064,13 @@ def create_recurring_buys(
     total_invested = Decimal("0")
     total_shares = Decimal("0")
     created_rows: list[TransactionRow] = []
+    past_count = 0  # aportaciones cuya fecha ya pasó (<= hoy): consumidas del plan
 
     for d in dates:
-        d_str = d.isoformat()
         if d > today:
-            skipped.append(SkippedContribution(date=d_str, reason="fecha futura (aún sin cotización)"))
-            continue
+            break  # las futuras van al plan; las fechas vienen en orden creciente
+        past_count += 1
+        d_str = d.isoformat()
 
         # Precio del día hábil anterior o igual a la fecha de la aportación.
         price_row = db.scalar(
@@ -1091,6 +1114,22 @@ def create_recurring_buys(
 
     for row in created_rows:
         db.add(row)
+
+    # Si quedan aportaciones futuras, guardar el plan que el scheduler ejecutará.
+    plan_row: RecurringPlanRow | None = None
+    if past_count < body.count:
+        plan_row = RecurringPlanRow(
+            position_id=pos.id,
+            amount_per_period=body.amount_per_period,
+            fee_per_period=body.fee_per_period,
+            frequency=body.frequency,
+            start_date=body.start_date,
+            total_count=body.count,
+            done_count=past_count,
+            currency=sec.currency,
+        )
+        db.add(plan_row)
+
     db.commit()
 
     return RecurringBuyResult(
@@ -1099,7 +1138,40 @@ def create_recurring_buys(
         total_invested_native=total_invested,
         total_shares=total_shares,
         currency=sec.currency,
+        plan=_plan_out(db, plan_row) if plan_row is not None else None,
     )
+
+
+@router.get("/recurring-plans", response_model=list[RecurringPlanOut])
+def list_recurring_plans(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Planes de aportación periódica activos del usuario (pendientes de ejecutar)."""
+    plans = db.scalars(
+        select(RecurringPlanRow)
+        .join(Position, RecurringPlanRow.position_id == Position.id)
+        .where(Position.user_id == user.id)
+    ).all()
+    return [_plan_out(db, p) for p in plans]
+
+
+@router.delete("/recurring-plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_recurring_plan(
+    plan_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Cancela un plan de aportación periódica. No afecta a las compras ya creadas."""
+    plan = db.scalar(
+        select(RecurringPlanRow)
+        .join(Position, RecurringPlanRow.position_id == Position.id)
+        .where(RecurringPlanRow.id == plan_id, Position.user_id == user.id)
+    )
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan no encontrado")
+    db.delete(plan)
+    db.commit()
 
 
 # ---------------------------------------------------------------------------

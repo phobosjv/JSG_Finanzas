@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    CheckConstraint, ForeignKey, Index, String, Text,
+    CheckConstraint, ForeignKey, Index, Integer, String, Text,
     UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -86,6 +86,9 @@ class Position(Base):
     dividends: Mapped[list["DividendRow"]] = relationship(
         back_populates="position", cascade="all, delete-orphan"
     )
+    recurring_plans: Mapped[list["RecurringPlanRow"]] = relationship(
+        back_populates="position", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Position id={self.id} user={self.user_id} sec={self.security_id}>"
@@ -137,6 +140,53 @@ class TransactionRow(Base):
         return (
             f"<TransactionRow id={self.id} {self.type} {self.date} "
             f"shares={self.shares} price={self.price}>"
+        )
+
+
+class RecurringPlanRow(Base):
+    """
+    Plan de aportaciones periódicas (DCA) hacia el futuro.
+
+    No almacena las compras: el scheduler las crea cuando llega cada fecha,
+    usando el precio real de ese día. Las aportaciones pasadas en el momento de
+    crear el plan se registran como compras directamente (backfill) y NO viven
+    en esta tabla.
+
+    El calendario se ancla a 'start_date' + 'frequency'; 'done_count' es cuántas
+    aportaciones (pasadas o ya ejecutadas) se han consumido. El plan está activo
+    mientras done_count < total_count. La próxima fecha pendiente se calcula con
+    recurring.nth_contribution_date(start_date, frequency, done_count).
+    """
+    __tablename__ = "recurring_plans"
+    __table_args__ = (
+        CheckConstraint(
+            "frequency IN ('weekly','monthly','quarterly','yearly')",
+            name="ck_recplan_frequency",
+        ),
+        Index("idx_recplan_position", "position_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    position_id: Mapped[int] = mapped_column(
+        ForeignKey("positions.id", ondelete="CASCADE"), nullable=False
+    )
+    amount_per_period: Mapped["object"] = mapped_column(Money, nullable=False)
+    fee_per_period: Mapped["object"] = mapped_column(Money, nullable=False, default=0)
+    frequency: Mapped[str] = mapped_column(String, nullable=False)
+    start_date: Mapped[str] = mapped_column(String, nullable=False)  # 'YYYY-MM-DD'
+    total_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    done_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.datetime("now")
+    )
+
+    position: Mapped["Position"] = relationship(back_populates="recurring_plans")
+
+    def __repr__(self) -> str:
+        return (
+            f"<RecurringPlanRow id={self.id} pos={self.position_id} "
+            f"{self.amount_per_period}/{self.frequency} {self.done_count}/{self.total_count}>"
         )
 
 
