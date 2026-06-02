@@ -18,7 +18,9 @@ from sqlalchemy.orm import Session
 
 from app.models import EcbRate, PriceHistory, RecurringPlanRow
 from app.scheduler.jobs import execute_due_recurring_plans
-from app.services.recurring import generate_contribution_dates, nth_contribution_date
+from app.services.recurring import (
+    contribution_dates_until, generate_contribution_dates, nth_contribution_date,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +62,20 @@ def test_frecuencia_invalida():
         generate_contribution_dates(date(2024, 1, 1), "daily", 3)  # type: ignore[arg-type]
 
 
+def test_contribution_dates_until_rango():
+    """Las fechas se generan por rango inicio→fin (ambos incluidos)."""
+    fechas = contribution_dates_until(date(2024, 1, 15), "monthly", date(2024, 3, 15))
+    assert fechas == [date(2024, 1, 15), date(2024, 2, 15), date(2024, 3, 15)]
+    # El fin no cae justo en una fecha: se incluye hasta la última <= fin.
+    fechas = contribution_dates_until(date(2024, 1, 15), "monthly", date(2024, 3, 10))
+    assert fechas == [date(2024, 1, 15), date(2024, 2, 15)]
+
+
+def test_contribution_dates_until_fin_anterior():
+    with pytest.raises(ValueError):
+        contribution_dates_until(date(2024, 3, 1), "monthly", date(2024, 1, 1))
+
+
 # ---------------------------------------------------------------------------
 #  Endpoint POST /portfolio/{id}/recurring-buys
 # ---------------------------------------------------------------------------
@@ -90,7 +106,7 @@ def test_aportaciones_crean_compras_con_precio_historico(admin_client, seed_mark
     ])
     resp = admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "100", "fee_per_period": "0",
-        "frequency": "monthly", "start_date": "2024-01-15", "count": 3,
+        "frequency": "monthly", "start_date": "2024-01-15", "end_date": "2024-03-15",
     })
     assert resp.status_code == 201, resp.text
     data = resp.json()
@@ -112,7 +128,7 @@ def test_aportacion_usa_dia_habil_anterior(admin_client, seed_markets, engine):
     _seed_prices(engine, sec, [("2024-01-12", "10")])
     resp = admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "100", "frequency": "monthly",
-        "start_date": "2024-01-15", "count": 1,
+        "start_date": "2024-01-15", "end_date": "2024-01-15",
     })
     data = resp.json()
     assert data["created"] == 1
@@ -125,7 +141,7 @@ def test_aportacion_sin_precio_se_omite(admin_client, seed_markets, engine):
     _seed_prices(engine, sec, [("2024-03-15", "25")])  # solo marzo
     resp = admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "100", "frequency": "monthly",
-        "start_date": "2024-01-15", "count": 3,
+        "start_date": "2024-01-15", "end_date": "2024-03-15",
     })
     data = resp.json()
     assert data["created"] == 1                 # solo la de marzo
@@ -141,7 +157,7 @@ def test_aportacion_futura_crea_plan_no_compras(admin_client, seed_markets, engi
     sec, pos = _crear_sec_pos(admin_client)
     resp = admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "200", "frequency": "monthly",
-        "start_date": "2099-01-01", "count": 3,
+        "start_date": "2099-01-01", "end_date": "2099-03-01",
     })
     assert resp.status_code == 201, resp.text
     data = resp.json()
@@ -169,7 +185,7 @@ def test_scheduler_ejecuta_plan_vencido(admin_client, seed_markets, engine):
     # Plan futuro de 2 aportaciones mensuales de 100€.
     admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "100", "frequency": "monthly",
-        "start_date": "2099-01-01", "count": 2,
+        "start_date": "2099-01-01", "end_date": "2099-02-01",
     })
     _seed_prices(engine, sec, [("2099-01-01", "10"), ("2099-02-01", "20")])
 
@@ -194,7 +210,7 @@ def test_scheduler_no_ejecuta_aportaciones_no_vencidas(admin_client, seed_market
     sec, pos = _crear_sec_pos(admin_client)
     admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "100", "frequency": "monthly",
-        "start_date": "2099-01-01", "count": 3,
+        "start_date": "2099-01-01", "end_date": "2099-03-01",
     })
     _seed_prices(engine, sec, [("2099-01-01", "10"), ("2099-02-01", "20")])
 
@@ -214,7 +230,7 @@ def test_cancelar_plan(admin_client, seed_markets, engine):
     sec, pos = _crear_sec_pos(admin_client)
     admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "100", "frequency": "monthly",
-        "start_date": "2099-01-01", "count": 3,
+        "start_date": "2099-01-01", "end_date": "2099-03-01",
     })
     plans = admin_client.get("/api/portfolio/recurring-plans").json()
     plan_id = plans[0]["id"]
@@ -229,7 +245,7 @@ def test_backfill_pasado_no_crea_plan(admin_client, seed_markets, engine):
     _seed_prices(engine, sec, [("2024-01-15", "10"), ("2024-02-15", "20")])
     resp = admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "100", "frequency": "monthly",
-        "start_date": "2024-01-15", "count": 2,
+        "start_date": "2024-01-15", "end_date": "2024-02-15",
     })
     data = resp.json()
     assert data["created"] == 2
@@ -246,7 +262,7 @@ def test_aportacion_usd_usa_tipo_de_cambio(admin_client, seed_markets, engine):
         s.commit()
     resp = admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "100", "frequency": "monthly",
-        "start_date": "2024-01-15", "count": 1,
+        "start_date": "2024-01-15", "end_date": "2024-01-15",
     })
     assert resp.status_code == 201, resp.text
     data = resp.json()
@@ -263,6 +279,6 @@ def test_aportacion_importe_invalido(admin_client, seed_markets):
     sec, pos = _crear_sec_pos(admin_client)
     resp = admin_client.post(f"/api/portfolio/{pos}/recurring-buys", json={
         "amount_per_period": "0", "frequency": "monthly",
-        "start_date": "2024-01-15", "count": 3,
+        "start_date": "2024-01-15", "end_date": "2024-03-15",
     })
     assert resp.status_code == 422

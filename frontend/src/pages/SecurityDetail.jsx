@@ -284,12 +284,14 @@ function TransferModal({ originPositionId, originSecurityId, currentShares, onCl
 
 function RecurringBuyModal({ positionId, currency, onClose, onDone }) {
   const { t } = useAppConfig()
+  const _today = new Date()
+  const _inAYear = new Date(_today); _inAYear.setFullYear(_today.getFullYear() + 1)
   const [form, setForm] = useState({
     amount_per_period: '',
     fee_per_period: '0',
     frequency: 'monthly',
-    start_date: new Date().toISOString().slice(0, 10),
-    count: '12',
+    start_date: _today.toISOString().slice(0, 10),
+    end_date: _inAYear.toISOString().slice(0, 10),
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -302,7 +304,7 @@ function RecurringBuyModal({ positionId, currency, onClose, onDone }) {
   async function submit(e) {
     e.preventDefault()
     if (Number(form.amount_per_period) <= 0) { setError(t('sd.rec_err_amount')); return }
-    if (Number(form.count) < 1) { setError(t('sd.rec_err_count')); return }
+    if (form.end_date < form.start_date) { setError(t('sd.rec_err_end')); return }
     setBusy(true); setError(null)
     try {
       const res = await api.post(`/portfolio/${positionId}/recurring-buys`, {
@@ -310,7 +312,7 @@ function RecurringBuyModal({ positionId, currency, onClose, onDone }) {
         fee_per_period: Number(form.fee_per_period || 0),
         frequency: form.frequency,
         start_date: form.start_date,
-        count: Number(form.count),
+        end_date: form.end_date,
       })
       setResult(res)
     } catch (err) { setError(err.message) }
@@ -381,8 +383,8 @@ function RecurringBuyModal({ positionId, currency, onClose, onDone }) {
                 <input type="date" {...field('start_date')} />
               </div>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>{t('sd.rec_count')}</label>
-                <input type="number" step="1" min="1" max="600" {...field('count')} required />
+                <label>{t('sd.rec_end')}</label>
+                <input type="date" {...field('end_date')} required />
               </div>
             </div>
             <div className="modal-actions">

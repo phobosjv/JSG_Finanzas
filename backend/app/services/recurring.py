@@ -75,3 +75,29 @@ def generate_contribution_dates(
     if count > MAX_CONTRIBUTIONS:
         raise ValueError(f"Demasiadas aportaciones (máximo {MAX_CONTRIBUTIONS})")
     return [nth_contribution_date(start, frequency, i) for i in range(count)]
+
+
+def contribution_dates_until(
+    start: date, frequency: Frequency, end: date,
+) -> list[date]:
+    """
+    Devuelve las fechas de aportación desde 'start' (incluida) hasta 'end'
+    (incluida), avanzando según 'frequency'. La serie la define el rango de
+    fechas, no un recuento fijo.
+
+    Lanza ValueError si end < start, si la frecuencia no está soportada o si el
+    rango produce más de MAX_CONTRIBUTIONS aportaciones.
+    """
+    if end < start:
+        raise ValueError("La fecha de fin no puede ser anterior a la de inicio")
+    dates: list[date] = []
+    i = 0
+    while True:
+        d = nth_contribution_date(start, frequency, i)
+        if d > end:
+            break
+        dates.append(d)
+        if len(dates) > MAX_CONTRIBUTIONS:
+            raise ValueError(f"Demasiadas aportaciones (máximo {MAX_CONTRIBUTIONS})")
+        i += 1
+    return dates

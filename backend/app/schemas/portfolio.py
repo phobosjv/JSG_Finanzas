@@ -169,21 +169,22 @@ class TransferResult(BaseModel):
 
 class RecurringBuyCreate(BaseModel):
     """
-    Serie de aportaciones periódicas (DCA). Genera varias compras 'buy' a
-    partir de un importe fijo por aportación: el backend resuelve el precio
-    histórico de cada fecha (price_history, día hábil anterior si falta) y
-    calcula participaciones = importe / precio. Para valores en USD usa el
-    tipo EUR/USD del BCE de cada fecha.
+    Serie de aportaciones periódicas (DCA) definida por un RANGO de fechas
+    (inicio → fin) y un importe fijo por aportación.
 
-    El importe y la comisión van en la divisa nativa del valor.
+    Las aportaciones pasadas (<= hoy) se registran ya como compras con el precio
+    histórico de cada fecha (participaciones = importe / precio; USD usa el tipo
+    EUR/USD del BCE de la fecha). Las futuras quedan como plan que el scheduler
+    ejecuta al llegar cada fecha. El importe y la comisión van en la divisa
+    nativa del valor.
     """
     amount_per_period: Decimal      # importe invertido en cada aportación (divisa nativa)
     fee_per_period: Decimal = Decimal("0")
     frequency: Literal["weekly", "monthly", "quarterly", "yearly"]
     start_date: str                 # YYYY-MM-DD (primera aportación)
-    count: int                      # número de aportaciones
+    end_date: str                   # YYYY-MM-DD (última aportación posible, incluida)
 
-    @field_validator("start_date")
+    @field_validator("start_date", "end_date")
     @classmethod
     def valid_date(cls, v: str) -> str:
         return _valid_date(v)
@@ -202,14 +203,11 @@ class RecurringBuyCreate(BaseModel):
             raise ValueError("La comisión no puede ser negativa")
         return v
 
-    @field_validator("count")
-    @classmethod
-    def count_in_range(cls, v: int) -> int:
-        if v < 1:
-            raise ValueError("El número de aportaciones debe ser >= 1")
-        if v > 600:
-            raise ValueError("Demasiadas aportaciones (máximo 600)")
-        return v
+    @model_validator(mode="after")
+    def end_after_start(self) -> "RecurringBuyCreate":
+        if self.end_date < self.start_date:  # comparación lexicográfica ISO válida
+            raise ValueError("La fecha de fin no puede ser anterior a la de inicio")
+        return self
 
 
 class SkippedContribution(BaseModel):

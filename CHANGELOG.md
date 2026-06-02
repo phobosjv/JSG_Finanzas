@@ -5,6 +5,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.5] — 2026-06-02
+
+### Cambiado — Aportaciones periódicas por rango de fechas
+
+- La serie de aportaciones se define ahora por **fecha de inicio → fecha de
+  fin** (ambas incluidas), en lugar de por un número fijo de aportaciones. Más
+  intuitivo (p. ej. "200 €/mes de enero 2024 a diciembre 2030"). El backend
+  calcula las aportaciones del rango (`contribution_dates_until`); internamente
+  el plan sigue guardando el total derivado, sin migración de BD.
+- **SecurityDetail**: el formulario sustituye "Nº de aportaciones" por "Fecha
+  de fin" (con validación fin ≥ inicio).
+
+### Corregido
+
+- El build de v1.7.4 se compiló antes del bump de versión y mostraba "1.7.3"
+  en la interfaz. Recompilado con la versión correcta (commit de corrección).
+
+---
+
 ## [1.7.4] — 2026-06-02
 
 ### Cambiado — Aportaciones periódicas: modelo híbrido (pasado + futuro)

@@ -49,7 +49,7 @@ from app.services.calculations import (
     Transaction, compute_position, consumed_cost_fifo, daily_change,
     normalize_splits, value_position,
 )
-from app.services.recurring import generate_contribution_dates, nth_contribution_date
+from app.services.recurring import contribution_dates_until, nth_contribution_date
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -1052,12 +1052,19 @@ def create_recurring_buys(
     Las aportaciones FUTURAS (fecha > hoy) NO se crean ahora —es imposible saber
     las participaciones sin cotización—: se guardan como un PLAN que el
     scheduler ejecutará al llegar cada fecha, con el precio real de ese día.
+
+    La serie la define el rango start_date → end_date (ambos incluidos).
     """
     pos = _require_position(db, position_id, user.id)
     sec: Security = pos.security
 
     start = date_type.fromisoformat(body.start_date)
-    dates = generate_contribution_dates(start, body.frequency, body.count)
+    end = date_type.fromisoformat(body.end_date)
+    try:
+        dates = contribution_dates_until(start, body.frequency, end)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+    count = len(dates)
     today = date_type.today()
 
     skipped: list[SkippedContribution] = []
@@ -1117,14 +1124,14 @@ def create_recurring_buys(
 
     # Si quedan aportaciones futuras, guardar el plan que el scheduler ejecutará.
     plan_row: RecurringPlanRow | None = None
-    if past_count < body.count:
+    if past_count < count:
         plan_row = RecurringPlanRow(
             position_id=pos.id,
             amount_per_period=body.amount_per_period,
             fee_per_period=body.fee_per_period,
             frequency=body.frequency,
             start_date=body.start_date,
-            total_count=body.count,
+            total_count=count,
             done_count=past_count,
             currency=sec.currency,
         )
