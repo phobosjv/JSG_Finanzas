@@ -167,6 +167,66 @@ class TransferResult(BaseModel):
     transfer_group_id: str
 
 
+class RecurringBuyCreate(BaseModel):
+    """
+    Serie de aportaciones periódicas (DCA). Genera varias compras 'buy' a
+    partir de un importe fijo por aportación: el backend resuelve el precio
+    histórico de cada fecha (price_history, día hábil anterior si falta) y
+    calcula participaciones = importe / precio. Para valores en USD usa el
+    tipo EUR/USD del BCE de cada fecha.
+
+    El importe y la comisión van en la divisa nativa del valor.
+    """
+    amount_per_period: Decimal      # importe invertido en cada aportación (divisa nativa)
+    fee_per_period: Decimal = Decimal("0")
+    frequency: Literal["weekly", "monthly", "quarterly", "yearly"]
+    start_date: str                 # YYYY-MM-DD (primera aportación)
+    count: int                      # número de aportaciones
+
+    @field_validator("start_date")
+    @classmethod
+    def valid_date(cls, v: str) -> str:
+        return _valid_date(v)
+
+    @field_validator("amount_per_period")
+    @classmethod
+    def amount_positive(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("El importe por aportación debe ser mayor que 0")
+        return v
+
+    @field_validator("fee_per_period")
+    @classmethod
+    def fee_non_negative(cls, v: Decimal) -> Decimal:
+        if v < 0:
+            raise ValueError("La comisión no puede ser negativa")
+        return v
+
+    @field_validator("count")
+    @classmethod
+    def count_in_range(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("El número de aportaciones debe ser >= 1")
+        if v > 600:
+            raise ValueError("Demasiadas aportaciones (máximo 600)")
+        return v
+
+
+class SkippedContribution(BaseModel):
+    """Una aportación de la serie que no se pudo crear, con su motivo."""
+    date: str
+    reason: str
+
+
+class RecurringBuyResult(BaseModel):
+    """Resultado de generar una serie de aportaciones periódicas."""
+    created: int
+    skipped: list[SkippedContribution] = []
+    total_invested_native: Decimal = Decimal("0")
+    total_shares: Decimal = Decimal("0")
+    currency: str = "EUR"
+
+
 class DividendCreate(BaseModel):
     date: str
     shares_at_date: Decimal

@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.3] — 2026-06-02
+
+### Añadido — Aportaciones periódicas (DCA)
+
+- Nuevo endpoint `POST /api/portfolio/{position_id}/recurring-buys`: genera una
+  serie de compras con **importe fijo por aportación**. Para cada fecha resuelve
+  el precio histórico del valor (`price_history`, día hábil anterior si esa
+  fecha no cotiza) y calcula participaciones = importe / precio. Los valores en
+  divisa distinta de EUR usan el tipo EUR/USD del BCE de cada fecha.
+- Las aportaciones que no se pueden valorar (fecha futura, sin precio histórico
+  o sin tipo de cambio) se **omiten** y se devuelven con su motivo; el resto se
+  crean igualmente.
+- Frecuencias: semanal, mensual, trimestral, anual. La suma mensual recorta el
+  día de mes cuando no existe (31 ene + 1 mes → 28/29 feb).
+- **SecurityDetail**: botón "Aportación periódica" en la sección de compras, con
+  resumen de creadas/omitidas tras generar.
+- Lógica pura de calendario en `services/recurring.py` (sin I/O), con tests.
+
+---
+
 ## [1.7.2] — 2026-06-02
 
 ### Añadido — Badge "Fondo"

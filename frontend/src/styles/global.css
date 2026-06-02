@@ -244,6 +244,12 @@ input:focus, select:focus { border-color: var(--accent); }
   color: var(--text-muted);
 }
 .state-error { color: var(--red); }
+.state-ok {
+  text-align: center;
+  border-radius: 8px;
+  background: rgba(52,211,153,0.12);
+  color: #34d399;
+}
 
 /* =========================================================
    Spinner

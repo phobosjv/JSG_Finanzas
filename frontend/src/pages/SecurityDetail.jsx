@@ -282,6 +282,117 @@ function TransferModal({ originPositionId, originSecurityId, currentShares, onCl
   )
 }
 
+function RecurringBuyModal({ positionId, currency, onClose, onDone }) {
+  const { t } = useAppConfig()
+  const [form, setForm] = useState({
+    amount_per_period: '',
+    fee_per_period: '0',
+    frequency: 'monthly',
+    start_date: new Date().toISOString().slice(0, 10),
+    count: '12',
+  })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [result, setResult] = useState(null)
+
+  function field(name) {
+    return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    if (Number(form.amount_per_period) <= 0) { setError(t('sd.rec_err_amount')); return }
+    if (Number(form.count) < 1) { setError(t('sd.rec_err_count')); return }
+    setBusy(true); setError(null)
+    try {
+      const res = await api.post(`/portfolio/${positionId}/recurring-buys`, {
+        amount_per_period: Number(form.amount_per_period),
+        fee_per_period: Number(form.fee_per_period || 0),
+        frequency: form.frequency,
+        start_date: form.start_date,
+        count: Number(form.count),
+      })
+      setResult(res)
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h2>{t('sd.rec_modal_title')}</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: -4 }}>
+          {t('sd.rec_help')}
+        </p>
+        {error && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{error}</div>}
+
+        {result ? (
+          <div>
+            <div className="state-ok" style={{ padding: 10, marginBottom: 12 }}>
+              {t('sd.rec_created')}: <strong>{result.created}</strong>
+              {result.created > 0 && <> · {t('sd.rec_invested')}: <strong>{fmt(result.total_invested_native)} {currency}</strong> · {fmt(result.total_shares, 4)} {t('sd.rec_units')}</>}
+            </div>
+            {result.skipped?.length > 0 && (
+              <div className="table-wrap" style={tableScrollStyle(result.skipped.length)}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('sd.rec_skipped')}: {result.skipped.length}</p>
+                <table>
+                  <thead><tr><th>{t('sd.col_date')}</th><th>{t('sd.rec_reason')}</th></tr></thead>
+                  <tbody>
+                    {result.skipped.map((s, i) => (
+                      <tr key={i}><td>{s.date}</td><td>{s.reason}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="modal-actions">
+              <button type="button" className="btn-primary" onClick={onDone}>{t('common.close')}</button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={submit}>
+            <div className="card-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>{t('sd.rec_amount')} ({currency})</label>
+                <input type="number" step="any" min="0.01" {...field('amount_per_period')} required />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>{t('sd.rec_fee')} ({currency})</label>
+                <input type="number" step="any" min="0" {...field('fee_per_period')} />
+              </div>
+            </div>
+            <div className="card-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>{t('sd.rec_frequency')}</label>
+                <select {...field('frequency')}>
+                  <option value="weekly">{t('sd.rec_weekly')}</option>
+                  <option value="monthly">{t('sd.rec_monthly')}</option>
+                  <option value="quarterly">{t('sd.rec_quarterly')}</option>
+                  <option value="yearly">{t('sd.rec_yearly')}</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>{t('sd.rec_start')}</label>
+                <input type="date" {...field('start_date')} />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>{t('sd.rec_count')}</label>
+                <input type="number" step="1" min="1" max="600" {...field('count')} required />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn-ghost" onClick={onClose}>{t('common.cancel')}</button>
+              <button type="submit" className="btn-primary" disabled={busy}>
+                {busy ? t('sd.saving') : t('sd.rec_submit')}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function AddDivModal({ positionId, onClose, onAdded, editDiv = null, currentShares = null }) {
   const { t, currencies: CURRENCIES } = useAppConfig()
   const [form, setForm] = useState(editDiv ? {
@@ -600,6 +711,7 @@ export default function SecurityDetail() {
   const [showDivModal, setDivModal]   = useState(false)
   const [editingDiv, setEditingDiv]   = useState(null)
   const [showTransfer, setShowTransfer] = useState(false)
+  const [showRecurring, setShowRecurring] = useState(false)
   const [isFundMarket, setIsFundMarket] = useState(false)
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesVal, setNotesVal]         = useState('')
@@ -947,7 +1059,12 @@ export default function SecurityDetail() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ marginBottom: 0 }}>{t('sd.buys')}</h2>
           {positionId
-            ? <button className="btn-primary btn-sm" onClick={() => { setTxModalType('buy'); setEditingTx(null); setTxModal(true) }}>{t('sd.btn_add')}</button>
+            ? (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-ghost btn-sm" onClick={() => setShowRecurring(true)}>{t('sd.rec_button')}</button>
+                <button className="btn-primary btn-sm" onClick={() => { setTxModalType('buy'); setEditingTx(null); setTxModal(true) }}>{t('sd.btn_add')}</button>
+              </div>
+            )
             : (
               <button
                 className="btn-ghost btn-sm"
@@ -1153,6 +1270,14 @@ export default function SecurityDetail() {
           currentShares={posResult?.shares ?? null}
           onClose={() => setShowTransfer(false)}
           onDone={() => { setShowTransfer(false); loadAll() }}
+        />
+      )}
+      {showRecurring && (
+        <RecurringBuyModal
+          positionId={positionId}
+          currency={security.currency}
+          onClose={() => setShowRecurring(false)}
+          onDone={() => { setShowRecurring(false); loadAll() }}
         />
       )}
     </div>

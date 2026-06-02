@@ -9,6 +9,7 @@ POST   /portfolio/positions                           — crear posicion para un
 GET    /portfolio/{position_id}/transactions          — transacciones.
 POST   /portfolio/{position_id}/transactions          — nueva transaccion.
 DELETE /portfolio/{position_id}/transactions/{tx_id}  — borrar transaccion.
+POST   /portfolio/{position_id}/recurring-buys        — serie de aportaciones periodicas (DCA).
 POST   /portfolio/transfer                            — traspaso de fondos (fiscalmente neutro).
 DELETE /portfolio/transfer/{group_id}                 — deshacer un traspaso (borra la pareja).
 GET    /portfolio/{position_id}/dividends             — dividendos.
@@ -39,6 +40,7 @@ from app.schemas.portfolio import (
     NotesUpdate, TargetSellUpdate,
     PositionCreate, PositionOut,
     PositionSummary,
+    RecurringBuyCreate, RecurringBuyResult, SkippedContribution,
     SecurityDividendSummary,
     TransactionCreate, TransactionOut,
     TransferCreate, TransferResult,
@@ -47,6 +49,7 @@ from app.services.calculations import (
     Transaction, compute_position, consumed_cost_fifo, daily_change,
     normalize_splits, value_position,
 )
+from app.services.recurring import generate_contribution_dates
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -1000,6 +1003,103 @@ def delete_transaction(
 
     db.delete(tx)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+#  Aportaciones periódicas (DCA)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{position_id}/recurring-buys",
+    response_model=RecurringBuyResult,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_recurring_buys(
+    position_id: int,
+    body: RecurringBuyCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Genera una serie de compras periódicas (DCA) con importe fijo por
+    aportación. Para cada fecha de la serie resuelve el precio histórico del
+    valor (price_history, día hábil anterior si esa fecha no cotiza) y calcula
+    participaciones = importe / precio. Para valores en divisa distinta de EUR
+    usa el tipo EUR/USD del BCE de esa fecha.
+
+    Las aportaciones que no se pueden valorar (sin precio histórico, sin tipo
+    de cambio, o con fecha futura) se OMITEN y se devuelven en 'skipped' con su
+    motivo; el resto se crean igualmente.
+    """
+    pos = _require_position(db, position_id, user.id)
+    sec: Security = pos.security
+
+    start = date_type.fromisoformat(body.start_date)
+    dates = generate_contribution_dates(start, body.frequency, body.count)
+    today = date_type.today()
+
+    skipped: list[SkippedContribution] = []
+    total_invested = Decimal("0")
+    total_shares = Decimal("0")
+    created_rows: list[TransactionRow] = []
+
+    for d in dates:
+        d_str = d.isoformat()
+        if d > today:
+            skipped.append(SkippedContribution(date=d_str, reason="fecha futura (aún sin cotización)"))
+            continue
+
+        # Precio del día hábil anterior o igual a la fecha de la aportación.
+        price_row = db.scalar(
+            select(PriceHistory)
+            .where(
+                PriceHistory.security_id == sec.id,
+                PriceHistory.date <= d_str,
+            )
+            .order_by(PriceHistory.date.desc())
+        )
+        if price_row is None or price_row.close <= Decimal("0"):
+            skipped.append(SkippedContribution(date=d_str, reason="sin precio histórico para esa fecha"))
+            continue
+
+        # Tipo de cambio de la fecha (1 para EUR; BCE para el resto).
+        if sec.currency == "EUR":
+            rate = Decimal("1")
+        else:
+            rate_row = db.scalar(
+                select(EcbRate).where(EcbRate.date <= d_str).order_by(EcbRate.date.desc())
+            )
+            if rate_row is None:
+                skipped.append(SkippedContribution(date=d_str, reason="sin tipo de cambio para esa fecha"))
+                continue
+            rate = rate_row.rate
+
+        shares = body.amount_per_period / price_row.close
+
+        created_rows.append(TransactionRow(
+            position_id=pos.id,
+            type="buy",
+            date=d_str,
+            shares=shares,
+            price=price_row.close,
+            fee=body.fee_per_period,
+            currency=sec.currency,
+            exchange_rate=rate,
+        ))
+        total_invested += body.amount_per_period
+        total_shares += shares
+
+    for row in created_rows:
+        db.add(row)
+    db.commit()
+
+    return RecurringBuyResult(
+        created=len(created_rows),
+        skipped=skipped,
+        total_invested_native=total_invested,
+        total_shares=total_shares,
+        currency=sec.currency,
+    )
 
 
 # ---------------------------------------------------------------------------
