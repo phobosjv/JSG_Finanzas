@@ -5,6 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.4] — 2026-06-03
+
+### Añadido — TIR anual (rentabilidad ponderada por dinero / XIRR)
+
+- Nueva métrica **TIR anual** en Mi Cartera: rentabilidad anualizada ponderada
+  por dinero sobre todos los flujos reales (compras = salida; ventas y
+  dividendos = entrada) más el valor de mercado actual como flujo final. Refleja
+  mejor el rendimiento real que el "% sobre invertido" cuando hay aportaciones
+  en distintas fechas (DCA). Los traspasos no son flujos (fiscalmente neutros).
+- `GET /api/portfolio/xirr?types=` (respeta el segmentador por tipo). Devuelve
+  `xirr_pct` (null si no es resoluble: sin operaciones, todo del mismo signo o
+  un solo día), `cashflows` y `market_value_eur`.
+- Lógica pura en `services/returns.py` (Newton-Raphson + bisección de respaldo).
+
+---
+
 ## [1.8.3] — 2026-06-03
 
 ### Añadido — Rentabilidad "desde el traspaso" en fondos

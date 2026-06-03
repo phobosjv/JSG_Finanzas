@@ -131,6 +131,7 @@ export default function Portfolio() {
   const [error, setError]                 = useState(null)
   const [deleting, setDeleting]           = useState(null)
   const [segTypes, setSegTypes]           = useState(() => loadSegTypes('portfolioSegTypes'))
+  const [xirr, setXirr]                   = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -155,10 +156,11 @@ export default function Portfolio() {
       .catch(err => setError(err.message))
   }, [])
 
-  // El histórico se agrega en el backend; se re-pide al cambiar la segmentación.
+  // El histórico y la TIR se agregan en el backend; se re-piden al segmentar.
   useEffect(() => {
     const qs = segTypes.length ? `?types=${segTypes.join(',')}` : ''
     api.get(`/portfolio/history${qs}`).then(setHistory).catch(() => setHistory([]))
+    api.get(`/portfolio/xirr${qs}`).then(setXirr).catch(() => setXirr(null))
   }, [segTypes])
 
   function changeSeg(next) {
@@ -224,6 +226,12 @@ export default function Portfolio() {
         <Card label={t('portfolio.dividends')} value={`${fmt(totalDivs)} €`} />
         <Card label={t('portfolio.fees')}      value={`-${fmt(totalFees)} €`} clsName="neg" />
         <Card label={t('portfolio.total')}     value={`${sign(bpTotal)}${fmt(bpTotal)} €`} clsName={cls(bpTotal)} />
+        <Card
+          label={t('portfolio.xirr')}
+          value={xirr?.xirr_pct != null ? `${sign(xirr.xirr_pct)}${fmt(xirr.xirr_pct)}%` : '—'}
+          sub={t('portfolio.xirr_sub')}
+          clsName={xirr?.xirr_pct != null ? cls(xirr.xirr_pct) : ''}
+        />
       </div>
 
       {/* 2. Evolución de cartera (ancho completo) */}

@@ -51,6 +51,7 @@ from app.services.calculations import (
     normalize_splits, value_position,
 )
 from app.services.recurring import contribution_dates_until, nth_contribution_date
+from app.services.returns import xirr
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -505,6 +506,77 @@ def get_portfolio_history(
         {"date": d, "value": float(date_totals[d])}
         for d in sorted(date_totals)
     ]
+
+
+# ---------------------------------------------------------------------------
+#  Rentabilidad anualizada ponderada por dinero (TIR / XIRR)
+# ---------------------------------------------------------------------------
+
+@router.get("/xirr")
+def get_portfolio_xirr(
+    types: str | None = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    TIR (XIRR) de la cartera: rentabilidad anual ponderada por dinero, sobre
+    TODOS los flujos reales (compras = salida, ventas y dividendos = entrada) más
+    el valor de mercado actual como flujo final. Los traspasos no son flujos.
+
+    'types' (opcional): segmenta por tipo de producto (igual que /history).
+    Devuelve {xirr_pct, cashflows, market_value_eur} (xirr_pct null si no es
+    resoluble: sin operaciones, todo del mismo signo o un solo día).
+    """
+    selected_types: set[str] | None = None
+    if types:
+        selected_types = {t.strip() for t in types.split(",") if t.strip()}
+    market_types: dict[str, str] = {
+        m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
+    }
+
+    positions = db.scalars(
+        select(Position).where(Position.user_id == user.id)
+    ).all()
+    repo = PortfolioRepository(db)
+
+    cashflows: list[tuple[date_type, float]] = []
+    terminal = Decimal("0")
+
+    for pos in positions:
+        sec: Security = pos.security
+        if selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
+            continue
+
+        # Flujos reales (importes en EUR con el tipo de cada operación).
+        for tx in db.scalars(
+            select(TransactionRow).where(TransactionRow.position_id == pos.id)
+        ).all():
+            d = date_type.fromisoformat(tx.date)
+            if tx.type == "buy":
+                cashflows.append((d, -float((tx.shares * tx.price + tx.fee) / tx.exchange_rate)))
+            elif tx.type == "sell":
+                cashflows.append((d, float((tx.shares * tx.price - tx.fee) / tx.exchange_rate)))
+            # transfer_in / transfer_out: no son flujos de caja.
+        for div in db.scalars(
+            select(DividendRow).where(DividendRow.position_id == pos.id)
+        ).all():
+            d = date_type.fromisoformat(div.date)
+            cashflows.append((d, float((div.gross_amount - div.withholding_tax) / div.exchange_rate)))
+
+        # Valor de mercado actual de la posición (si sigue abierta).
+        summary = _build_position_summary(pos, repo, db)
+        if summary is not None:
+            terminal += summary.market_value_eur
+
+    if terminal > Decimal("0"):
+        cashflows.append((date_type.today(), float(terminal)))
+
+    rate = xirr(cashflows)
+    return {
+        "xirr_pct": round(rate * 100, 2) if rate is not None else None,
+        "cashflows": len(cashflows),
+        "market_value_eur": float(terminal),
+    }
 
 
 # ---------------------------------------------------------------------------
