@@ -118,7 +118,9 @@ def execute_due_recurring_plans(db: Session, today: date | None = None) -> int:
                 rate = Decimal("1")
             else:
                 rate_row = db.scalar(
-                    select(EcbRate).where(EcbRate.date <= nd_str).order_by(EcbRate.date.desc())
+                    select(EcbRate)
+                    .where(EcbRate.currency == sec.currency, EcbRate.date <= nd_str)
+                    .order_by(EcbRate.date.desc())
                 )
                 if rate_row is None:
                     if nd < today:
@@ -459,21 +461,21 @@ def update_ecb_rates(db: Session) -> None:
         return
 
     try:
-        rates = _ecb.fetch_rates(from_date, today)
+        rates = _ecb.fetch_all_rates(from_date, today)
     except Exception:
         log.exception("Error descargando tipos BCE")
         return
 
-    for date_str, rate in rates.items():
+    for (date_str, currency), rate in rates.items():
         stmt = (
             sqlite_insert(EcbRate)
-            .values(date=date_str, rate=rate)
+            .values(date=date_str, currency=currency, rate=rate)
             .on_conflict_do_nothing()
         )
         db.execute(stmt)
 
     db.commit()
-    log.info("Tipos BCE: %d nuevas entradas desde %s", len(rates), from_date)
+    log.info("Tipos BCE (multi-divisa): %d entradas desde %s", len(rates), from_date)
 
 
 # ---------------------------------------------------------------------------

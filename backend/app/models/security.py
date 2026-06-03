@@ -30,14 +30,10 @@ CURRENCIES = ("EUR", "USD")
 
 class Security(Base):
     __tablename__ = "securities"
-    __table_args__ = (
-        # El CheckConstraint de 'market' se eliminó en la migración a3f9c1d2e5b4
-        # (mercados ahora son dinámicos). Se mantiene el de 'currency' porque el
-        # motor de cálculo solo soporta conversiones EUR/USD vía BCE.
-        CheckConstraint(
-            "currency IN ('EUR','USD')", name="ck_securities_currency"
-        ),
-    )
+    # v1.8.0: se eliminó el CheckConstraint de 'currency' (antes EUR/USD). Las
+    # divisas son ahora multi-divisa: el BCE publica ~30 y los tipos se cachean
+    # por (date, currency). La validación de la divisa se hace en la API contra
+    # la lista de divisas soportadas (app_config), no con un CHECK.
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)

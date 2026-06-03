@@ -70,11 +70,18 @@ class PriceSnapshot(Base):
 
 
 class EcbRate(Base):
-    """Tipo EUR/USD de referencia del BCE. PK = fecha; dato cacheado."""
+    """
+    Tipo de cambio de referencia del BCE (multi-divisa, v1.8.0).
+
+    PK compuesta (date, currency). 'rate' es "{currency} por 1 EUR" (convención
+    BCE): p. ej. USD=1.10 → 1 EUR = 1.10 USD → euros = importe / rate.
+    'currency' por defecto 'USD' por compatibilidad con datos anteriores.
+    """
     __tablename__ = "ecb_rates"
 
     date: Mapped[str] = mapped_column(String, primary_key=True)  # 'YYYY-MM-DD'
+    currency: Mapped[str] = mapped_column(String, primary_key=True, default="USD")
     rate: Mapped[Decimal] = mapped_column(Money, nullable=False)
 
     def __repr__(self) -> str:
-        return f"<EcbRate {self.date} rate={self.rate}>"
+        return f"<EcbRate {self.date} {self.currency} rate={self.rate}>"

@@ -56,7 +56,7 @@ class MarketCreate(BaseModel):
 class MarketUpdate(BaseModel):
     name: str | None = None
     index_ticker: str | None = None
-    currency: Literal["EUR", "USD"] | None = None
+    currency: str | None = None   # divisa de display del mercado (multi-divisa v1.8.0)
     fiscal_window_days: int | None = None
     sort_order: int | None = None
     yahoo_exchange: str | None = None

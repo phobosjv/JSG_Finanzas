@@ -35,6 +35,7 @@ from app.schemas.auth import (
     ChangePasswordRequest, CreateUserRequest, UserAdminOut,
     UserStatusIn, UserExpiryIn, UserStatusLogOut,
 )
+from app.api.admin_markets import _get_supported_currencies
 from app.api.backup import import_recurring_plans
 from app.services.backup import (
     AdminImportResult,
@@ -482,6 +483,7 @@ async def admin_import_backup(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=errors)
 
     result = AdminImportResult()
+    valid_currencies = set(_get_supported_currencies(db))
 
     # --- Usuarios ---
     for u_data in data.get("users", []):
@@ -611,12 +613,11 @@ async def admin_import_backup(
                         raise ValueError("exchange_rate debe ser > 0")
                     if tx_data["type"] not in ("buy", "sell", "transfer_in", "transfer_out"):
                         raise ValueError("type debe ser 'buy', 'sell', 'transfer_in' o 'transfer_out'")
-                    if tx_data["currency"] not in ("EUR", "USD"):
-                        raise ValueError("currency debe ser 'EUR' o 'USD'")
-                    if tx_data["currency"] == "USD" and tx_rate == Decimal("1"):
+                    if tx_data["currency"] not in valid_currencies:
+                        raise ValueError(f"currency '{tx_data['currency']}' no está soportada")
+                    if tx_data["currency"] != "EUR" and tx_rate == Decimal("1"):
                         raise ValueError(
-                            "currency='USD' con exchange_rate=1 es incoherente: "
-                            "el tipo EUR/USD del BCE nunca es exactamente 1."
+                            f"currency='{tx_data['currency']}' con exchange_rate=1 es incoherente"
                         )
                     if tx_data["currency"] == "EUR" and tx_rate != Decimal("1"):
                         raise ValueError("currency='EUR' exige exchange_rate=1")
@@ -664,8 +665,8 @@ async def admin_import_backup(
                         raise ValueError("withholding_tax no puede ser negativo")
                     if div_rate <= 0:
                         raise ValueError("exchange_rate debe ser > 0")
-                    if div_data["currency"] not in ("EUR", "USD"):
-                        raise ValueError("currency debe ser 'EUR' o 'USD'")
+                    if div_data["currency"] not in valid_currencies:
+                        raise ValueError(f"currency '{div_data['currency']}' no está soportada")
                 except (KeyError, TypeError, InvalidOperation, ValueError) as exc:
                     result.errors.append(
                         f"Dividendo omitido en '{ticker}': {exc}"

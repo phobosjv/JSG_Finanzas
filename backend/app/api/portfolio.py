@@ -32,6 +32,7 @@ from collections import defaultdict
 
 from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, RecurringPlanRow, Security, SecuritySplit, TransactionRow, User
 from app.repositories.portfolio_repository import PortfolioRepository
+from app.repositories.exchange_rates import latest_rate
 from app.models.market import MarketRow
 from app.schemas.portfolio import (
     ClosedPositionAnalytics,
@@ -80,11 +81,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
     current_price   = snap.last_price       if snap else None
     max_1y          = snap.max_1y           if snap else None
 
-    if sec.currency == "USD":
-        rate_row = db.scalar(select(EcbRate).order_by(EcbRate.date.desc()))
-        current_rate = rate_row.rate if rate_row else Decimal("1")
-    else:
-        current_rate = Decimal("1")
+    current_rate = latest_rate(db, sec.currency)
     daily_chg_pct   = snap.daily_change_pct if snap else None
 
     if current_price is None:
@@ -416,16 +413,13 @@ def get_portfolio_history(
         m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
     }
 
-    rate_row = db.scalar(select(EcbRate).order_by(EcbRate.date.desc()))
-    current_rate = rate_row.rate if rate_row else Decimal("1")
-
     date_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
     for pos in positions:
         sec: Security = pos.security
         if selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
             continue
-        rate = current_rate if sec.currency == "USD" else Decimal("1")
+        rate = latest_rate(db, sec.currency)
 
         # Transacciones ordenadas por fecha (strings YYYY-MM-DD, orden lexicográfico correcto)
         tx_rows = db.scalars(
@@ -1113,12 +1107,14 @@ def create_recurring_buys(
             skipped.append(SkippedContribution(date=d_str, reason="sin precio histórico para esa fecha"))
             continue
 
-        # Tipo de cambio de la fecha (1 para EUR; BCE para el resto).
+        # Tipo de cambio de la fecha (1 para EUR; BCE por divisa para el resto).
         if sec.currency == "EUR":
             rate = Decimal("1")
         else:
             rate_row = db.scalar(
-                select(EcbRate).where(EcbRate.date <= d_str).order_by(EcbRate.date.desc())
+                select(EcbRate)
+                .where(EcbRate.currency == sec.currency, EcbRate.date <= d_str)
+                .order_by(EcbRate.date.desc())
             )
             if rate_row is None:
                 skipped.append(SkippedContribution(date=d_str, reason="sin tipo de cambio para esa fecha"))

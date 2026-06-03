@@ -22,8 +22,8 @@ CREATE TABLE securities (
     isin          TEXT,
     yahoo_ticker  TEXT    NOT NULL,
     google_ticker TEXT,                        -- informativo, no se usa para datos
-    market        TEXT    NOT NULL CHECK (market IN ('ibex35','continuo','nasdaq')),
-    currency      TEXT    NOT NULL CHECK (currency IN ('EUR','USD')),
+    market        TEXT    NOT NULL,               -- mercados dinámicos (validado en API)
+    currency      TEXT    NOT NULL,               -- multi-divisa v1.8.0 (validado en API)
     created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -63,8 +63,10 @@ CREATE TABLE price_snapshots (
 --  TIPOS DE CAMBIO OFICIALES DEL BCE  (caché, dato congelado)
 -- =====================================================================
 CREATE TABLE ecb_rates (
-    date  TEXT PRIMARY KEY,                    -- 'YYYY-MM-DD'
-    rate  REAL NOT NULL                        -- EUR/USD de referencia del BCE
+    date      TEXT NOT NULL,                    -- 'YYYY-MM-DD'
+    currency  TEXT NOT NULL DEFAULT 'USD',      -- multi-divisa v1.8.0
+    rate      REAL NOT NULL,                    -- {currency} por 1 EUR (referencia BCE)
+    PRIMARY KEY (date, currency)
 );
 
 -- =====================================================================

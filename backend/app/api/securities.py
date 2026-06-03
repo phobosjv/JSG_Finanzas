@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_admin
+from app.api.admin_markets import _get_supported_currencies
 from app.models import MarketRow, Security, User
 from app.schemas.security import SecurityCreate, SecurityOut
 
@@ -28,6 +29,14 @@ def _validate_market(db: Session, code: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"El mercado '{code}' no existe en el catálogo de mercados",
+        )
+
+
+def _validate_currency(db: Session, currency: str) -> None:
+    if currency not in _get_supported_currencies(db):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"La divisa '{currency}' no está entre las soportadas (configúrala en Admin)",
         )
 
 
@@ -46,6 +55,7 @@ def create_security(
     _admin: User = Depends(require_admin),
 ):
     _validate_market(db, body.market)
+    _validate_currency(db, body.currency)
     sec = Security(**body.model_dump())
     db.add(sec)
     try:
@@ -80,6 +90,7 @@ def update_security(
     _admin: User = Depends(require_admin),
 ):
     _validate_market(db, body.market)
+    _validate_currency(db, body.currency)
     sec = db.get(Security, security_id)
     if sec is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")

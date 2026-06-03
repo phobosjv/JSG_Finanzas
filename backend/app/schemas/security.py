@@ -1,12 +1,7 @@
 """Schemas del catalogo de valores."""
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import BaseModel, field_validator
-
-# 'currency' sigue siendo EUR|USD: el motor de cálculo solo soporta BCE EUR/USD.
-Currency = Literal["EUR", "USD"]
 
 
 class SecurityCreate(BaseModel):
@@ -15,7 +10,17 @@ class SecurityCreate(BaseModel):
     yahoo_ticker: str
     google_ticker: str | None = None
     market: str          # validado en la API contra la tabla markets
-    currency: Currency
+    # v1.8.0: multi-divisa. Código ISO de 3 letras; la API valida además que esté
+    # entre las divisas soportadas (app_config).
+    currency: str
+
+    @field_validator("currency")
+    @classmethod
+    def currency_code(cls, v: str) -> str:
+        v = v.strip().upper()
+        if len(v) != 3 or not v.isalpha():
+            raise ValueError("Código de divisa inválido (3 letras, ej: EUR, USD, GBP)")
+        return v
 
     @field_validator("name")
     @classmethod

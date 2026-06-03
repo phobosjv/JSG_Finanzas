@@ -73,6 +73,15 @@ def _get_supported_currencies(db: Session) -> list[str]:
     return ["EUR"] + extras
 
 
+def _require_supported_currency(db: Session, currency: str) -> None:
+    """422 si la divisa no está entre las soportadas (multi-divisa v1.8.0)."""
+    if currency.strip().upper() not in _get_supported_currencies(db):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"La divisa '{currency}' no está soportada (configúrala en Admin)",
+        )
+
+
 # ---------------------------------------------------------------------------
 #  Mercados
 # ---------------------------------------------------------------------------
@@ -94,6 +103,7 @@ def create_market(
     if db.get(MarketRow, body.code):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail=f"El código de mercado '{body.code}' ya existe")
+    _require_supported_currency(db, body.currency)
     # market_type manda; is_fund_market se deriva. Compat: un cliente antiguo que
     # solo manda is_fund_market=True (sin tipo) se interpreta como 'fund'.
     market_type = body.market_type
@@ -130,7 +140,8 @@ def update_market(
     if body.index_ticker is not None:
         market.index_ticker = body.index_ticker
     if body.currency is not None:
-        market.currency = body.currency
+        _require_supported_currency(db, body.currency)
+        market.currency = body.currency.strip().upper()
     if body.fiscal_window_days is not None:
         market.fiscal_window_days = body.fiscal_window_days
     if body.sort_order is not None:
@@ -326,9 +337,9 @@ def import_catalog(
             securities_skipped += 1
             continue
 
-        # Moneda válida (solo EUR y USD soportadas por el motor de cálculo)
+        # Divisa válida: debe estar entre las soportadas (multi-divisa v1.8.0).
         currency = (s.currency or "EUR").upper()
-        if currency not in ("EUR", "USD"):
+        if currency not in set(_get_supported_currencies(db)):
             securities_skipped += 1
             continue
 

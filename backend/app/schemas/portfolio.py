@@ -113,8 +113,8 @@ class TransactionCreate(BaseModel):
     def rate_coherent(self) -> "TransactionCreate":
         if self.currency == "EUR" and self.exchange_rate != Decimal("1"):
             raise ValueError("EUR exige exchange_rate=1")
-        if self.currency == "USD" and self.exchange_rate == Decimal("1"):
-            raise ValueError("USD requiere un exchange_rate distinto de 1")
+        if self.currency != "EUR" and self.exchange_rate == Decimal("1"):
+            raise ValueError(f"{self.currency} requiere un exchange_rate distinto de 1")
         return self
 
 
@@ -276,8 +276,8 @@ class DividendCreate(BaseModel):
     def rate_coherent(self) -> "DividendCreate":
         if self.currency == "EUR" and self.exchange_rate != Decimal("1"):
             raise ValueError("EUR exige exchange_rate=1")
-        if self.currency == "USD" and self.exchange_rate == Decimal("1"):
-            raise ValueError("USD requiere un exchange_rate distinto de 1")
+        if self.currency != "EUR" and self.exchange_rate == Decimal("1"):
+            raise ValueError(f"{self.currency} requiere un exchange_rate distinto de 1")
         return self
 
 

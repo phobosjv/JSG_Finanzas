@@ -405,11 +405,11 @@ def get_exchange_rate(
     """
     currency = currency.strip().upper()
 
-    # 1. Caché BCE — solo disponible para USD
-    if currency == "USD":
+    # 1. Caché BCE — multi-divisa (USD, GBP, JPY, CHF…)
+    if currency != "EUR":
         row = db.scalar(
             select(EcbRate)
-            .where(EcbRate.date <= date_str)
+            .where(EcbRate.currency == currency, EcbRate.date <= date_str)
             .order_by(EcbRate.date.desc())
             .limit(1)
         )

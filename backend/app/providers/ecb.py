@@ -41,6 +41,13 @@ _ECB_URL = (
     "?format=csvdata"
 )
 
+# Dimensión 'currency' vacía → el BCE devuelve TODAS las divisas (~30) en una
+# sola petición. La CSV incluye entonces la columna CURRENCY.
+_ECB_URL_ALL = (
+    "https://data-api.ecb.europa.eu/service/data/EXR/D..EUR.SP00.A"
+    "?format=csvdata"
+)
+
 
 class EcbProvider(RateProvider):
 
@@ -52,6 +59,21 @@ class EcbProvider(RateProvider):
         response = httpx.get(_ECB_URL, params=params, timeout=30.0)
         response.raise_for_status()
         return _parse_csv(response.text)
+
+    def fetch_all_rates(
+        self, from_date: date, to_date: date
+    ) -> dict[tuple[str, str], Decimal]:
+        """
+        Tipos de TODAS las divisas del BCE en una sola petición.
+        Devuelve {(fecha, divisa): rate}, con rate = "{divisa} por 1 EUR".
+        """
+        params = {
+            "startPeriod": from_date.isoformat(),
+            "endPeriod": to_date.isoformat(),
+        }
+        response = httpx.get(_ECB_URL_ALL, params=params, timeout=30.0)
+        response.raise_for_status()
+        return _parse_csv_multi(response.text)
 
 
 def _parse_csv(text: str) -> dict[str, Decimal]:
@@ -68,6 +90,27 @@ def _parse_csv(text: str) -> dict[str, Decimal]:
             continue
         try:
             rates[date_str.strip()] = Decimal(value_str.strip())
+        except InvalidOperation:
+            continue
+    return rates
+
+
+def _parse_csv_multi(text: str) -> dict[tuple[str, str], Decimal]:
+    """
+    Parsea el CSV multi-divisa del BCE → {(fecha, divisa): rate}.
+    La columna CURRENCY identifica la divisa (USD, GBP, JPY…). Ignora EUR (la
+    base) y filas malformadas.
+    """
+    rates: dict[tuple[str, str], Decimal] = {}
+    reader = csv.DictReader(io.StringIO(text))
+    for row in reader:
+        date_str = (row.get("TIME_PERIOD") or row.get("time_period") or "").strip()
+        value_str = (row.get("OBS_VALUE") or row.get("obs_value") or "").strip()
+        currency = (row.get("CURRENCY") or row.get("currency") or "").strip().upper()
+        if not date_str or not value_str or not currency or currency == "EUR":
+            continue
+        try:
+            rates[(date_str, currency)] = Decimal(value_str)
         except InvalidOperation:
             continue
     return rates

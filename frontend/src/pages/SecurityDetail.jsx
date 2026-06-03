@@ -194,7 +194,7 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
               </select>
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>{t('sd.tx_exchange_rate')}</label>
+              <label>{t('sd.tx_exchange_rate')}{form.currency !== 'EUR' ? ` (EUR/${form.currency})` : ''}</label>
               <input type="number" step="any" min="0.000001" {...field('exchange_rate')}
                 onChange={e => { setRateStatus('idle'); setForm(f => ({ ...f, exchange_rate: e.target.value })) }} />
               {form.currency !== 'EUR' && rateStatus === 'fetching' && (
@@ -607,7 +607,7 @@ function AddDivModal({ positionId, onClose, onAdded, editDiv = null, currentShar
               </select>
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>{t('sd.tx_exchange_rate')}</label>
+              <label>{t('sd.tx_exchange_rate')}{form.currency !== 'EUR' ? ` (EUR/${form.currency})` : ''}</label>
               <input type="number" step="any" min="0.000001" {...field('exchange_rate')}
                 onChange={e => { setRateStatus('idle'); setForm(f => ({ ...f, exchange_rate: e.target.value })) }} />
               {form.currency !== 'EUR' && rateStatus === 'fetching' && (

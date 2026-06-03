@@ -102,11 +102,11 @@ _IMPORTABLE_TYPES = {"BUY", "SELL", "DIVIDEND"}
 
 def _resolve_exchange_rate(date_str: str, db: Session, currency: str = "USD") -> Decimal | None:
     """Devuelve el tipo EUR/{currency} para la fecha dada o None si no se encuentra."""
-    # BCE solo tiene USD
-    if currency == "USD":
+    # Caché BCE multi-divisa (USD, GBP, JPY…)
+    if currency != "EUR":
         row = db.scalar(
             select(EcbRate)
-            .where(EcbRate.date <= date_str)
+            .where(EcbRate.currency == currency, EcbRate.date <= date_str)
             .order_by(EcbRate.date.desc())
             .limit(1)
         )

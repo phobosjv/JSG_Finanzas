@@ -5,6 +5,36 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.0] — 2026-06-03
+
+### Añadido — Soporte multi-divisa (más allá de EUR/USD)
+
+Ahora pueden seguirse valores en cualquier divisa que publique el BCE (USD, GBP,
+JPY, CHF, …), no solo EUR/USD.
+
+- **Tipos del BCE por divisa**: la tabla `ecb_rates` pasa a PK `(date, currency)`
+  y el job nocturno descarga **todas las divisas del BCE (~30) en una sola
+  petición** (`EXR/D..EUR.SP00.A`). Migración `c3d4e5f6a1b9` (los datos previos
+  se conservan como USD).
+- **Valoración en EUR por divisa**: la cartera, el histórico, las aportaciones y
+  el informe valoran cada posición con el tipo de **su** divisa (antes solo se
+  convertía USD; el resto se trataba como euro → valor erróneo). Helper
+  `repositories/exchange_rates.py` (`latest_rate`, `rate_on_date`).
+- Se elimina el `CHECK currency IN ('EUR','USD')` de `securities` (migración) y
+  se relajan los schemas. La divisa de un valor se valida contra las **divisas
+  soportadas** (configurables por el admin; EUR siempre válida).
+- `exchange-rate`, import Ghostfolio y backups consultan el tipo **por divisa**
+  (caché BCE; Yahoo `EUR{div}=X` como respaldo). El autorelleno del tipo en el
+  formulario de operación funciona para cualquier divisa configurada.
+- **UI**: la etiqueta "Tipo EUR/USD" pasa a "Tipo de cambio (EUR/{divisa})".
+
+### Limitaciones
+
+- Solo divisas con tipo de referencia publicado por el BCE (las que no, dependen
+  del respaldo de Yahoo para el tipo histórico).
+
+---
+
 ## [1.7.9] — 2026-06-03
 
 ### Añadido — Compra de fondos por importe
