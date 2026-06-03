@@ -5,6 +5,34 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.2] — 2026-06-03
+
+### Corregido — Valoración en vivo de valores en divisa extranjera
+
+- **Bug**: un valor en divisa distinta de EUR (p. ej. USD) cuyo tipo aún no
+  estaba cacheado en `ecb_rates` se valoraba con tipo = 1, es decir, tratando el
+  importe extranjero como si fuera euros. El **valor actual** salía sin convertir
+  (p. ej. 6×134,28 USD mostrados como 805,68 € en vez de ~694 €), generando un
+  **beneficio latente falso**. El coste sí estaba convertido (tipo de la
+  operación), de ahí el descuadre.
+- **Fix**: cuando el BCE aún no tiene la divisa, `latest_rate` cae al **último
+  tipo registrado en una transacción de esa divisa** (el que el usuario
+  introdujo/autorrellenó) en lugar de 1. Una vez el job nocturno puebla
+  `ecb_rates`, se usa el tipo real. Test de regresión añadido.
+
+### Nota (no es bug)
+
+- Un fondo que solo ha recibido **traspasos** puede mostrar pérdida latente si el
+  coste **heredado** de los fondos de origen supera su valor actual: el traspaso
+  es fiscalmente neutro y **arrastra la base de coste** (y la plusvalía/minusvalía
+  diferida). La recuperación de NAV del fondo de destino no borra esa pérdida
+  diferida. Verificado con tests (origen ganador → ganancia; origen USD → coste
+  heredado en EUR).
+
+Tests: 362 en verde (+3).
+
+---
+
 ## [1.8.1] — 2026-06-03
 
 ### Corregido — Coherencia de divisa en importadores y tipos (auditoría post v1.8.0)

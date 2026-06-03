@@ -276,6 +276,72 @@ def test_deshacer_traspaso_restaura_origen(admin_client):
     assert all(t["type"] not in ("transfer_in", "transfer_out") for t in txs_a)
 
 
+def test_fondo_destino_refleja_ganancia_o_perdida_heredada(admin_client, engine):
+    """
+    El destino de un traspaso muestra ganancia si el coste heredado < valor
+    actual, y pérdida si es mayor. Verifica que un fondo SOLO con entradas por
+    traspaso valora correctamente (coste heredado vs valor de mercado).
+    """
+    from sqlalchemy.orm import Session
+    from app.models import PriceSnapshot
+    from decimal import Decimal as D
+    sec_a, sec_b = _crear_fondos(admin_client)
+    pos_a = admin_client.post("/api/portfolio/positions", json={"security_id": sec_a}).json()["id"]
+    # En A: compra 1 part. @ 50 (coste 50).
+    admin_client.post(f"/api/portfolio/{pos_a}/transactions", json={
+        "type": "buy", "date": "2023-01-10", "shares": "1", "price": "50",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    # Traspaso A→B: 1 part. de A → 0,5 part. de B (coste heredado 50).
+    admin_client.post("/api/portfolio/transfer", json={
+        "origin_position_id": pos_a, "shares": "1",
+        "dest_security_id": sec_b, "dest_shares": "0.5", "date": "2023-06-01",
+    })
+    # B cotiza a 120 → valor 0,5×120 = 60; coste heredado 50 → ganancia +10.
+    with Session(engine) as s:
+        s.add(PriceSnapshot(security_id=sec_b, last_price=D("120"), prev_close=D("120")))
+        s.commit()
+
+    b = next(x for x in admin_client.get("/api/portfolio").json() if x["security_id"] == sec_b)
+    assert abs(float(b["cost_eur"]) - 50.0) < 0.01
+    assert abs(float(b["market_value_eur"]) - 60.0) < 0.01
+    assert float(b["unrealized_pnl_eur"]) > 0   # gana: el coste heredado se respeta
+
+
+def test_traspaso_origen_usd_hereda_coste_en_eur(admin_client):
+    """
+    Traspaso desde un fondo en USD a uno en EUR: el coste heredado debe venir en
+    EUR (convertido con el tipo de la compra), no en USD sin convertir.
+    Compra 1 part. @ 50 USD con tipo 1.10 → coste 45,4545 €.
+    """
+    admin_client.post("/api/admin/markets", json={
+        "code": "fondos_usd", "name": "Fondos USD", "currency": "USD",
+        "fiscal_window_days": 365, "market_type": "fund",
+    })
+    admin_client.post("/api/admin/markets", json={
+        "code": "fondos_e", "name": "Fondos EUR", "currency": "EUR",
+        "fiscal_window_days": 365, "market_type": "fund",
+    })
+    sec_usd = admin_client.post("/api/securities", json={
+        "name": "Fondo USD", "yahoo_ticker": "0PUSD.F", "market": "fondos_usd", "currency": "USD",
+    }).json()["id"]
+    sec_eur = admin_client.post("/api/securities", json={
+        "name": "Fondo EUR", "yahoo_ticker": "0PEUR.F", "market": "fondos_e", "currency": "EUR",
+    }).json()["id"]
+    pos_usd = admin_client.post("/api/portfolio/positions", json={"security_id": sec_usd}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos_usd}/transactions", json={
+        "type": "buy", "date": "2023-01-10", "shares": "1", "price": "50",
+        "fee": "0", "currency": "USD", "exchange_rate": "1.10",
+    })
+    resp = admin_client.post("/api/portfolio/transfer", json={
+        "origin_position_id": pos_usd, "shares": "1",
+        "dest_security_id": sec_eur, "dest_shares": "0.5", "date": "2023-06-01",
+    })
+    assert resp.status_code == 201, resp.text
+    # 50 USD / 1.10 = 45,4545 € (no 50 sin convertir).
+    assert abs(float(resp.json()["inherited_cost_eur"]) - (50 / 1.10)) < 0.01
+
+
 def test_deshacer_traspaso_inexistente_404(admin_client):
     """Deshacer un group_id que no existe → 404."""
     resp = admin_client.delete("/api/portfolio/transfer/noexiste123")

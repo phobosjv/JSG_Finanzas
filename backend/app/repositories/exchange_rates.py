@@ -4,8 +4,10 @@ repositories/exchange_rates.py
 Búsqueda del tipo de cambio EUR/{divisa} cacheado del BCE (multi-divisa, v1.8.0).
 
 El rate es "{divisa} por 1 EUR" (convención BCE): euros = importe / rate.
-Para EUR el tipo es siempre 1. Si no hay dato para una divisa, se devuelve 1
-como último recurso (mejor esfuerzo: la valoración no puede convertir sin tipo).
+Para EUR el tipo es siempre 1. Si el BCE aún no tiene la divisa cacheada, se cae
+al último tipo registrado en una transacción de esa divisa (el que introdujo o
+autorrellenó el usuario): es mucho mejor que devolver 1, que trataría p. ej. el
+dólar como euro e inflaría la valoración. Como último recurso, 1.
 """
 from __future__ import annotations
 
@@ -14,13 +16,22 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import EcbRate
+from app.models import EcbRate, TransactionRow
 
 _ONE = Decimal("1")
 
 
+def _latest_tx_rate(db: Session, currency: str) -> Decimal | None:
+    """Último exchange_rate registrado en una transacción de esa divisa, o None."""
+    return db.scalar(
+        select(TransactionRow.exchange_rate)
+        .where(TransactionRow.currency == currency)
+        .order_by(TransactionRow.date.desc())
+    )
+
+
 def latest_rate(db: Session, currency: str) -> Decimal:
-    """Tipo más reciente para 'currency' (1 para EUR; 1 si no hay dato)."""
+    """Tipo más reciente para 'currency' (1 para EUR)."""
     if currency == "EUR":
         return _ONE
     row = db.scalar(
@@ -28,7 +39,9 @@ def latest_rate(db: Session, currency: str) -> Decimal:
         .where(EcbRate.currency == currency)
         .order_by(EcbRate.date.desc())
     )
-    return row.rate if row is not None else _ONE
+    if row is not None:
+        return row.rate
+    return _latest_tx_rate(db, currency) or _ONE
 
 
 def rate_on_date(db: Session, currency: str, date_str: str) -> Decimal:

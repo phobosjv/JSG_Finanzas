@@ -138,6 +138,31 @@ def test_backup_import_rechaza_divisa_incoherente(admin_client, seed_markets):
 #  Regresión: tras upgrade (solo USD), update_ecb_rates backfillea histórico
 # ---------------------------------------------------------------------------
 
+def test_valoracion_usd_sin_ecb_usa_tipo_de_transaccion(admin_client, seed_markets, engine):
+    """
+    Regresión (bug MSTR): un valor USD sin tipo BCE cacheado NO debe valorarse
+    con tipo=1 (que trataría el dólar como euro e inflaría el valor). Debe caer
+    al tipo de la transacción. 6 × 134.28 USD / 1.161 ≈ 694 € (no 805 €).
+    """
+    sec = admin_client.post("/api/securities", json={
+        "name": "Strategy", "yahoo_ticker": "MSTR", "market": "nasdaq", "currency": "USD",
+    }).json()["id"]
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos}/transactions", json={
+        "type": "buy", "date": "2026-06-03", "shares": "6", "price": "134.31",
+        "fee": "3.47", "currency": "USD", "exchange_rate": "1.161",
+    })
+    # Snapshot en USD, SIN ninguna fila en ecb_rates.
+    with Session(engine) as s:
+        s.add(PriceSnapshot(security_id=sec, last_price=D("134.28"), prev_close=D("136.0")))
+        s.commit()
+
+    p = next(x for x in admin_client.get("/api/portfolio").json() if x["security_id"] == sec)
+    # 6×134.28 / 1.161 ≈ 694 € (convertido), NO 805.68 (sin convertir).
+    assert abs(float(p["market_value_eur"]) - (6 * 134.28 / 1.161)) < 1.0
+    assert float(p["market_value_eur"]) < 750
+
+
 def test_update_ecb_rates_backfill_si_solo_usd(db, monkeypatch):
     db.add(EcbRate(date=(date.today() - timedelta(days=3)).isoformat(), currency="USD", rate=D("1.1")))
     db.commit()
