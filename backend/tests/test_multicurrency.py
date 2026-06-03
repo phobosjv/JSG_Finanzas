@@ -5,13 +5,14 @@ Tests del soporte multi-divisa (v1.8.0): tipos del BCE por divisa, valoración e
 euros usando el tipo de la divisa del valor, y validación de divisas soportadas.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal as D
 
 from sqlalchemy.orm import Session
 
 from app.models import EcbRate, PriceSnapshot
 from app.providers.ecb import _parse_csv_multi
+from app.scheduler import jobs
 
 
 # ---------------------------------------------------------------------------
@@ -96,3 +97,57 @@ def test_exchange_rate_endpoint_por_divisa(admin_client, seed_markets, engine):
     r = admin_client.get("/api/markets/exchange-rate?date=2024-01-10&currency=GBP").json()
     assert r["source"] == "ecb"
     assert abs(float(r["rate"]) - 0.86) < 1e-9
+
+
+def test_exchange_rate_eur_es_uno(admin_client, seed_markets):
+    """EUR consigo misma → tipo 1, sin consultar Yahoo EUREUR=X."""
+    r = admin_client.get("/api/markets/exchange-rate?date=2024-01-10&currency=EUR").json()
+    assert r["source"] == "eur"
+    assert float(r["rate"]) == 1.0
+
+
+# ---------------------------------------------------------------------------
+#  Regresión: import de backup rechaza divisa no-EUR con rate=1 (rompería carga)
+# ---------------------------------------------------------------------------
+
+def test_backup_import_rechaza_divisa_incoherente(admin_client, seed_markets):
+    admin_client.patch("/api/admin/config/currencies", json={"currencies": ["USD", "GBP"]})
+    admin_client.post("/api/securities", json={
+        "name": "GBP Co", "yahoo_ticker": "GBPCO.L", "market": "ibex35", "currency": "GBP",
+    })
+
+    def _backup(rate):
+        return {"version": "1", "positions": [{
+            "security_ticker": "GBPCO.L", "transactions": [{
+                "type": "buy", "date": "2024-01-10", "shares": "10", "price": "5",
+                "fee": "0", "currency": "GBP", "exchange_rate": rate,
+            }], "dividends": [],
+        }]}
+
+    # rate=1 con GBP → incoherente: NO se importa, queda en errores.
+    bad = admin_client.post("/api/backup/import", json=_backup("1")).json()
+    assert bad["transactions_added"] == 0
+    assert any("incoherente" in e for e in bad["errors"])
+
+    # rate válido → se importa.
+    ok = admin_client.post("/api/backup/import", json=_backup("0.86")).json()
+    assert ok["transactions_added"] == 1
+
+
+# ---------------------------------------------------------------------------
+#  Regresión: tras upgrade (solo USD), update_ecb_rates backfillea histórico
+# ---------------------------------------------------------------------------
+
+def test_update_ecb_rates_backfill_si_solo_usd(db, monkeypatch):
+    db.add(EcbRate(date=(date.today() - timedelta(days=3)).isoformat(), currency="USD", rate=D("1.1")))
+    db.commit()
+    captured = {}
+
+    def fake_all(from_date, to_date):
+        captured["from"] = from_date
+        return {}
+    monkeypatch.setattr(jobs._ecb, "fetch_all_rates", fake_all)
+
+    jobs.update_ecb_rates(db)
+    # Solo había USD → backfill completo (~5 años), no incremental desde hace 3 días.
+    assert captured["from"] <= date.today() - timedelta(days=300)

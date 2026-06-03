@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.1] — 2026-06-03
+
+### Corregido — Coherencia de divisa en importadores y tipos (auditoría post v1.8.0)
+
+- **Backup (usuario y admin)**: el import solo rechazaba `USD` con
+  `exchange_rate=1`; ahora rechaza **cualquier divisa no-EUR** con tipo 1 (un
+  GBP/CHF con tipo 1 se importaba y luego rompía la carga de la cartera). Misma
+  comprobación añadida al import de **dividendos** (antes no la tenía).
+- **`GET /markets/exchange-rate?currency=EUR`**: devuelve tipo 1 directamente en
+  vez de intentar consultar Yahoo `EUREUR=X`.
+- **`update_ecb_rates`**: tras actualizar desde una versión con solo USD, hace
+  un **backfill histórico completo** de todas las divisas del BCE (antes, como
+  ya había USD reciente, las demás divisas nunca obtenían histórico).
+
+Tests: 359 en verde (+3 de regresión).
+
+---
+
 ## [1.8.0] — 2026-06-03
 
 ### Añadido — Soporte multi-divisa (más allá de EUR/USD)

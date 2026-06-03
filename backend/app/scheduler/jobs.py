@@ -451,8 +451,14 @@ def _apply_quote_to_snapshot(
 def update_ecb_rates(db: Session) -> None:
     today = date.today()
 
+    # ¿Hay ya divisas distintas de USD? Tras actualizar desde una versión
+    # anterior (solo USD), max(date) es reciente; si arrancáramos desde ahí, las
+    # demás divisas no tendrían histórico. En ese caso hacemos backfill completo.
+    has_other = db.scalar(
+        select(EcbRate.currency).where(EcbRate.currency != "USD").limit(1)
+    )
     last_date_str = db.scalar(select(func.max(EcbRate.date)))
-    if last_date_str:
+    if last_date_str and has_other:
         from_date = date.fromisoformat(last_date_str) + timedelta(days=1)
     else:
         from_date = today - timedelta(days=5 * 365)

@@ -244,12 +244,12 @@ async def import_backup(
                     raise ValueError("type debe ser 'buy', 'sell', 'transfer_in' o 'transfer_out'")
                 if tx_data["currency"] not in valid_currencies:
                     raise ValueError(f"currency '{tx_data['currency']}' no está soportada")
-                # Coherencia divisa/cambio: USD con rate=1 es incoherente y
-                # romperá la carga de la cartera (el repositorio lo rechaza).
-                if tx_data["currency"] == "USD" and tx_rate == Decimal("1"):
+                # Coherencia divisa/cambio: cualquier divisa no-EUR con rate=1 es
+                # incoherente y rompería la carga de la cartera (el repositorio lo
+                # rechaza). Generalizado a multi-divisa (v1.8.0).
+                if tx_data["currency"] != "EUR" and tx_rate == Decimal("1"):
                     raise ValueError(
-                        "currency='USD' con exchange_rate=1 es incoherente: "
-                        "el tipo EUR/USD del BCE nunca es exactamente 1."
+                        f"currency='{tx_data['currency']}' con exchange_rate=1 es incoherente"
                     )
                 if tx_data["currency"] == "EUR" and tx_rate != Decimal("1"):
                     raise ValueError("currency='EUR' exige exchange_rate=1")
@@ -301,6 +301,11 @@ async def import_backup(
                     raise ValueError("exchange_rate debe ser > 0")
                 if div_data["currency"] not in valid_currencies:
                     raise ValueError(f"currency '{div_data['currency']}' no está soportada")
+                # Coherencia divisa/tipo (evita romper la carga posterior).
+                if div_data["currency"] != "EUR" and div_rate == Decimal("1"):
+                    raise ValueError(f"currency='{div_data['currency']}' con exchange_rate=1 es incoherente")
+                if div_data["currency"] == "EUR" and div_rate != Decimal("1"):
+                    raise ValueError("currency='EUR' exige exchange_rate=1")
             except (KeyError, TypeError, InvalidOperation, ValueError) as exc:
                 result.errors.append(
                     f"Dividendo omitido en '{ticker}': {exc}"

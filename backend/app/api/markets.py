@@ -405,6 +405,10 @@ def get_exchange_rate(
     """
     currency = currency.strip().upper()
 
+    # EUR consigo misma: tipo 1 (no tiene sentido consultar EUREUR=X).
+    if currency == "EUR":
+        return {"rate": 1.0, "date": date_str, "source": "eur"}
+
     # 1. Caché BCE — multi-divisa (USD, GBP, JPY, CHF…)
     if currency != "EUR":
         row = db.scalar(

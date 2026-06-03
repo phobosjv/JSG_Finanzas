@@ -667,6 +667,10 @@ async def admin_import_backup(
                         raise ValueError("exchange_rate debe ser > 0")
                     if div_data["currency"] not in valid_currencies:
                         raise ValueError(f"currency '{div_data['currency']}' no está soportada")
+                    if div_data["currency"] != "EUR" and div_rate == Decimal("1"):
+                        raise ValueError(f"currency='{div_data['currency']}' con exchange_rate=1 es incoherente")
+                    if div_data["currency"] == "EUR" and div_rate != Decimal("1"):
+                        raise ValueError("currency='EUR' exige exchange_rate=1")
                 except (KeyError, TypeError, InvalidOperation, ValueError) as exc:
                     result.errors.append(
                         f"Dividendo omitido en '{ticker}': {exc}"
