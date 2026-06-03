@@ -32,7 +32,7 @@ from collections import defaultdict
 
 from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, RecurringPlanRow, Security, SecuritySplit, TransactionRow, User
 from app.repositories.portfolio_repository import PortfolioRepository
-from app.repositories.exchange_rates import latest_rate
+from app.repositories.exchange_rates import latest_rate, rate_on_date
 from app.models.market import MarketRow
 from app.schemas.portfolio import (
     ClosedPositionAnalytics,
@@ -106,6 +106,26 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
     total_profit_eur = unrealized_pnl_eur + realized_pnl_eur + dividends_eur
     fees_eur         = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
 
+    # Valor de MERCADO en el momento de cada traspaso de ENTRADA: participaciones
+    # recibidas × NAV de esa fecha. Permite mostrar la rentabilidad "desde el
+    # traspaso" (rendimiento propio del fondo), distinta del coste heredado.
+    norm_txs = normalize_splits(txs, splits) if splits else txs
+    transfer_ins = [t for t in norm_txs if t.type == "transfer_in"]
+    transfer_in_market_eur = None
+    if transfer_ins:
+        total_ti = Decimal("0")
+        for t in transfer_ins:
+            d_str = t.date.isoformat()
+            ph = db.scalar(
+                select(PriceHistory)
+                .where(PriceHistory.security_id == sec.id, PriceHistory.date <= d_str)
+                .order_by(PriceHistory.date.desc())
+            )
+            if ph is None or ph.close <= Decimal("0"):
+                continue
+            total_ti += t.shares * ph.close / rate_on_date(db, sec.currency, d_str)
+        transfer_in_market_eur = total_ti
+
     market_row = db.get(MarketRow, sec.market)
     return PositionSummary(
         position_id=pos.id,
@@ -133,6 +153,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         target_sell_price=pos.target_sell_price,
         max_1y=max_1y,
         notes=pos.notes,
+        transfer_in_market_eur=transfer_in_market_eur,
     )
 
 

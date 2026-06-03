@@ -276,6 +276,35 @@ def test_deshacer_traspaso_restaura_origen(admin_client):
     assert all(t["type"] not in ("transfer_in", "transfer_out") for t in txs_a)
 
 
+def test_rentabilidad_desde_traspaso(admin_client, engine):
+    """
+    transfer_in_market_eur = participaciones recibidas × NAV en la fecha del
+    traspaso. Permite la rentabilidad "desde el traspaso" (propia del fondo).
+    """
+    from sqlalchemy.orm import Session
+    from app.models import PriceHistory, PriceSnapshot
+    from decimal import Decimal as D
+    sec_a, sec_b = _crear_fondos(admin_client)
+    pos_a = admin_client.post("/api/portfolio/positions", json={"security_id": sec_a}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos_a}/transactions", json={
+        "type": "buy", "date": "2023-01-10", "shares": "1", "price": "50",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    admin_client.post("/api/portfolio/transfer", json={
+        "origin_position_id": pos_a, "shares": "1",
+        "dest_security_id": sec_b, "dest_shares": "0.5", "date": "2023-06-01",
+    })
+    with Session(engine) as s:
+        # NAV del destino el día del traspaso = 100 → valor traspasado 0,5×100 = 50.
+        s.add(PriceHistory(security_id=sec_b, date="2023-06-01", close=D("100")))
+        s.add(PriceSnapshot(security_id=sec_b, last_price=D("120"), prev_close=D("120")))
+        s.commit()
+
+    b = next(x for x in admin_client.get("/api/portfolio").json() if x["security_id"] == sec_b)
+    assert abs(float(b["transfer_in_market_eur"]) - 50.0) < 0.01
+    # Rentabilidad desde el traspaso = 120/100 - 1 = +20% (la calcula el front).
+
+
 def test_fondo_destino_refleja_ganancia_o_perdida_heredada(admin_client, engine):
     """
     El destino de un traspaso muestra ganancia si el coste heredado < valor

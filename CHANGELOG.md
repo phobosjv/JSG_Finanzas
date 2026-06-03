@@ -5,6 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.3] — 2026-06-03
+
+### Añadido — Rentabilidad "desde el traspaso" en fondos
+
+- En un fondo cuya posición se nutre **solo de traspasos** (sin compras ni
+  ventas), la ficha muestra ahora la **rentabilidad propia del fondo desde el
+  traspaso**: valor actual vs valor de mercado en la fecha de cada traspaso
+  (participaciones recibidas × NAV de esa fecha). Es distinta del B/P latente,
+  que arrastra la base de coste heredada (plusvalía/minusvalía diferida del
+  fondo de origen). Así se distingue "cuánto sube este fondo" de "qué pérdida
+  diferida traigo".
+- Backend: `PositionSummary.transfer_in_market_eur` (valor de mercado al
+  traspasar). `null` si la posición no tiene traspasos.
+
+---
+
 ## [1.8.2] — 2026-06-03
 
 ### Corregido — Valoración en vivo de valores en divisa extranjera

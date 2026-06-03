@@ -326,6 +326,9 @@ class PositionSummary(BaseModel):
     target_sell_price: Decimal | None
     max_1y: Decimal | None
     notes: str | None = None
+    # Valor de mercado en el momento de los traspasos de entrada (para mostrar la
+    # rentabilidad "desde el traspaso"). None si la posición no tiene traspasos.
+    transfer_in_market_eur: Decimal | None = None
 
 
 class ClosedPositionSummary(BaseModel):

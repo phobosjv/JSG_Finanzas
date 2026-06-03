@@ -1247,6 +1247,22 @@ export default function SecurityDetail() {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 0 }}>
             {t('sd.transfer_note')}
           </p>
+          {/* Rentabilidad propia del fondo desde el traspaso (solo si la posición
+              se nutre únicamente de traspasos: sin compras ni ventas). Distinta del
+              B/P latente, que arrastra la base de coste heredada. */}
+          {posResult?.transfer_in_market_eur > 0 && buys.length === 0 && sells.length === 0 && (() => {
+            const tin = Number(posResult.transfer_in_market_eur)
+            const now = Number(posResult.market_value_eur)
+            const pct = tin > 0 ? (now / tin - 1) * 100 : 0
+            return (
+              <div className="state-ok" style={{ padding: 10, marginBottom: 12, textAlign: 'left' }}>
+                {t('sd.transfer_since')}: <strong className={pct >= 0 ? 'pos' : 'neg'}>{pct >= 0 ? '+' : ''}{fmt(pct)}%</strong>
+                <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>
+                  ({t('sd.transfer_value_at')}: {fmt(tin)} € → {fmt(now)} €)
+                </span>
+              </div>
+            )
+          })()}
           {transfers.length === 0 ? (
             <div className="state-empty" style={{ padding: 20 }}>{t('sd.no_transfers')}</div>
           ) : (
