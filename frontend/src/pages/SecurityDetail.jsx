@@ -64,19 +64,21 @@ function DivRow({ div, onDelete, onEdit }) {
   )
 }
 
-function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx = null }) {
+function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx = null, isFund = false }) {
   const { t, currencies: CURRENCIES } = useAppConfig()
   const [form, setForm] = useState(editTx ? {
     type: editTx.type,
     date: editTx.date,
     shares: String(editTx.shares),
     price: String(editTx.price),
+    // En fondos se trabaja por importe total = participaciones × precio.
+    amount: String(Number(editTx.shares) * Number(editTx.price)),
     fee: String(editTx.fee),
     currency: editTx.currency,
     exchange_rate: String(editTx.exchange_rate),
   } : {
     type: initialType, date: new Date().toISOString().slice(0, 10),
-    shares: '', price: '', fee: '0', currency: 'EUR', exchange_rate: '1',
+    shares: '', price: '', amount: '', fee: '0', currency: 'EUR', exchange_rate: '1',
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -106,16 +108,27 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
     e.preventDefault()
     const errs = []
     if (Number(form.shares) <= 0) errs.push(t('sd.tx_err_shares'))
-    if (Number(form.price) <= 0) errs.push(t('sd.tx_err_price'))
+    // En fondos el usuario introduce el importe total; el precio por
+    // participación se deriva (precio = importe / participaciones).
+    const price = isFund
+      ? (Number(form.shares) > 0 ? Number(form.amount) / Number(form.shares) : 0)
+      : Number(form.price)
+    if (isFund) {
+      if (Number(form.amount) <= 0) errs.push(t('sd.tx_err_amount'))
+    } else {
+      if (Number(form.price) <= 0) errs.push(t('sd.tx_err_price'))
+    }
     if (Number(form.exchange_rate) <= 0) errs.push(t('sd.tx_err_rate'))
     if (errs.length) { setError(errs.join('. ')); return }
     setBusy(true); setError(null)
     try {
       const payload = {
-        ...form,
+        type: form.type,
+        date: form.date,
         shares: Number(form.shares),
-        price: Number(form.price),
+        price: price,
         fee: Number(form.fee),
+        currency: form.currency,
         exchange_rate: Number(form.exchange_rate),
       }
       if (editTx) {
@@ -149,13 +162,25 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label>{t('sd.tx_shares')}</label>
+              <label>{isFund ? t('sd.tx_units') : t('sd.tx_shares')}</label>
               <input type="number" step="any" min="0.000001" {...field('shares')} required />
             </div>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label>{t('sd.tx_price')}</label>
-              <input type="number" step="any" min="0.000001" {...field('price')} required />
-            </div>
+            {isFund ? (
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>{t('sd.tx_amount')}</label>
+                <input type="number" step="any" min="0.000001" {...field('amount')} required />
+                {Number(form.shares) > 0 && Number(form.amount) > 0 && (
+                  <small style={{ color: 'var(--text-muted)' }}>
+                    {t('sd.tx_price')}: {fmt(Number(form.amount) / Number(form.shares), 4)}
+                  </small>
+                )}
+              </div>
+            ) : (
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>{t('sd.tx_price')}</label>
+                <input type="number" step="any" min="0.000001" {...field('price')} required />
+              </div>
+            )}
             <div className="form-group" style={{ flex: 1 }}>
               <label>{t('sd.tx_fee')}</label>
               <input type="number" step="any" min="0" {...field('fee')} />
@@ -1311,6 +1336,7 @@ export default function SecurityDetail() {
           positionId={positionId}
           initialType={txModalType}
           editTx={editingTx}
+          isFund={isFundMarket}
           onClose={() => { setTxModal(false); setEditingTx(null) }}
           onAdded={() => { setTxModal(false); setEditingTx(null); loadAll() }}
         />

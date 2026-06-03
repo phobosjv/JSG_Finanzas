@@ -58,6 +58,21 @@ class PriceProvider(ABC):
         Lanza ValueError si no hay suficientes datos.
         """
 
+    def fetch_live_quotes(self, tickers: list[str]) -> dict[str, LiveQuote]:
+        """
+        Cotizaciones en vivo de varios tickers en una sola peticion (batch).
+        Implementacion por defecto: una a una (fallback). Los proveedores que
+        soporten descarga por lotes (Yahoo) lo sobreescriben. Los tickers que
+        fallen no aparecen en el dict.
+        """
+        out: dict[str, LiveQuote] = {}
+        for tk in tickers:
+            try:
+                out[tk] = self.fetch_live_quote(tk, with_dividends=False)  # type: ignore[call-arg]
+            except Exception:
+                continue
+        return out
+
 
 class RateProvider(ABC):
     @abstractmethod

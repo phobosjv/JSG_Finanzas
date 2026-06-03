@@ -145,6 +145,19 @@ export default function Utilities() {
     URL.revokeObjectURL(url)
   }
 
+  async function exportGhostfolio() {
+    const res = await fetch('/api/portfolio/export-ghostfolio', { credentials: 'include' })
+    if (!res.ok) { setGfErr(t('utilities.gf_export_error')); return }
+    const blob = await res.blob()
+    const cd = res.headers.get('Content-Disposition') ?? ''
+    const match = cd.match(/filename="([^"]+)"/)
+    const filename = match ? match[1] : 'finanzas_ghostfolio.json'
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function importBackup(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -469,6 +482,9 @@ export default function Utilities() {
             onClick={() => gfFileRef.current?.click()}
           >
             {gfImporting ? t('utilities.gf_importing') : t('utilities.gf_select')}
+          </button>
+          <button className="btn-ghost btn-sm" onClick={exportGhostfolio}>
+            {t('utilities.gf_export')}
           </button>
           <input
             ref={gfFileRef}

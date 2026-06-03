@@ -73,6 +73,71 @@ class YahooProvider(PriceProvider):
             ))
         return bars
 
+    def fetch_live_quotes(self, tickers: list[str]) -> dict[str, LiveQuote]:
+        """
+        Cotizaciones en vivo de VARIOS tickers en una sola petición (yf.download),
+        para minimizar las llamadas a Yahoo (rate-limit). No incluye dividendos
+        (el path en vivo no los necesita). Los tickers que fallen no aparecen en
+        el dict devuelto.
+        """
+        if not tickers:
+            return {}
+        import pandas as pd
+
+        out: dict[str, LiveQuote] = {}
+        try:
+            data = yf.download(
+                tickers=" ".join(tickers),
+                period="5d",
+                auto_adjust=False,
+                group_by="ticker",
+                progress=False,
+                threads=False,
+            )
+        except Exception:
+            return out
+        if data is None or len(data) == 0:
+            return out
+
+        multi = isinstance(data.columns, pd.MultiIndex)
+        for tk in tickers:
+            try:
+                sub = data[tk] if multi else data
+                closes = sub["Close"].dropna()
+                if len(closes) < 2:
+                    continue
+                last = float(closes.iloc[-1])
+                prev = float(closes.iloc[-2])
+                if math.isnan(last) or math.isnan(prev):
+                    continue
+                last_d = _to_decimal(last)
+                prev_d = _to_decimal(prev)
+
+                quote_time: str | None = None
+                try:
+                    idx = closes.index[-1]
+                    if hasattr(idx, "tz_convert"):
+                        try:
+                            idx = idx.tz_convert("UTC")
+                        except (TypeError, ValueError):
+                            pass
+                    quote_time = idx.isoformat()
+                except Exception:
+                    pass
+
+                if prev_d == 0:
+                    pct = Decimal("0.00")
+                else:
+                    pct = ((last_d - prev_d) / prev_d * Decimal("100")).quantize(Decimal("0.01"))
+
+                out[tk] = LiveQuote(
+                    last_price=last_d, prev_close=prev_d,
+                    daily_change_pct=pct, last_dividend=None, quote_time=quote_time,
+                )
+            except Exception:
+                continue
+        return out
+
     def fetch_live_quote(self, ticker: str, with_dividends: bool = True) -> LiveQuote:
         """
         Cotización en vivo. 'with_dividends=False' omite la consulta de

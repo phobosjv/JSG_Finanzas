@@ -5,6 +5,34 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.7.9] — 2026-06-03
+
+### Añadido — Compra de fondos por importe
+
+- En valores de **mercados de fondos**, la ventana de operación cambia: el campo
+  "Acciones" pasa a **"Participaciones"** y, en lugar de "Precio por acción", se
+  introduce el **"Importe total"** pagado. El precio por participación se deriva
+  automáticamente (precio = importe / participaciones), que es como lo informa el
+  banco. El backend sigue almacenando el precio por participación (sin cambios de
+  modelo). En valores no-fondo la ventana es la de siempre.
+
+### Añadido — Export a Ghostfolio
+
+- `GET /api/portfolio/export-ghostfolio`: descarga las operaciones en formato
+  Ghostfolio (JSON con `activities`: BUY/SELL/DIVIDEND), compatible con su
+  importador y con el de esta app (round-trip). Botón en Utilidades. Traspasos y
+  planes no se representan en ese formato (para fidelidad completa, backup JSON).
+
+### Cambiado — Snapshots en vivo por lotes (yf.download)
+
+- El job en vivo y el refresco de Top movers agrupan los tickers en **una sola
+  petición por lote** (`yf.download`, lotes de 40) en vez de una por valor.
+  Sumado al conjunto activo de v1.7.7, deja las peticiones a Yahoo casi al
+  mínimo. Los tickers que fallen en el lote se omiten y se reintentan en la
+  siguiente pasada.
+
+---
+
 ## [1.7.8] — 2026-06-02
 
 ### Añadido — Import/export completados

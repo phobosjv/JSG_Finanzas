@@ -255,11 +255,15 @@ def _is_rate_limited(exc: Exception) -> bool:
     return "429" in msg or "too many requests" in msg or "rate limit" in msg
 
 
+_BATCH_CHUNK = 40   # tickers por petición en el modo batch (yf.download)
+
+
 def update_snapshots(
     db: Session,
     include_funds: bool = True,
     only_ids: set[int] | None = None,
     with_dividends: bool = True,
+    batch: bool = False,
 ) -> None:
     """
     Actualiza los snapshots de precio en vivo.
@@ -270,6 +274,9 @@ def update_snapshots(
       del job en vivo). None = todo el catálogo (barrido nocturno).
     - with_dividends: el path en vivo lo pone a False para no hacer la petición
       extra de dividendos a Yahoo; se capturan en el barrido nocturno.
+    - batch: agrupa los tickers en una sola petición (yf.download) por lote.
+      Solo válido con with_dividends=False (el batch no trae dividendos). Lo usa
+      el job en vivo para minimizar las peticiones a Yahoo.
 
     Si Yahoo responde rate-limit (429) se interrumpe la pasada para no insistir.
     """
@@ -280,10 +287,26 @@ def update_snapshots(
         q = q.where(Security.id.in_(only_ids))
     securities = db.scalars(q).all()
     fund_codes = _fund_market_codes(db) if not include_funds else set()
+    targets = [s for s in securities if include_funds or s.market not in fund_codes]
 
-    for sec in securities:
-        if not include_funds and sec.market in fund_codes:
-            continue
+    if batch and not with_dividends:
+        for i in range(0, len(targets), _BATCH_CHUNK):
+            chunk = targets[i:i + _BATCH_CHUNK]
+            quotes = _yahoo.fetch_live_quotes([s.yahoo_ticker for s in chunk])
+            for sec in chunk:
+                quote = quotes.get(sec.yahoo_ticker)
+                if quote is None or quote.last_price is None:
+                    continue
+                try:
+                    _apply_quote_to_snapshot(db, sec, quote, with_dividends=False)
+                except Exception:
+                    db.rollback()
+                    log.exception("Error guardando snapshot de %s", sec.yahoo_ticker)
+            time.sleep(_SNAPSHOT_SLEEP)
+        return
+
+    # Path individual (barrido nocturno / dividendos / sin batch)
+    for sec in targets:
         try:
             _update_snapshot_for_security(db, sec, with_dividends=with_dividends)
         except Exception as exc:
@@ -309,15 +332,19 @@ def refresh_market_snapshots(market_code: str, with_dividends: bool = False) -> 
     n = 0
     try:
         secs = db.scalars(select(Security).where(Security.market == market_code)).all()
-        for sec in secs:
-            try:
-                _update_snapshot_for_security(db, sec, with_dividends=with_dividends)
-                n += 1
-            except Exception as exc:
-                db.rollback()
-                if _is_rate_limited(exc):
-                    log.warning("Yahoo rate-limit en refresh de mercado %s; corto", market_code)
-                    break
+        # Batch (yf.download) por lotes: 1 petición por cada _BATCH_CHUNK tickers.
+        for i in range(0, len(secs), _BATCH_CHUNK):
+            chunk = secs[i:i + _BATCH_CHUNK]
+            quotes = _yahoo.fetch_live_quotes([s.yahoo_ticker for s in chunk])
+            for sec in chunk:
+                quote = quotes.get(sec.yahoo_ticker)
+                if quote is None or quote.last_price is None:
+                    continue
+                try:
+                    _apply_quote_to_snapshot(db, sec, quote, with_dividends=False)
+                    n += 1
+                except Exception:
+                    db.rollback()
             time.sleep(_SNAPSHOT_SLEEP)
     finally:
         db.close()
@@ -340,6 +367,16 @@ def _update_snapshot_for_security(
 ) -> None:
     quote = _yahoo.fetch_live_quote(sec.yahoo_ticker, with_dividends=with_dividends)
     # Si no hay precio (mercado cerrado, festivo), conservar el snapshot anterior
+    if quote.last_price is None:
+        return
+    _apply_quote_to_snapshot(db, sec, quote, with_dividends)
+
+
+def _apply_quote_to_snapshot(
+    db: Session, sec: Security, quote, with_dividends: bool
+) -> None:
+    """Calcula rangos desde el histórico en BD y hace upsert del snapshot con
+    el 'quote' ya obtenido (sea individual o de un lote)."""
     if quote.last_price is None:
         return
 
@@ -489,8 +526,9 @@ def update_snapshots_live(db: Session) -> None:
         "Actualizacion live de snapshots (activos=%d, fondos=%s)",
         len(active), include_funds,
     )
-    # Solo el conjunto activo (poseídos/favoritos) y sin la petición de dividendos.
-    update_snapshots(db, include_funds=include_funds, only_ids=active, with_dividends=False)
+    # Solo el conjunto activo (poseídos/favoritos), sin dividendos y por lotes
+    # (yf.download) para minimizar las peticiones a Yahoo.
+    update_snapshots(db, include_funds=include_funds, only_ids=active, with_dividends=False, batch=True)
     if include_funds:
         _mark_funds_refreshed(db, now)
     log.info("Snapshots live completados")

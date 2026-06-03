@@ -14,10 +14,12 @@ automáticamente desde ecb_rates (fallback: Yahoo Finance).
 """
 from __future__ import annotations
 
+import json
 import math
+from datetime import date as date_type
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -27,6 +29,73 @@ from app.models import DividendRow, EcbRate, Position, Security, TransactionRow,
 from app.schemas.portfolio import CsvImportResult
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
+
+
+@router.get("/export-ghostfolio")
+def export_ghostfolio(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Exporta las operaciones del usuario en formato Ghostfolio (JSON con la clave
+    'activities'), compatible con su importador y con el de esta app
+    (/portfolio/import-ghostfolio).
+
+    Tipos: BUY, SELL, DIVIDEND. Los traspasos y planes de aportación periódica no
+    se representan en este formato (para fidelidad completa, el backup JSON).
+    """
+    positions = db.scalars(
+        select(Position).where(Position.user_id == user.id)
+    ).all()
+
+    activities: list[dict] = []
+    for pos in positions:
+        ticker = pos.security.yahoo_ticker
+        for tx in db.scalars(
+            select(TransactionRow)
+            .where(TransactionRow.position_id == pos.id)
+            .order_by(TransactionRow.date)
+        ).all():
+            if tx.type not in ("buy", "sell"):
+                continue  # transfer_in/out no existen en Ghostfolio
+            activities.append({
+                "type": tx.type.upper(),
+                "symbol": ticker,
+                "date": f"{tx.date}T00:00:00.000Z",
+                "quantity": float(tx.shares),
+                "unitPrice": float(tx.price),
+                "fee": float(tx.fee),
+                "currency": tx.currency,
+                "dataSource": "YAHOO",
+            })
+        for d in db.scalars(
+            select(DividendRow)
+            .where(DividendRow.position_id == pos.id)
+            .order_by(DividendRow.date)
+        ).all():
+            activities.append({
+                "type": "DIVIDEND",
+                "symbol": ticker,
+                "date": f"{d.date}T00:00:00.000Z",
+                "quantity": float(d.shares_at_date),
+                "unitPrice": float(d.gross_per_share),
+                "fee": float(d.withholding_tax),  # retención (ida y vuelta con el import)
+                "currency": d.currency,
+                "dataSource": "YAHOO",
+            })
+
+    activities.sort(key=lambda a: (a["symbol"], a["date"], a["type"]))
+    payload = {
+        "meta": {"date": date_type.today().isoformat(), "version": "finanzas"},
+        "activities": activities,
+    }
+    json_bytes = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    filename = f"finanzas_ghostfolio_{date_type.today().isoformat()}.json"
+    return Response(
+        content=json_bytes,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 _IMPORTABLE_TYPES = {"BUY", "SELL", "DIVIDEND"}
 
