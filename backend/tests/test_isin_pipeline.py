@@ -44,7 +44,7 @@ def test_normalize_isin_rechaza_basura():
 
 import pytest
 
-from app.api.admin import _fill_isins_worker
+from app.api.admin import _fill_isins_worker, _isin_pending
 from app.models import Security
 from sqlalchemy import select
 
@@ -157,3 +157,89 @@ def test_endpoint_lanza_job_y_expone_estado(admin_client, seed_markets, monkeypa
 def test_fill_isins_no_admin(auth_client, seed_markets):
     assert auth_client.post("/api/admin/securities/fill-isins").status_code == 403
     assert auth_client.get("/api/admin/securities/fill-isins/status").status_code == 403
+
+
+# ---------------------------------------------------------------------------
+#  Parser de Business Insider (pasada heurística por nombre)
+# ---------------------------------------------------------------------------
+
+# Respuesta real (recortada) del buscador para "Iberdrola".
+_BI_IBERDROLA = (
+    'mmSuggestDeliver(0, new Array("Name", "Category", "Keywords", "Bias", "Extension", "IDs"), '
+    'new Array('
+    'new Array("Iberdrola SA", "Stocks", "IBDSF|ES0144580Y14|IBDSF||IBE", "75", "", "ibdsf|IBDSF|1|23361"),'
+    'new Array("Iberdrola SA  (spons. ADRs)", "Stocks", "IBDRY|US4507371015|IBDRY||", "75", "", "ibdry|IBDRY|1|43344"),'
+    'new Array("Iberdrola International B.V.", "Bonds", "906796|US29266MAE93", "75", "", "x|US29266MAE93|y|z|1")'
+    '))'
+)
+
+
+def test_bi_parser_coincidencia_por_ticker():
+    """Con el ticker nativo (IBE) se elige el ISIN español, no el ADR ni el bono."""
+    from app.providers.business_insider import parse_isin_from_suggest
+    assert parse_isin_from_suggest(_BI_IBERDROLA, "IBE") == "ES0144580Y14"
+
+
+def test_bi_parser_ambiguo_sin_ticker_devuelve_none():
+    """Sin coincidencia de ticker y con dos ISIN de acciones distintos → None."""
+    from app.providers.business_insider import parse_isin_from_suggest
+    assert parse_isin_from_suggest(_BI_IBERDROLA, "ZZZ") is None
+
+
+def test_bi_parser_resultado_unico_sin_ticker():
+    """Si solo hay un ISIN de renta variable, se acepta aunque el ticker no case."""
+    from app.providers.business_insider import parse_isin_from_suggest
+    text = (
+        'mmSuggestDeliver(0, new Array("Name","Category","Keywords"), new Array('
+        'new Array("Acme Corp", "Stocks", "ACME|US0000000019|ACME", "75", "", "x"),'
+        'new Array("Acme Bond", "Bonds", "b|US9999999999", "75", "", "y")))'
+    )
+    assert parse_isin_from_suggest(text, "NOPE") == "US0000000019"
+
+
+# ---------------------------------------------------------------------------
+#  Worker: exclusión de cripto y pasada 2 (Business Insider)
+# ---------------------------------------------------------------------------
+
+def test_worker_excluye_crypto(admin_client, seed_markets, db):
+    """Las cripto no tienen ISIN: no entran en la búsqueda."""
+    admin_client.patch("/api/admin/config/currencies", json={"currencies": ["EUR", "USD"]})
+    admin_client.post("/api/admin/markets", json={
+        "code": "crypto", "name": "Cripto", "currency": "USD",
+        "fiscal_window_days": 0, "market_type": "crypto",
+    })
+    _crear_sec(admin_client, "Accion", "ITX.MC")  # ibex35 (stock)
+    admin_client.post("/api/securities", json={
+        "name": "Bitcoin", "yahoo_ticker": "BTC-USD", "market": "crypto", "currency": "USD",
+    })
+    tickers = [t for (_, t, _) in _isin_pending(db)]
+    assert "ITX.MC" in tickers        # acción: entra
+    assert "BTC-USD" not in tickers   # cripto: queda fuera
+
+
+def test_worker_pasada2_business_insider(admin_client, seed_markets, db):
+    """
+    La pasada 2 rellena los que Yahoo no resolvió, salvo que el ISIN ya exista
+    en la BBDD (entonces se descarta para no asignar uno equivocado).
+    """
+    _crear_sec(admin_client, "Tiene ISIN", "SAN.MC", isin="ES0113900J37")
+    _crear_sec(admin_client, "Heurístico", "ITX.MC")     # Yahoo no, BI sí (nuevo)
+    _crear_sec(admin_client, "Colisión", "REP.MC")       # BI devuelve un ISIN que ya existe
+
+    yahoo = _FakeProvider({"ITX.MC": None, "REP.MC": None})  # pasada 1 no resuelve
+    bi = {"ITX.MC": "ES0148396007", "REP.MC": "ES0113900J37"}  # REP colisiona con SAN
+
+    def fake_bi(name, ticker):
+        return bi.get(ticker)
+
+    res = _fill_isins_worker(db, yahoo, bi_search=fake_bi)
+    assert res["updated_pass1"] == 0
+    assert res["updated_pass2"] == 1                 # solo ITX
+    assert res["skipped_existing"] == ["REP.MC"]     # REP descartado (ISIN ya existía)
+    assert res["not_found"] == ["REP.MC"]            # sigue sin ISIN
+
+    db.expire_all()
+    itx = db.scalar(select(Security).where(Security.yahoo_ticker == "ITX.MC"))
+    rep = db.scalar(select(Security).where(Security.yahoo_ticker == "REP.MC"))
+    assert itx.isin == "ES0148396007"
+    assert rep.isin in (None, "")                    # no se le asignó el ISIN colisionado

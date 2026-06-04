@@ -327,54 +327,106 @@ def get_history_update_status(_admin: User = Depends(require_admin)):
 
 _isin_job: dict = {
     "running": False,
-    "total": 0,         # valores sin ISIN al empezar
-    "checked": 0,       # procesados hasta ahora
-    "updated": 0,       # rellenados con éxito (ya persistidos)
-    "not_found": [],    # tickers que Yahoo no resolvió
+    "total": 0,            # valores sin ISIN al empezar (excluye cripto)
+    "checked": 0,          # procesados hasta ahora
+    "updated": 0,          # rellenados con éxito (ya persistidos)
+    "updated_pass1": 0,    # rellenados por coincidencia exacta (Yahoo por ticker)
+    "updated_pass2": 0,    # rellenados por búsqueda heurística (Business Insider por nombre)
+    "not_found": [],       # tickers que siguen sin ISIN tras ambas pasadas
+    "skipped_existing": [], # heurística encontró un ISIN, pero ya existía en la BBDD (descartado)
     "started_at": None,
     "finished_at": None,
-    "result": None,     # None | "ok" | "error: <mensaje>"
+    "result": None,        # None | "ok" | "error: <mensaje>"
 }
 _isin_job_lock = _threading.Lock()
 
 
-def _fill_isins_worker(db: Session, provider, on_item=None) -> dict:
-    """
-    Rellena el ISIN de los valores que no lo tienen, consultando 'provider'.
+def _isin_pending(db: Session) -> list[tuple[int, str, str]]:
+    """(id, ticker, nombre) de los valores sin ISIN, EXCLUYENDO cripto."""
+    rows = db.execute(
+        select(Security.id, Security.yahoo_ticker, Security.name, MarketRow.market_type)
+        .join(MarketRow, Security.market == MarketRow.code, isouter=True)
+        .where((Security.isin.is_(None)) | (func.trim(Security.isin) == ""))
+    ).all()
+    # Las cripto no tienen ISIN: se excluyen. Mercado desconocido → se trata como acción.
+    return [(r[0], r[1], r[2]) for r in rows if (r[3] or "stock") != "crypto"]
 
-    Commit INCREMENTAL: cada ISIN encontrado se guarda al momento, de modo que
-    un corte/timeout (o un fallo a mitad) NO pierde lo ya hecho — lo confirmado
-    queda persistido y una nueva ejecución solo revisa los que aún faltan. Nunca
-    sobreescribe un ISIN existente (solo toca los nulos o vacíos).
 
-    'on_item(checked, updated, not_found)' es un callback opcional invocado tras
-    cada valor para reportar progreso (lo usa el job en segundo plano).
+def _fill_isins_worker(db: Session, provider, *, bi_search=None, on_item=None) -> dict:
     """
-    pending = [
-        (s.id, s.yahoo_ticker)
-        for s in db.scalars(
-            select(Security).where(
-                (Security.isin.is_(None)) | (func.trim(Security.isin) == "")
+    Rellena el ISIN de los valores que no lo tienen. Dos pasadas:
+
+      Pasada 1 (exacta): 'provider.fetch_isin(ticker)' (Yahoo por ticker).
+      Pasada 2 (heurística, opcional): 'bi_search(name, ticker)' (Business
+        Insider por nombre), solo para los que la pasada 1 no resolvió. Se acepta
+        el ISIN únicamente si NO existe ya en la BBDD (evita asignar a un valor
+        un ISIN que pertenece a otro: señal de coincidencia equivocada).
+
+    Excluye las cripto (no tienen ISIN). Commit INCREMENTAL: cada ISIN se guarda
+    al momento, así un corte/timeout no pierde lo ya hecho. Nunca sobreescribe un
+    ISIN existente.
+
+    'on_item(checked, updated, missing)' es un callback opcional de progreso.
+    """
+    pending = _isin_pending(db)
+    existing: set[str] = set(
+        db.scalars(
+            select(Security.isin).where(
+                Security.isin.is_not(None), func.trim(Security.isin) != ""
             )
         ).all()
-    ]
-    total = len(pending)
+    )
+
     checked = 0
-    updated = 0
-    not_found: list[str] = []
-    for sid, ticker in pending:
+    updated_p1 = 0
+    updated_p2 = 0
+    missing: list[str] = []                 # tickers aún sin ISIN (lista viva para el progreso)
+    remaining: list[tuple[int, str, str]] = []  # tuplas pendientes de la pasada 2
+    skipped_existing: list[str] = []
+
+    def _report():
+        if on_item is not None:
+            on_item(checked, updated_p1 + updated_p2, list(missing))
+
+    # ---- Pasada 1: coincidencia exacta por ticker (Yahoo) ----
+    for sid, ticker, name in pending:
         isin = provider.fetch_isin(ticker)
         checked += 1
         if isin:
             sec = db.get(Security, sid)
             sec.isin = isin
-            db.commit()              # persiste de inmediato
-            updated += 1
+            db.commit()
+            updated_p1 += 1
+            existing.add(isin)
         else:
-            not_found.append(ticker)
-        if on_item is not None:
-            on_item(checked, updated, list(not_found))
-    return {"checked": total, "updated": updated, "not_found": not_found}
+            missing.append(ticker)
+            remaining.append((sid, ticker, name))
+        _report()
+
+    # ---- Pasada 2: búsqueda heurística por nombre (Business Insider) ----
+    if bi_search is not None:
+        for sid, ticker, name in remaining:
+            isin = bi_search(name, ticker)
+            checked += 1
+            if isin and isin not in existing:
+                sec = db.get(Security, sid)
+                sec.isin = isin
+                db.commit()
+                updated_p2 += 1
+                existing.add(isin)
+                missing.remove(ticker)
+            elif isin:  # encontrado pero ya existe en la BBDD → no se asigna
+                skipped_existing.append(ticker)
+            _report()
+
+    return {
+        "checked": checked,
+        "updated": updated_p1 + updated_p2,
+        "updated_pass1": updated_p1,
+        "updated_pass2": updated_p2,
+        "not_found": missing,
+        "skipped_existing": skipped_existing,
+    }
 
 
 @router.post("/securities/fill-isins", status_code=status.HTTP_202_ACCEPTED)
@@ -394,7 +446,8 @@ def fill_missing_isins(_admin: User = Depends(require_admin)):
                 detail="Ya hay un rellenado de ISINs en curso. Espera a que termine.",
             )
         _isin_job.update(
-            running=True, total=0, checked=0, updated=0, not_found=[],
+            running=True, total=0, checked=0, updated=0,
+            updated_pass1=0, updated_pass2=0, not_found=[], skipped_existing=[],
             started_at=_now().isoformat(timespec="seconds"),
             finished_at=None, result=None,
         )
@@ -402,27 +455,32 @@ def fill_missing_isins(_admin: User = Depends(require_admin)):
     def _run() -> None:
         from app.database import SessionLocal
         from app.providers.yahoo import YahooProvider
+        from app.providers.business_insider import search_isin_by_name
 
         db = SessionLocal()
         try:
-            total = db.scalar(
-                select(func.count()).select_from(Security).where(
-                    (Security.isin.is_(None)) | (func.trim(Security.isin) == "")
-                )
-            )
             with _isin_job_lock:
-                _isin_job["total"] = int(total or 0)
+                _isin_job["total"] = len(_isin_pending(db))
 
-            def _progress(checked: int, updated: int, not_found: list[str]) -> None:
+            def _progress(checked: int, updated: int, missing: list[str]) -> None:
                 with _isin_job_lock:
                     _isin_job["checked"] = checked
                     _isin_job["updated"] = updated
-                    _isin_job["not_found"] = not_found
+                    _isin_job["not_found"] = missing
 
-            _fill_isins_worker(db, YahooProvider(), on_item=_progress)
+            res = _fill_isins_worker(
+                db, YahooProvider(), bi_search=search_isin_by_name, on_item=_progress
+            )
             with _isin_job_lock:
+                _isin_job["updated_pass1"] = res["updated_pass1"]
+                _isin_job["updated_pass2"] = res["updated_pass2"]
+                _isin_job["skipped_existing"] = res["skipped_existing"]
+                _isin_job["not_found"] = res["not_found"]
                 _isin_job["result"] = "ok"
-            log.info("fill-isins completado: %s rellenados", _isin_job["updated"])
+            log.info(
+                "fill-isins completado: %s rellenados (pasada 1: %s, pasada 2: %s)",
+                res["updated"], res["updated_pass1"], res["updated_pass2"],
+            )
         except Exception as exc:
             log.exception("Error en fill-isins")
             with _isin_job_lock:

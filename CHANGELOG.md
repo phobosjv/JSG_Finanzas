@@ -5,6 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.7] — 2026-06-04
+
+### Mejorado — Rellenar ISINs: 2ª fuente (Business Insider), dos pasadas y exclusión de cripto
+
+- **Pasada 1 (exacta):** Yahoo por ticker (como hasta ahora).
+- **Pasada 2 (heurística):** para los que Yahoo no resuelve, búsqueda por **nombre**
+  en Business Insider (markets.businessinsider.com). Criterio **conservador**: se
+  acepta el ISIN solo si el ticker nativo casa con una única fila de renta
+  variable/fondo (o hay un único resultado), y **siempre que ese ISIN no exista
+  ya en la BBDD** (evita asignar a un valor el ISIN de otro).
+- Las **cripto se excluyen** del rellenado (no tienen ISIN).
+- El estado del job desglosa rellenados por pasada (exacta/heurística) y lista
+  los descartados por colisión de ISIN y los que siguen sin encontrarse.
+
+---
+
 ## [1.9.6] — 2026-06-04
 
 ### Corregido — Rellenar ISINs daba «Failed to fetch» en el VPS

@@ -1041,9 +1041,11 @@ function ForceHistoryUpdateSection() {
       <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0 16px' }} />
       <h3 style={{ marginBottom: 8, fontSize: '1rem' }}>Rellenar ISINs que faltan</h3>
       <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 12 }}>
-        Busca en Yahoo el ISIN de cada valor que aún no lo tiene y lo guarda. Se
-        ejecuta en segundo plano (puede tardar varios minutos) y va guardando
-        cada ISIN según lo encuentra. No sobrescribe ISINs ya existentes.
+        Busca el ISIN de cada valor que aún no lo tiene en dos pasadas: 1ª
+        coincidencia exacta en Yahoo por ticker; 2ª búsqueda por nombre en
+        Business Insider para los que falten (solo acepta el ISIN si no existe ya
+        en otro valor). Las cripto se excluyen. Se ejecuta en segundo plano y
+        guarda cada ISIN según lo encuentra; no sobrescribe los existentes.
       </p>
       {isinRunning ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
@@ -1072,13 +1074,21 @@ function ForceHistoryUpdateSection() {
           ) : (
             <span style={{ color: 'var(--green)' }}>
               ✓ {isinStatus.updated} rellenado(s)
-              {' · '}
-              <span style={{ color: 'var(--text-muted)' }}>{isinStatus.checked} revisado(s)</span>
+              {(isinStatus.updated_pass1 != null) && (
+                <span style={{ color: 'var(--text-muted)' }}>
+                  {' '}(exacta: {isinStatus.updated_pass1} · heurística: {isinStatus.updated_pass2})
+                </span>
+              )}
             </span>
+          )}
+          {isinStatus.skipped_existing?.length > 0 && (
+            <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>
+              Descartados (el ISIN encontrado ya existía en otro valor): {isinStatus.skipped_existing.join(', ')}
+            </p>
           )}
           {isinStatus.not_found?.length > 0 && (
             <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>
-              Sin ISIN en Yahoo: {isinStatus.not_found.join(', ')}
+              Sin ISIN tras ambas pasadas: {isinStatus.not_found.join(', ')}
             </p>
           )}
         </div>
