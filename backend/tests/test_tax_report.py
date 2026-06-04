@@ -161,6 +161,34 @@ def test_fondos_en_seccion_aparte_del_pdf():
     assert ctx["fund_totals"]["gains"] == "150,00"
     # El resumen ejecutivo sigue agregando acción + fondo: 100 + 150 = 250
     assert ctx["summary"]["net_capital"] == "250,00"
+    # La tarjeta de ventas muestra SOLO acciones; la de fondos, solo fondos
+    assert ctx["summary"]["net_sales"] == "100,00"
+    assert ctx["summary"]["fund_net"] == "150,00"
+
+
+def test_resumen_cuota_por_componente():
+    """
+    Cada tarjeta de ganancia lleva su cuota estimada = importe × tipo efectivo.
+    Acción +100, fondo +150, sin dividendos. Base = 250.
+    Con el primer tramo al 19% (250 < 6.000), cuota total = 47,50 y tipo
+    efectivo = 19%. Cuota ventas = 100×19% = 19,00; fondos = 150×19% = 28,50.
+    """
+    from app.services.pdf_generator import _build_context
+
+    sales = [
+        SecuritySales(IBEX, [
+            sm(date(2023, 5, 1), date(2020, 1, 1), "10", "100", "200"),  # +100
+        ], all_buys=[buy(date(2020, 1, 1))]),
+        SecuritySales(FONDO, [
+            sm(date(2023, 6, 1), date(2021, 1, 1), "50", "500", "650"),  # +150
+        ], all_buys=[buy(date(2021, 1, 1))]),
+    ]
+    ctx = _build_context(build_tax_report(2023, sales, []), lang="es")
+    s = ctx["summary"]
+    assert s["estimated_tax"] == "47,50"
+    assert s["sales_tax"] == "19,00"
+    assert s["fund_tax"] == "28,50"
+    assert s["div_tax"] == "0,00"
 
 
 def test_sin_fondos_bloque4_vacio():

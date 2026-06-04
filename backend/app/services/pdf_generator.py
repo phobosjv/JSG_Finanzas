@@ -59,10 +59,13 @@ _LABELS: dict[str, dict[str, str]] = {
         "generated_at":            "Generado el",
         # Tarjetas resumen (página 1)
         "card_net_sales":          "Resultado neto ventas",
-        "card_net_sales_sub":      "Comisiones ya incluidas en el cálculo",
+        "card_net_sales_sub":      "Solo acciones/ETF/cripto (los fondos, aparte)",
+        "card_funds":              "Resultado venta fondos",
+        "card_funds_sub":          "Reembolsos de fondos de inversión",
         "card_dividends":          "Dividendos netos",
         "card_gross":              "Bruto",
         "card_withholding":        "Ret.",
+        "card_est_tax":            "Cuota est.:",
         "card_commissions":        "Comisiones pagadas",
         "card_commissions_sub":    "Ya descontadas del coste de adquisición",
         "card_taxbase":            "Base imponible estimada",
@@ -152,10 +155,13 @@ _LABELS: dict[str, dict[str, str]] = {
         "fiscal_year":             "Fiscal year",
         "generated_at":            "Generated on",
         "card_net_sales":          "Net capital result",
-        "card_net_sales_sub":      "Commissions already included in the calculation",
+        "card_net_sales_sub":      "Shares/ETF/crypto only (funds shown separately)",
+        "card_funds":              "Fund sales result",
+        "card_funds_sub":          "Investment fund redemptions",
         "card_dividends":          "Net dividends",
         "card_gross":              "Gross",
         "card_withholding":        "Withh.",
+        "card_est_tax":            "Est. tax:",
         "card_commissions":        "Commissions paid",
         "card_commissions_sub":    "Already deducted from acquisition cost",
         "card_taxbase":            "Estimated taxable base",
@@ -558,16 +564,35 @@ def _build_warnings(report: TaxReport, lang: str) -> list[str]:
 def _build_tax_summary(
     report: TaxReport,
     brackets: list[tuple[Decimal | None, Decimal]] | None = None,
+    sales_net_eur: Decimal | None = None,
+    fund_net_eur: Decimal | None = None,
 ) -> dict:
     """
     Calcula el resumen fiscal para la primera página del informe.
 
-    Base imponible estimada = max(0, resultado_neto_ventas) + dividendos_netos.
+    Base imponible estimada = max(0, resultado_neto_ventas) + dividendos_netos,
+    donde resultado_neto_ventas agrega acciones Y fondos (ambos van a la base
+    del ahorro). 'sales_net_eur' / 'fund_net_eur' permiten desglosar ese
+    resultado en la tarjeta de acciones y la tarjeta de fondos por separado;
+    si no se pasan, se asume todo a ventas (compatibilidad).
+
+    Cada componente de ganancia (ventas de acciones, fondos, dividendos) lleva
+    una cuota estimada propia = importe positivo × tipo efectivo
+    (cuota_total / base). Es orientativa: reparte la cuota progresiva total de
+    forma proporcional al peso de cada componente.
 
     Si se proporcionan 'brackets' (cargados de la BD), se usan en lugar de los
     valores por defecto hardcodeados.
     """
     active_brackets = brackets if brackets is not None else _BRACKETS
+
+    # Desglose del resultado de ventas (combinado para la base, separado para
+    # las tarjetas). Si no se pasa, todo va a "ventas" y nada a "fondos".
+    if sales_net_eur is None:
+        sales_net_eur = report.net_capital_result_eur
+        fund_net_eur = Decimal("0")
+    if fund_net_eur is None:
+        fund_net_eur = Decimal("0")
 
     base = (
         max(Decimal("0"), report.net_capital_result_eur)
@@ -604,13 +629,29 @@ def _build_tax_summary(
         if remaining <= Decimal("0"):
             break
 
+    # Tipo efectivo: reparte la cuota total entre los componentes positivos.
+    eff_rate = (estimated_tax / base) if base > Decimal("0") else Decimal("0")
+    div_net = report.total_dividends_net_eur
+    sales_tax = max(Decimal("0"), sales_net_eur) * eff_rate
+    fund_tax  = max(Decimal("0"), fund_net_eur) * eff_rate
+    div_tax   = max(Decimal("0"), div_net) * eff_rate
+
     return {
+        # "net_capital" sigue siendo el resultado de ventas COMBINADO (base);
+        # "net_sales"/"fund_net" lo desglosan para las tarjetas.
         "net_capital":          _fmt_money(report.net_capital_result_eur),
         "net_capital_positive": report.net_capital_result_eur >= Decimal("0"),
+        "net_sales":            _fmt_money(sales_net_eur),
+        "net_sales_positive":   sales_net_eur >= Decimal("0"),
+        "sales_tax":            _fmt_money(sales_tax),
+        "fund_net":             _fmt_money(fund_net_eur),
+        "fund_net_positive":    fund_net_eur >= Decimal("0"),
+        "fund_tax":             _fmt_money(fund_tax),
         "div_gross":            _fmt_money(report.total_dividends_gross_eur),
         "div_withholding":      _fmt_money(report.total_dividends_withholding_eur),
-        "div_net":              _fmt_money(report.total_dividends_net_eur),
-        "div_net_positive":     report.total_dividends_net_eur >= Decimal("0"),
+        "div_net":              _fmt_money(div_net),
+        "div_net_positive":     div_net >= Decimal("0"),
+        "div_tax":              _fmt_money(div_tax),
         "commission_total":     _fmt_money(report.total_commission_eur),
         "base_imponible":       _fmt_money(base),
         "base_positive":        base > Decimal("0"),
@@ -662,28 +703,38 @@ def _build_context(
         for line in report.dividend_lines
     ]
 
+    # Resultado neto por separado: acciones (Bloque 1) y fondos (Bloque 4).
+    # El resumen ejecutivo usa el desglose para la tarjeta de ventas y la de
+    # fondos; la base imponible los sigue agregando.
+    stock_adj = _compute_adjusted_totals(stock_sales)
+    fund_adj  = _compute_adjusted_totals(fund_sales)
+
     return {
         "lang":                 lang,
         "labels":               lbl,
         "year":                 report.year,
         "generated_at":         datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "summary":              _build_tax_summary(report, brackets=brackets),
+        "summary":              _build_tax_summary(
+            report, brackets=brackets,
+            sales_net_eur=stock_adj["net_capital"],
+            fund_net_eur=fund_adj["net_capital"],
+        ),
         "sale_lines":           sale_lines,
         "movement_lines":       movement_lines,
         "dividend_lines":       dividend_lines,
         "fund_lines":           fund_lines,
         "net_capital_positive": report.net_capital_result_eur >= Decimal("0"),
-        "fund_net_positive":    _compute_adjusted_totals(fund_sales)["net_capital"] >= Decimal("0"),
+        "fund_net_positive":    fund_adj["net_capital"] >= Decimal("0"),
         "totals": {
             # Totales usando el resultado NETO por valor (coherente con la tabla del Bloque 1).
             # Si un valor tuvo pérdida y ganancia, el neto positivo cuenta solo como ganancia.
-            **{k: _fmt_money(v) for k, v in _compute_adjusted_totals(stock_sales).items()},
+            **{k: _fmt_money(v) for k, v in stock_adj.items()},
             "div_gross":          _fmt_money(report.total_dividends_gross_eur),
             "div_withholding":    _fmt_money(report.total_dividends_withholding_eur),
             "div_net":            _fmt_money(report.total_dividends_net_eur),
         },
         "fund_totals": {
-            k: _fmt_money(v) for k, v in _compute_adjusted_totals(fund_sales).items()
+            k: _fmt_money(v) for k, v in fund_adj.items()
         },
         "warnings": _build_warnings(report, lang),
     }

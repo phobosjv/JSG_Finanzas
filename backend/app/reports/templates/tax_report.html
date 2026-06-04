@@ -10,8 +10,10 @@
     labels              : dict con todas las cadenas UI localizadas
     year, generated_at
     summary             : resumen ejecutivo (página 1)
-      .net_capital, .net_capital_positive
-      .div_gross, .div_withholding, .div_net, .div_net_positive
+      .net_capital, .net_capital_positive  (ventas combinado: base)
+      .net_sales, .net_sales_positive, .sales_tax   (solo acciones)
+      .fund_net, .fund_net_positive, .fund_tax      (solo fondos)
+      .div_gross, .div_withholding, .div_net, .div_net_positive, .div_tax
       .commission_total
       .base_imponible, .base_positive, .estimated_tax, .marginal_rate
       .segments[]       : rate, amount, pct (str), color (hex)
@@ -346,10 +348,11 @@
     <div class="s-cards">
       <div class="s-card">
         <div class="s-label">{{ labels.card_net_sales }}</div>
-        <div class="s-value {{ 'pos' if summary.net_capital_positive else 'neg' }}">
-          {{ summary.net_capital }} €
+        <div class="s-value {{ 'pos' if summary.net_sales_positive else 'neg' }}">
+          {{ summary.net_sales }} €
         </div>
         <div class="s-sub">{{ labels.card_net_sales_sub }}</div>
+        <div class="s-sub">{{ labels.card_est_tax }} <strong>{{ summary.sales_tax }} €</strong></div>
       </div>
 
       <div class="s-card">
@@ -360,6 +363,16 @@
         <div class="s-sub">
           {{ labels.card_gross }} {{ summary.div_gross }} € &nbsp;·&nbsp; {{ labels.card_withholding }} {{ summary.div_withholding }} €
         </div>
+        <div class="s-sub">{{ labels.card_est_tax }} <strong>{{ summary.div_tax }} €</strong></div>
+      </div>
+
+      <div class="s-card">
+        <div class="s-label">{{ labels.card_funds }}</div>
+        <div class="s-value {{ 'pos' if summary.fund_net_positive else 'neg' }}">
+          {{ summary.fund_net }} €
+        </div>
+        <div class="s-sub">{{ labels.card_funds_sub }}</div>
+        <div class="s-sub">{{ labels.card_est_tax }} <strong>{{ summary.fund_tax }} €</strong></div>
       </div>
 
       <div class="s-card">

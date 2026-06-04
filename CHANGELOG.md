@@ -5,6 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.2] — 2026-06-04
+
+### Cambiado — Resumen ejecutivo del informe fiscal: ventas, fondos y cuota por tarjeta
+
+- La tarjeta **«Resultado neto ventas»** ya no acumula los fondos: muestra solo
+  acciones/ETF/cripto.
+- Nueva tarjeta **«Resultado venta fondos»**, situada entre Dividendos y
+  Comisiones, con el resultado de los reembolsos de fondos.
+- Cada tarjeta de ganancia (ventas, fondos, dividendos) muestra debajo, en
+  pequeño, su **cuota estimada** = importe positivo × tipo efectivo
+  (cuota total / base imponible). Antes la cuota solo aparecía en el total.
+- La base imponible sigue agregando acciones + fondos + dividendos (todos a la
+  base del ahorro); el desglose es solo de presentación.
+
+---
+
 ## [1.9.1] — 2026-06-04
 
 ### Añadido — Admin: rellenar ISINs que faltan desde Yahoo
