@@ -22,7 +22,7 @@ from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
@@ -312,6 +312,52 @@ def get_history_update_status(_admin: User = Depends(require_admin)):
     """Estado del job de actualización forzada (en curso o último ejecutado)."""
     with _history_job_lock:
         return dict(_history_job)
+
+
+# ---------------------------------------------------------------------------
+#  Rellenar ISINs vacíos desde Yahoo (admin)
+# ---------------------------------------------------------------------------
+
+@router.post("/securities/fill-isins")
+def fill_missing_isins(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Para cada valor sin ISIN, lo busca en Yahoo (Ticker.isin) y lo guarda.
+
+    Solo toca valores con ISIN vacío o nulo: nunca sobreescribe uno existente.
+    Devuelve cuántos se rellenaron, cuántos seguían sin encontrarse y la lista
+    de tickers que Yahoo no resolvió, para que el admin sepa cuáles revisar a
+    mano.
+    """
+    from app.providers.yahoo import YahooProvider
+
+    provider = YahooProvider()
+    pending = db.scalars(
+        select(Security).where(
+            (Security.isin.is_(None)) | (func.trim(Security.isin) == "")
+        )
+    ).all()
+
+    updated = 0
+    not_found: list[str] = []
+    for sec in pending:
+        isin = provider.fetch_isin(sec.yahoo_ticker)
+        if isin:
+            sec.isin = isin
+            updated += 1
+        else:
+            not_found.append(sec.yahoo_ticker)
+
+    if updated:
+        db.commit()
+
+    return {
+        "checked": len(pending),
+        "updated": updated,
+        "not_found": not_found,
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -5,6 +5,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.1] — 2026-06-04
+
+### Añadido — Admin: rellenar ISINs que faltan desde Yahoo
+
+- Nuevo botón en AdminPanel («Buscar y rellenar ISINs»): por cada valor sin
+  ISIN consulta Yahoo (`Ticker.isin`) y lo guarda. Nunca sobrescribe un ISIN
+  ya existente. Reporta cuántos se rellenaron, cuántos se revisaron y qué
+  tickers no resolvió Yahoo (para revisión manual).
+- `POST /api/admin/securities/fill-isins` (solo admin).
+- El proveedor Yahoo gana `fetch_isin(ticker)`, que valida la forma del ISIN
+  (12 caracteres, 2 letras de país + 10) y descarta respuestas tipo «-».
+
+---
+
 ## [1.9.0] — 2026-06-04
 
 ### Añadido — Scatter rentabilidad/tiempo: round-trips parciales de posiciones abiertas

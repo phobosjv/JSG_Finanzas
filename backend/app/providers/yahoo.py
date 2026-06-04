@@ -24,6 +24,7 @@ Decisiones de implementacion
 from __future__ import annotations
 
 import math
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -34,6 +35,21 @@ from app.providers.base import LiveQuote, PriceBar, PriceProvider
 
 def _to_decimal(value: float, places: int = 6) -> Decimal:
     return Decimal(str(round(value, places)))
+
+
+_ISIN_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
+
+
+def _normalize_isin(raw) -> str | None:
+    """Valida la forma de un ISIN (12 caracteres, 2 letras de país + 10).
+
+    Yahoo devuelve '-' cuando no lo conoce; cualquier valor que no encaje en
+    el patrón ISIN se descarta para no escribir basura en la BD.
+    """
+    if not raw or not isinstance(raw, str):
+        return None
+    candidate = raw.strip().upper()
+    return candidate if _ISIN_RE.match(candidate) else None
 
 
 class YahooProvider(PriceProvider):
@@ -205,3 +221,16 @@ class YahooProvider(PriceProvider):
             last_dividend=last_dividend,
             quote_time=quote_time,
         )
+
+    def fetch_isin(self, ticker: str) -> str | None:
+        """
+        ISIN del valor según Yahoo (`Ticker.isin`). Devuelve None si Yahoo no
+        lo conoce (devuelve '-' o cadena vacía) o si la respuesta no tiene
+        forma de ISIN válido. No lanza: cualquier fallo de red se traduce en
+        None para que el pipeline pueda continuar con el resto de valores.
+        """
+        try:
+            raw = yf.Ticker(ticker).isin
+        except Exception:
+            return None
+        return _normalize_isin(raw)

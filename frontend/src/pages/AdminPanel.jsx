@@ -906,6 +906,18 @@ function ForceHistoryUpdateSection() {
   const [confirming, setConfirming] = useState(false)
   const [msg, setMsg] = useState(null)
   const [err, setErr] = useState(null)
+  // Rellenado de ISINs vacíos desde Yahoo
+  const [isinBusy, setIsinBusy] = useState(false)
+  const [isinResult, setIsinResult] = useState(null)  // { checked, updated, not_found }
+
+  async function fillIsins() {
+    setIsinBusy(true); setIsinResult(null); setErr(null)
+    try {
+      const r = await api.post('/admin/securities/fill-isins')
+      setIsinResult(r)
+    } catch (e) { setErr(e.message) }
+    finally { setIsinBusy(false) }
+  }
 
   // Carga el estado inicial al montar (por si hay un job en curso tras F5)
   useEffect(() => {
@@ -1006,6 +1018,40 @@ function ForceHistoryUpdateSection() {
             : <span style={{ color: 'var(--red)' }}>{jobStatus.result}</span>
           }
         </p>
+      )}
+
+      {/* ── Rellenar ISINs vacíos ── */}
+      <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0 16px' }} />
+      <h3 style={{ marginBottom: 8, fontSize: '1rem' }}>Rellenar ISINs que faltan</h3>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 12 }}>
+        Busca en Yahoo el ISIN de cada valor que aún no lo tiene y lo guarda.
+        No sobrescribe ISINs ya existentes.
+      </p>
+      {isinBusy ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+          <div className="spinner" style={{ width: 18, height: 18, flexShrink: 0 }} />
+          <span>Buscando ISINs en Yahoo…</span>
+        </div>
+      ) : (
+        <button className="btn-ghost btn-sm" onClick={fillIsins}>
+          Buscar y rellenar ISINs
+        </button>
+      )}
+      {isinResult && (
+        <div style={{ marginTop: 10, fontSize: '0.85rem' }}>
+          <span style={{ color: 'var(--green)' }}>
+            ✓ {isinResult.updated} rellenado(s)
+          </span>
+          {' · '}
+          <span style={{ color: 'var(--text-muted)' }}>
+            {isinResult.checked} revisado(s)
+          </span>
+          {isinResult.not_found?.length > 0 && (
+            <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>
+              Sin ISIN en Yahoo: {isinResult.not_found.join(', ')}
+            </p>
+          )}
+        </div>
       )}
     </div>
   )
