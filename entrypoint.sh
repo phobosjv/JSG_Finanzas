@@ -1,9 +1,8 @@
 #!/bin/sh
 set -e
 
-cd /app
-
 # Aplicar migraciones de base de datos
+cd /app/backend
 alembic upgrade head
 
 # Arrancar la aplicacion
