@@ -64,8 +64,8 @@ _LABELS: dict[str, dict[str, str]] = {
         "card_funds_sub":          "Reembolsos de fondos de inversión",
         "card_dividends":          "Dividendos netos",
         "card_gross":              "Bruto",
-        "card_withholding":        "Ret.",
-        "card_est_tax":            "Cuota est.:",
+        "card_withholding":        "Ret. origen",
+        "card_est_tax":            "Cuota IRPF est.:",
         "card_commissions":        "Comisiones pagadas",
         "card_commissions_sub":    "Ya descontadas del coste de adquisición",
         "card_taxbase":            "Base imponible estimada",
@@ -135,6 +135,18 @@ _LABELS: dict[str, dict[str, str]] = {
             "Informe orientativo de apoyo. No sustituye la revisión de un asesor "
             "fiscal ni constituye asesoramiento."
         ),
+        "warn_estimate_scope":     (
+            "La cuota de IRPF es una estimación: aplica los tramos del ahorro a la "
+            "base estimada del ejercicio. NO contempla la compensación entre "
+            "ganancias patrimoniales y rendimientos del capital (límite del 25 %) "
+            "ni el arrastre de pérdidas de ejercicios anteriores (hasta 4 años). "
+            "La cuota real puede ser menor."
+        ),
+        "warn_estimate_components": (
+            "Las cuotas estimadas por concepto (ventas, fondos, dividendos) "
+            "reparten el tipo efectivo de forma proporcional; son orientativas y "
+            "pueden no sumar exactamente la cuota total."
+        ),
         "warn_disallowed":         (
             "Se han detectado posibles pérdidas afectadas por la regla de "
             "recompra. Aparecen marcadas y NO se han incluido en el saldo "
@@ -160,8 +172,8 @@ _LABELS: dict[str, dict[str, str]] = {
         "card_funds_sub":          "Investment fund redemptions",
         "card_dividends":          "Net dividends",
         "card_gross":              "Gross",
-        "card_withholding":        "Withh.",
-        "card_est_tax":            "Est. tax:",
+        "card_withholding":        "Source withh.",
+        "card_est_tax":            "Est. income tax:",
         "card_commissions":        "Commissions paid",
         "card_commissions_sub":    "Already deducted from acquisition cost",
         "card_taxbase":            "Estimated taxable base",
@@ -225,6 +237,18 @@ _LABELS: dict[str, dict[str, str]] = {
         "warn_generic":            (
             "Indicative report for reference only. It does not replace the review "
             "of a tax advisor and does not constitute tax advice."
+        ),
+        "warn_estimate_scope":     (
+            "The income-tax figure is an estimate: it applies the savings-base "
+            "brackets to the estimated taxable base for the year. It does NOT "
+            "account for the offset between capital gains and investment income "
+            "(25% limit) nor the carryforward of losses from previous years (up to "
+            "4 years). The actual tax may be lower."
+        ),
+        "warn_estimate_components": (
+            "The per-item estimated taxes (sales, funds, dividends) split the "
+            "effective rate proportionally; they are indicative and may not add up "
+            "exactly to the total."
         ),
         "warn_disallowed":         (
             "Possible wash-sale rule losses have been detected. They are flagged "
@@ -550,6 +574,17 @@ def _build_warnings(report: TaxReport, lang: str) -> list[str]:
     """Genera la lista de avisos del informe en el idioma solicitado."""
     lbl = _LABELS.get(lang, _LABELS["es"])
     ws = [lbl["warn_generic"]]
+
+    # Alcance de la estimación de cuota: solo si hay base imponible (si no, no
+    # se muestra ninguna cuota y los avisos no aplican).
+    base = (
+        max(Decimal("0"), report.net_capital_result_eur)
+        + report.total_dividends_net_eur
+    )
+    if base > Decimal("0"):
+        ws.append(lbl["warn_estimate_scope"])
+        ws.append(lbl["warn_estimate_components"])
+
     if report.total_losses_disallowed_eur < Decimal("0"):
         ws.append(lbl["warn_disallowed"])
     if report.total_dividends_withholding_eur > Decimal("0"):

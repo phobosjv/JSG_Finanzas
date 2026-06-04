@@ -122,6 +122,26 @@ def test_avisos_presentes():
     assert any("orientativo" in w for w in r.warnings)
 
 
+def test_avisos_estimacion_solo_con_base():
+    """
+    Los avisos sobre alcance de la cuota (sin compensación 25 % / arrastre) y
+    sobre el reparto orientativo aparecen solo si hay base imponible.
+    """
+    from app.services.pdf_generator import _build_context
+
+    # Con ganancia → hay base → avisos presentes
+    sales = [SecuritySales(IBEX, [
+        sm(date(2023, 5, 1), date(2020, 1, 1), "10", "100", "200"),
+    ], all_buys=[buy(date(2020, 1, 1))])]
+    ws = _build_context(build_tax_report(2023, sales, []), lang="es")["warnings"]
+    assert any("25 %" in w for w in ws)
+    assert any("no sumar exactamente" in w for w in ws)
+
+    # Sin operaciones → sin base → no aparecen
+    ws_empty = _build_context(build_tax_report(2023, [], []), lang="es")["warnings"]
+    assert not any("25 %" in w for w in ws_empty)
+
+
 # --- v1.8.9: las ventas de fondos van en su propia sección (Bloque 4) ---
 
 FONDO = SecurityRef(3, "Bulnes FI", "ES0000000003", "fondos",

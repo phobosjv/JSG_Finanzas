@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.3] — 2026-06-04
+
+### Cambiado — Informe fiscal: etiquetas más claras y avisos sobre la estimación
+
+- La cuota por tarjeta pasa a llamarse **«Cuota IRPF est.»** para no confundirla
+  con la retención en origen.
+- En la tarjeta de dividendos, la retención se etiqueta **«Ret. origen»**.
+- Nuevos avisos (solo cuando hay base imponible):
+  - La cuota IRPF estimada **no contempla** la compensación entre ganancias y
+    rendimientos (límite 25 %) ni el arrastre de pérdidas de ejercicios
+    anteriores (hasta 4 años); la cuota real puede ser menor.
+  - Las cuotas por concepto son **orientativas** (reparto proporcional del tipo
+    efectivo) y pueden no sumar exactamente la cuota total.
+- Decisión de diseño: no se calculan la compensación del 25 % ni el arrastre de
+  4 años porque exigirían un histórico completo y fiable de ejercicios
+  anteriores que la aplicación no puede garantizar; se documentan en los avisos
+  en su lugar.
+
+---
+
 ## [1.9.2] — 2026-06-04
 
 ### Cambiado — Resumen ejecutivo del informe fiscal: ventas, fondos y cuota por tarjeta
