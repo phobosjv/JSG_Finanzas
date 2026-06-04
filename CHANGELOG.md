@@ -5,6 +5,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.7] — 2026-06-04
+
+### Corregido — Historial de operaciones en posiciones cerradas
+
+- Al entrar a un valor cuya posición está cerrada (vendida o **traspasada del
+  todo**), las tablas de compras/ventas/traspasos se ocultaban porque el
+  position_id se descubría vía `/portfolio/closed`, que no incluye los fondos
+  cerrados solo por traspaso (sin `sale_matches`). Ahora las operaciones se
+  obtienen con un endpoint dedicado independiente del estado.
+- Nuevo `GET /api/portfolio/by-security/{id}/operations`: transacciones +
+  dividendos del valor, exista o no posición abierta (404 si nunca hubo
+  posición). SecurityDetail lo usa como fuente del historial.
+
+---
+
 ## [1.8.6] — 2026-06-04
 
 ### Añadido — Distribución por tipo de producto y por divisa

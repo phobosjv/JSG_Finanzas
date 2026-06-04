@@ -677,6 +677,38 @@ def get_position_by_security(
     return _build_position_summary(pos, repo, db)
 
 
+@router.get("/by-security/{security_id}/operations")
+def get_operations_by_security(
+    security_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Operaciones (transacciones + dividendos) del usuario para un valor, exista o
+    no posición ABIERTA. Permite ver el historial completo aunque la posición
+    esté CERRADA (vendida o traspasada del todo). 404 si nunca hubo posición.
+    """
+    pos = db.scalar(
+        select(Position).where(
+            Position.user_id == user.id,
+            Position.security_id == security_id,
+        )
+    )
+    if pos is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sin posición para este valor")
+    txs = db.scalars(
+        select(TransactionRow).where(TransactionRow.position_id == pos.id).order_by(TransactionRow.date)
+    ).all()
+    divs = db.scalars(
+        select(DividendRow).where(DividendRow.position_id == pos.id).order_by(DividendRow.date)
+    ).all()
+    return {
+        "position_id": pos.id,
+        "transactions": [TransactionOut.model_validate(t) for t in txs],
+        "dividends": [DividendOut.model_validate(d) for d in divs],
+    }
+
+
 # ---------------------------------------------------------------------------
 #  Posiciones cerradas
 # ---------------------------------------------------------------------------

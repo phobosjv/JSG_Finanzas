@@ -371,6 +371,41 @@ def test_traspaso_origen_usd_hereda_coste_en_eur(admin_client):
     assert abs(float(resp.json()["inherited_cost_eur"]) - (50 / 1.10)) < 0.01
 
 
+def test_operaciones_visibles_en_fondo_cerrado_por_traspaso(admin_client):
+    """
+    Un fondo traspasado al 100% queda cerrado y NO aparece en /portfolio/closed,
+    pero su historial de operaciones debe seguir disponible (regresión v1.8.7).
+    """
+    sec_a, sec_b = _crear_fondos(admin_client)
+    pos_a = admin_client.post("/api/portfolio/positions", json={"security_id": sec_a}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos_a}/transactions", json={
+        "type": "buy", "date": "2023-01-10", "shares": "100", "price": "10",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    admin_client.post("/api/portfolio/transfer", json={
+        "origin_position_id": pos_a, "shares": "100",
+        "dest_security_id": sec_b, "dest_shares": "120", "date": "2023-06-01",
+    })
+
+    # No figura como cerrada (cerrada por traspaso, sin sale_matches).
+    closed = admin_client.get("/api/portfolio/closed").json()
+    assert [c for c in closed if c["security_id"] == sec_a] == []
+
+    # Pero sus operaciones (compra + transfer_out) siguen accesibles.
+    ops = admin_client.get(f"/api/portfolio/by-security/{sec_a}/operations").json()
+    assert ops["position_id"] == pos_a
+    types = sorted(t["type"] for t in ops["transactions"])
+    assert types == ["buy", "transfer_out"]
+
+
+def test_operaciones_by_security_sin_posicion_404(admin_client, seed_markets):
+    sec = admin_client.post("/api/securities", json={
+        "name": "Sin pos", "yahoo_ticker": "NOPOS.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    r = admin_client.get(f"/api/portfolio/by-security/{sec}/operations")
+    assert r.status_code == 404
+
+
 def test_deshacer_traspaso_inexistente_404(admin_client):
     """Deshacer un group_id que no existe → 404."""
     resp = admin_client.delete("/api/portfolio/transfer/noexiste123")

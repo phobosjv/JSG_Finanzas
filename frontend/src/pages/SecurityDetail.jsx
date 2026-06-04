@@ -784,33 +784,26 @@ export default function SecurityDetail() {
       const allPlans = await api.get('/portfolio/recurring-plans').catch(() => [])
       setPlans(allPlans.filter(p => p.security_id === secId))
 
+      // Operaciones del valor (exista o no posición abierta): así el historial
+      // de compras/ventas/traspasos se ve también con la posición CERRADA.
+      const ops = await api.get(`/portfolio/by-security/${secId}/operations`).catch(() => null)
+      if (ops) {
+        setPositionId(ops.position_id)
+        setTxs(ops.transactions || [])
+        setDivs(ops.dividends || [])
+      }
+
       if (posResult) {
-        // Posición abierta encontrada directamente
-        setPositionId(posResult.position_id)
+        // Posición abierta
         setPosResult(posResult)
         setIsClosed(false)
         setNotesVal(posResult.notes ?? '')
-        const [txs, divs] = await Promise.all([
-          api.get(`/portfolio/${posResult.position_id}/transactions`),
-          api.get(`/portfolio/${posResult.position_id}/dividends`),
-        ])
-        setTxs(txs)
-        setDivs(divs)
-      } else {
-        // Buscar en posiciones cerradas
+      } else if (ops) {
+        // Hay operaciones pero la posición está cerrada (vendida o traspasada).
+        setIsClosed(true)
         const closedAll = await api.get('/portfolio/closed').catch(() => [])
         const closedPos = closedAll.find(p => p.security_id === secId)
-        if (closedPos) {
-          setPositionId(closedPos.position_id)
-          setIsClosed(true)
-          setClosedSummary(closedPos)
-          const [txs, divs] = await Promise.all([
-            api.get(`/portfolio/${closedPos.position_id}/transactions`),
-            api.get(`/portfolio/${closedPos.position_id}/dividends`),
-          ])
-          setTxs(txs)
-          setDivs(divs)
-        }
+        if (closedPos) setClosedSummary(closedPos)
       }
     } catch (err) { setError(err.message) }
   }
