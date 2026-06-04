@@ -422,7 +422,18 @@ def _history_series(
         m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
     }
 
-    date_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+    # Para cada posición recopilamos su línea temporal de participaciones
+    # (transacciones) y de precios (cierres). Después valoramos CADA posición en
+    # CADA fecha del eje global usando su último cierre conocido (carry-forward).
+    #
+    # Antes se sumaba el valor de una posición SOLO en las fechas con cotización
+    # propia: si en una fecha del eje (p. ej. el último día) ese valor no tenía
+    # registro de precio —algo habitual entre fondos (NAV) y acciones, o por
+    # festivos desalineados— quedaba fuera del total. Eso infravaloraba la
+    # cartera (sobre todo el último punto, v_end) y disparaba los retornos por
+    # periodo a valores imposibles (Modified Dietz con numerador negativo).
+    sec_series: list[tuple[Decimal, list, list, list[tuple[str, Decimal]]]] = []
+    all_dates: set[str] = set()
 
     for pos in positions:
         sec: Security = pos.security
@@ -457,6 +468,18 @@ def _history_series(
             .order_by(SecuritySplit.ex_date)
         ).all()
 
+        prices = [(p.date, p.close) for p in price_rows]
+        sec_series.append((rate, list(tx_rows), list(split_rows), prices))
+        all_dates.update(d for d, _ in prices)
+
+    if not all_dates:
+        return []
+
+    axis = sorted(all_dates)
+    date_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+
+    for rate, tx_rows, split_rows, prices in sec_series:
+
         def _adj_shares(tx_date_str: str, raw: Decimal) -> Decimal:
             result = raw
             for sp in split_rows:
@@ -467,14 +490,23 @@ def _history_series(
         running_shares = Decimal("0")
         tx_idx = 0
         n_tx = len(tx_rows)
-        for price_row in price_rows:
-            while tx_idx < n_tx and tx_rows[tx_idx].date <= price_row.date:
+        price_idx = 0
+        n_p = len(prices)
+        last_close: Decimal | None = None
+
+        # Dos punteros sobre el eje global: uno para participaciones (tx) y otro
+        # para el último cierre conocido (carry-forward).
+        for d in axis:
+            while tx_idx < n_tx and tx_rows[tx_idx].date <= d:
                 tx = tx_rows[tx_idx]
                 adj = _adj_shares(tx.date, tx.shares)
                 running_shares += adj if tx.type in ("buy", "transfer_in") else -adj
                 tx_idx += 1
-            if running_shares > Decimal("0"):
-                date_totals[price_row.date] += running_shares * price_row.close / rate
+            while price_idx < n_p and prices[price_idx][0] <= d:
+                last_close = prices[price_idx][1]
+                price_idx += 1
+            if last_close is not None and running_shares > Decimal("0"):
+                date_totals[d] += running_shares * last_close / rate
 
     return [{"date": d, "value": float(date_totals[d])} for d in sorted(date_totals)]
 

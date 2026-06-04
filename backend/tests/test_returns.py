@@ -129,3 +129,51 @@ def test_endpoint_period_returns(admin_client, seed_markets, engine):
     # 'total': de 1000 invertido a 1200 → +20 % aprox.
     assert data["total"] is not None
     assert abs(data["total"] - 20.0) < 1.0
+
+
+def test_history_carry_forward_ultimas_fechas_desalineadas(admin_client, seed_markets, engine):
+    """
+    Regresión: dos valores con su ÚLTIMO precio en fechas distintas (típico de
+    fondos vs. acciones). El último punto del histórico debe sumar AMBOS usando
+    su último cierre conocido (carry-forward), no solo el que cotizó ese día.
+
+    Antes, v_end solo incluía el valor con precio en la fecha máxima del eje, lo
+    que infravaloraba la cartera y disparaba el retorno 'total' a negativo.
+
+    A: 100 @ 10 (=1000), último precio HOY a 11 → 1100.
+    B: 100 @ 10 (=1000), último precio en 2025-06-01 a 11 (sin precio hoy) → 1100.
+    Valor real hoy = 2200, invertido 2000 → total ≈ +10 %.
+    """
+    hoy = date.today().isoformat()
+    sec_a = admin_client.post("/api/securities", json={
+        "name": "AccA", "yahoo_ticker": "ACCA.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    sec_b = admin_client.post("/api/securities", json={
+        "name": "AccB", "yahoo_ticker": "ACCB.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    for sec in (sec_a, sec_b):
+        pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+        admin_client.post(f"/api/portfolio/{pos}/transactions", json={
+            "type": "buy", "date": "2024-01-02", "shares": "100", "price": "10",
+            "fee": "0", "currency": "EUR", "exchange_rate": "1",
+        })
+
+    with Session(engine) as s:
+        s.add_all([
+            # A cotiza hasta HOY
+            PriceHistory(security_id=sec_a, date="2024-01-02", close=D("10")),
+            PriceHistory(security_id=sec_a, date=hoy, close=D("11")),
+            # B deja de cotizar el 2025-06-01 (anterior a hoy)
+            PriceHistory(security_id=sec_b, date="2024-01-02", close=D("10")),
+            PriceHistory(security_id=sec_b, date="2025-06-01", close=D("11")),
+        ])
+        s.commit()
+
+    # El último punto del histórico debe valer 2200 (A 1100 + B 1100 por carry-forward)
+    hist = admin_client.get("/api/portfolio/history").json()
+    assert abs(hist[-1]["value"] - 2200.0) < 0.01
+
+    # Y el retorno total debe ser ~+10 %, no negativo
+    data = admin_client.get("/api/portfolio/period-returns").json()
+    assert data["total"] is not None
+    assert abs(data["total"] - 10.0) < 1.0

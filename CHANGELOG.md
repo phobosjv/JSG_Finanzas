@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.5] — 2026-06-04
+
+### Corregido — Retornos por periodo (YTD/1 año/3 años/total) imposibles y gráfico de historial infravalorado
+
+- El histórico de valor de cartera sumaba cada posición **solo en las fechas con
+  cotización propia**. Cuando un valor no tenía precio en una fecha del eje
+  (habitual entre fondos —NAV— y acciones, o por festivos desalineados), quedaba
+  fuera del total de esa fecha. Esto infravaloraba la cartera, sobre todo el
+  **último punto** (`v_end`), y disparaba los retornos por periodo a valores
+  imposibles (p. ej. **−110 % total**), porque Modified Dietz quedaba con
+  numerador negativo.
+- Ahora se construye un **eje de fechas único** y cada posición se valora en cada
+  fecha con su **último cierre conocido** (carry-forward). El gráfico de
+  historial y las tarjetas YTD/1 año/3 años/total reflejan el valor real.
+
+---
+
 ## [1.9.4] — 2026-06-04
 
 ### Corregido — Indicadores del año en curso (home fiscal): fondos aparecían junto a ventas
