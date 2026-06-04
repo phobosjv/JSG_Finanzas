@@ -1,4 +1,4 @@
-﻿"""
+"""
 Genera instrucciones.pdf para JSG Soft..
 Ejecutar desde la raiz del proyecto:
   python gen_instrucciones.py

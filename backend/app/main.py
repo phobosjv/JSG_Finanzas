@@ -1,4 +1,4 @@
-﻿"""
+"""
 main.py
 =======
 Crea la aplicacion FastAPI, registra los routers y arranca APScheduler.
