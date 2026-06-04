@@ -19,7 +19,8 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 | Entender el stack y la arquitectura | [Stack](#stack) · [Capas](#capas-y-separación-de-responsabilidades) |
 | No romper invariantes del proyecto | [Reglas de oro](#reglas-de-oro-no-romper) |
 | Ver qué se ha hecho recientemente | `git log --oneline -30` y [CHANGELOG.md](CHANGELOG.md) |
-| Saber el estado actual | [Estado actual](#estado-actual--v1612) |
+| Saber qué funcionalidad hay hoy | [Funcionalidad actual](#funcionalidad-actual) |
+| Saber el estado del repo (tests, routers) | [Estado actual](#estado-actual) |
 | Entender un cálculo financiero | [Modelo de datos](#modelo-de-datos-sqlite) · [Splits](#splits--contrasplits-v140) · [Tramos IRPF](#tramos-irpf-configurables-v165) |
 | Generar una nueva versión | [Metodología de release](#metodología-de-release) |
 | Desplegar / actualizar VPS | [Despliegue](#despliegue-en-vps-con-https-caddy) |
@@ -135,13 +136,22 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 
 ## Modelo de datos (SQLite)
 
-**Tablas**: `users`, `user_status_log`, `securities`, `security_splits`,
+**Tablas (15)**: `users`, `user_status_log`, `securities`, `security_splits`,
 `markets`, `price_history`, `price_snapshots`, `ecb_rates`, `favorites`,
-`positions`, `transactions`, `dividends`, `app_config`, `tax_brackets`.
+`positions`, `transactions`, `dividends`, `recurring_plans`, `app_config`,
+`tax_brackets`.
 
-- `transactions` y `dividends` llevan `currency` (`'EUR'|'USD'`) y
-  `exchange_rate` (tipo EUR/USD del BCE en la fecha; 1 para EUR). El BCE
-  publica EUR/USD como "USD por 1 EUR" → `euros = dólares / rate`.
+- **Multidivisa** (v1.8.0): `transactions`/`dividends` llevan `currency` y
+  `exchange_rate` (tipo del BCE en la fecha; 1 para EUR). El BCE publica el tipo
+  como "divisa por 1 EUR" → `euros = importe / rate`. Las divisas soportadas son
+  configurables por admin (en `app_config`); `ecb_rates` tiene PK `(date, currency)`.
+  Conversión por fecha: `repositories/exchange_rates.py` (`rate_on_date`,
+  `latest_rate`).
+- `markets.market_type` (`stock|fund|etf|crypto`) e `is_fund_market` segmentan el
+  catálogo y habilitan el régimen de fondos (traspasos fiscalmente neutros).
+- `transactions.type` ∈ `buy|sell|transfer_in|transfer_out`; las dos últimas son
+  un traspaso de fondos acoplado por `transfer_group_id`.
+- `recurring_plans`: aportaciones periódicas futuras (DCA) que ejecuta el scheduler.
 - FKs con intención: `positions.security_id` es `ON DELETE RESTRICT` (no se
   borra un valor con histórico); el resto es `CASCADE`.
 - `security_splits.security_id` es `ON DELETE CASCADE`.
@@ -159,6 +169,15 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 5. `b2d1a3c4e5f6` — v1.4.0 `security_splits`
 6. `e3f1a2b4c5d6` — v1.5.0 market `sort_order`
 7. `f1a2b3c4d5e6` — v1.6.5 `tax_brackets` (con seed: 19/21/23/27/28 %)
+8. `a1b2c3d4e5f6` — v1.6.6 multicurrency (currency/exchange_rate en tx y dividendos)
+9. `b2c3d4e5f6a1` — v1.6.7 `users.last_login`
+10. `c3d4e5f6a1b2` — v1.6.9 `markets.yahoo_exchange`
+11. `d4e5f6a1b2c3` — v1.7.0 `markets.is_fund_market`
+12. `e5f6a1b2c3d4` — v1.7.0 tipos de transacción de traspaso
+13. `f6a1b2c3d4e5` — v1.7.2 `transactions.transfer_group_id`
+14. `a1b2c3d4e5f7` — v1.7.4 `recurring_plans`
+15. `b2c3d4e5f7a8` — v1.7.6 `markets.market_type`
+16. `c3d4e5f6a1b9` — v1.8.0 multidivisa (divisas configurables, `ecb_rates` PK `(date, currency)`)
 
 ---
 
@@ -283,25 +302,99 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 - Por cada dividendo, calcula el capital en esa fecha con
   `compute_position(txs_until_div_date)` → `avg_cost × shares_at_date`.
 
+### Capacidades añadidas v1.7–v1.9 (resumen + punteros)
+
+> Las anteriores siguen vigentes. Estas son las grandes piezas posteriores; el
+> detalle versión a versión está en [CHANGELOG.md](CHANGELOG.md).
+
+- **Fondos de inversión y traspasos fiscalmente neutros** (v1.7.0): mercados con
+  `is_fund_market`. Un traspaso = `transfer_out` (consume sin tributar) +
+  `transfer_in` (hereda el coste FIFO), acoplados por `transfer_group_id`. La
+  plusvalía se difiere hasta el reembolso. Endpoints `POST/DELETE
+  /api/portfolio/transfer`. Lógica en `calculations.py` (`consumed_cost_fifo`).
+- **Multidivisa** (v1.8.0): divisas configurables por admin, no solo EUR/USD.
+  Conversión a EUR con el tipo del BCE de cada fecha (`exchange_rates.py`).
+- **Rentabilidad ponderada por dinero (TIR/XIRR) y por tiempo (Modified Dietz)**
+  (v1.8.4–1.8.5): `services/returns.py` (puro). Endpoints
+  `GET /api/portfolio/xirr` y `/period-returns` (YTD/1a/3a/total). Los traspasos
+  no son flujos de caja.
+- **Segmentación por tipo de activo** (v1.7.6): chips Todo/Acciones/Fondos/… que
+  filtran cartera, gráficos y retornos (`?types=`).
+- **Importación**: CSV de operaciones (`csv_import`) y Ghostfolio
+  (`ghostfolio_import`).
+- **Aportaciones periódicas (DCA)** (v1.7.4): backfill de las pasadas + plan
+  (`recurring_plans`) que ejecuta el scheduler para las futuras.
+- **Jobs en segundo plano con estado por polling** (patrón clave): operaciones
+  largas que en el VPS darían timeout ("Failed to fetch") se lanzan en un hilo,
+  devuelven 202 y exponen `.../status`. Lo usan **forzar histórico** y **rellenar
+  ISINs**; el ISIN además hace **commit incremental** (lo hecho persiste aunque
+  se corte).
+- **Pipeline de ISINs en 2 pasadas** (v1.9.1/1.9.7): 1ª exacta (Yahoo por
+  ticker), 2ª heurística por nombre en Business Insider
+  (`providers/business_insider.py`), conservadora y sin colisionar con ISINs ya
+  en BBDD; excluye cripto.
+- **Informe fiscal — fondos aparte** (v1.8.9/1.9.2/1.9.4): los reembolsos de
+  fondos van en su propia sección/indicador (PDF y home fiscal), separados de la
+  venta de acciones; cada tarjeta de ganancia muestra su cuota IRPF estimada. La
+  base imponible sigue agregando todo (base del ahorro). No modela compensación
+  cruzada del 25 % ni arrastre de pérdidas de 4 años (se avisa en el informe).
+- **Histórico de cartera correcto** (v1.9.5/1.9.9): `_history_series` valora cada
+  fecha con el último cierre conocido de cada valor (carry-forward) y con el tipo
+  de cambio **de esa fecha** (`rate_on_date`). Alimenta el gráfico y los retornos
+  por periodo.
+- **Scatter de operaciones cerradas** incluye round-trips parciales de posiciones
+  aún abiertas (`still_open`). **Donut de distribución**: top 8 por volumen +
+  «Otros».
+
 ---
 
-## Estado actual — v1.6.12
+## Funcionalidad actual
 
-### Tests: 240 en verde
+Qué puede hacer la app hoy (visión de producto):
 
-Ficheros principales:
-- `test_api.py` — endpoints HTTP completos (auth, portfolio, securities,
-  favorites, reports, backup).
-- `test_calculations.py` — FIFO, agregación, valoración.
-- `test_tax_report.py` y `test_tax_fiscal_window.py` — regla de recompra.
-- `test_splits.py` — normalización por splits.
-- `test_bugs.py` — regresiones de bugs históricos (cada bug = un test).
-- `test_portfolio_repository.py`, `test_indicators.py`, `test_backup_service.py`.
-- `test_user_subscriptions.py`, `test_markets_admin.py`, `test_catalog_import.py`.
-- `test_tax_brackets.py` — CRUD admin + endpoint público de tramos IRPF.
-- `test_portfolio_analytics.py` — endpoints `closed-analytics`,
-  `dividends-by-security`, `exchange-rate`, `LiveQuote.quote_time`.
-- `test_distribution.py` — coherencia Dockerfile/zip, iconos PWA, `entrypoint.sh` sin BOM.
+- **Catálogo dinámico** de mercados y valores (IBEX 35, Mercado Continuo, Nasdaq,
+  ETFs, cripto y **fondos**), con buscador, screener de Yahoo e importación por
+  catálogo. Divisas configurables.
+- **Cartera por usuario**: compras/ventas (FIFO), dividendos (con retención),
+  splits, **traspasos de fondos** y **aportaciones periódicas (DCA)**. Todo se
+  deriva de `transactions`.
+- **Valoración en vivo**: snapshots de precio (scheduler periódico) y barrido
+  nocturno de histórico + tipos del BCE.
+- **Analítica**: B/P latente y realizado, dividendos, comisiones, **TIR (XIRR)**,
+  **retornos por periodo**, gráfico de evolución, distribución (donut top 8),
+  scatter rentabilidad/tiempo, dividendos por valor.
+- **Informe fiscal IRPF** (HTML→PDF): ganancias/pérdidas de acciones, regla de
+  recompra, dividendos, **sección de fondos**, tramos configurables y cuota
+  estimada. Más resumen del año en curso en la sección fiscal.
+- **Importar/Exportar**: CSV, Ghostfolio y backup completo (admin).
+- **Administración**: usuarios y suscripciones, mercados (incl. sincronizar
+  divisa y rellenar ISINs), splits, tramos IRPF, configuración (nombre de app,
+  logo, divisas, intervalo de snapshots), forzar histórico.
+- **PWA** instalable, responsive, ES/EN, tema claro/oscuro.
+
+---
+
+## Estado actual
+
+**v1.9.9 · 400 tests en verde** (pytest, SQLite en memoria). 16 migraciones
+Alembic, 15 tablas. Desplegado en VPS Debian con Caddy + HTTPS
+(`jsg-portfolio.com`).
+
+### Tests (ficheros)
+
+Cálculo puro: `test_calculations.py`, `test_splits.py`, `test_tax_report.py`,
+`test_tax_fiscal_window.py`, `test_returns.py` (XIRR/Modified Dietz),
+`test_transfers.py` (traspasos). HTTP/integración: `test_api.py`,
+`test_portfolio_analytics.py`, `test_portfolio_repository.py`,
+`test_markets_admin.py`, `test_tax_brackets.py`, `test_multicurrency.py`,
+`test_currencies.py`, `test_market_type.py`, `test_recurring.py`,
+`test_isin_pipeline.py`, `test_csv_import.py`, `test_ghostfolio_import.py`,
+`test_import_export_v178.py`, `test_v179.py`, `test_active_updates.py`,
+`test_yahoo_explorer.py`, `test_catalog_import.py`, `test_user_subscriptions.py`,
+`test_app_logo.py`, `test_indicators.py`, `test_backup_service.py`.
+Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
+`test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, `entrypoint.sh`
+sin BOM).
 
 ### Routers y prefijos API
 
@@ -318,49 +411,31 @@ Ficheros principales:
 | favorites         | /api/favorites  | user          |
 | reports           | /api/reports    | user          |
 | backup            | /api/backup     | user          |
+| csv_import        | /api/import     | user          |
+| ghostfolio_import | /api/import     | user          |
 
 ### Endpoints especiales a recordar
 
-- `GET /api/config` — público, devuelve `{app_name}`.
-- `GET /api/config/tax-brackets` — público, lista los tramos.
-- `GET /api/markets/exchange-rate?date=YYYY-MM-DD` — auth user, devuelve
-  `{rate, date, source}` con `source ∈ {ecb, yahoo, not_found}`.
-- `GET /api/portfolio/closed-analytics` — para el scatter de cerradas.
-- `GET /api/portfolio/dividends-by-security` — tabla/gráficos dividendos.
-- `GET /api/portfolio/history` — evolución de valor de cartera.
-- `POST /api/markets/refresh-all` — admin, fuerza refresh de todos los snapshots.
-- `POST /api/admin/force-history-update` — admin, recálculo histórico completo.
-
-### Resumen de versiones recientes
-
-> **Para el detalle completo: `git log --oneline -30` o [CHANGELOG.md](CHANGELOG.md).**
-
-| Versión | Highlight |
-|---|---|
-| 1.6.12 | Paletas separadas (verde aceituna→verde, naranja→rojo) en scatter cerradas |
-| 1.6.11 | Color por rentabilidad anualizada + tiempo en scatter cerradas |
-| 1.6.10 | Hora real Yahoo, bar chart dividendos clickable, scroll vertical >10 |
-| 1.6.9  | Tabla dividendos años/meses, scatter log scale, scrollbar oscuro |
-| 1.6.8  | Fix dividendos `NameError DivRow`, scatter log scale, layout distribución |
-| 1.6.7  | Rediseño Mi Cartera, scatter cerradas, tabla+gráficos dividendos. Rebranding JSG Soft. |
-| 1.6.6  | PWA instalable (iconos), cálculo automático dividendos, botón editar solo admin |
-| 1.6.5  | Tramos IRPF configurables, retención dividendos, tipo cambio automático |
-| 1.6.4  | Caddy + HTTPS automático |
-| 1.6.3  | Botón forzar actualización historial |
-| 1.6.2  | Fix caída artificial en gráfico cartera (auto_adjust dividendo) |
-| 1.6.1  | Buscador en mercados por ticker y nombre |
-| 1.6.0  | Top movers en Dashboard |
-| 1.5.0  | ETFs/cripto, idioma ES/EN, orden mercados |
+- `GET /api/config` (público) `{app_name}` · `GET /api/config/tax-brackets` (público).
+- `GET /api/markets/exchange-rate?date=YYYY-MM-DD` → `{rate, date, source}`
+  (`source ∈ {ecb, yahoo, not_found}`).
+- `GET /api/portfolio/history` · `/closed-analytics` (scatter, con `still_open`) ·
+  `/dividends-by-security` · `/xirr` · `/period-returns` · `/by-security/{id}` y
+  `/by-security/{id}/operations` (historial aunque esté cerrada).
+- `POST /api/portfolio/transfer` y `DELETE /api/portfolio/transfer/{group_id}`.
+- `POST /api/markets/refresh-all` (admin) · `POST /api/admin/force-history-update`
+  (+ `/status`) · `POST /api/admin/markets/{code}/sync-currency` (admin) ·
+  `POST /api/admin/securities/fill-isins` (+ `/status`, job en segundo plano).
 
 ### Limitaciones conocidas
 
 - **Splits con ratios periódicos** (ej. 3:2 doble) pueden producir error de
-  centésimas en el coste total. Numéricamente irrelevante, los tests usan
-  tolerancia `< 0.01`.
-- **Money** no preserva ceros finales (`100.10 → 100.1`). Aritmética
-  exacta, solo escala textual.
-- **Divisas**: solo EUR y USD. ETFs/securities en GBP u otros mercados no
-  están soportados por el motor de cálculo.
+  centésimas. Irrelevante; los tests usan tolerancia `< 0.01`.
+- **Money** no preserva ceros finales (`100.10 → 100.1`). Aritmética exacta,
+  solo escala textual.
+- **Informe fiscal**: la cuota es una estimación; no modela la compensación
+  cruzada del 25 % ni el arrastre de pérdidas de 4 años (requeriría histórico
+  fiable de ejercicios anteriores). Se avisa en el propio informe.
 
 ---
 
@@ -434,6 +509,13 @@ Esta sección es **operacional**: cómo hacer cambios y releases sin saltarse pa
 7. Generar zip (script Python al final de este documento)
 8. git add ... && git commit con resumen claro
 ```
+
+#### Numeración de versiones
+
+- **Patch (tercera cifra)** por defecto, para fixes/ajustes: 1.9.9 → 1.9.10 →
+  1.9.11 (la tercera cifra puede pasar de 9; no se reinicia).
+- **Minor (segunda cifra)** solo si hay **funcionalidad nueva**: 1.10.0, 1.11.0…
+- **NO saltar a 2.0.0** sin que el usuario lo pida explícitamente.
 
 #### Bump de versión (4 ficheros)
 
@@ -579,7 +661,7 @@ Cada bug arreglado se documenta en `test_bugs.py` con:
 
 ```
 frontend/src/
-├── pages/        — Dashboard, Markets, Portfolio, SecurityDetail, Utilities, AdminPanel, Login
+├── pages/        — Dashboard, Markets, Portfolio, SecurityDetail, TaxReport, Utilities, AdminPanel, Login
 ├── components/   — PortfolioChartsPanel, SecurityTable, SecurityCard, Navigation
 ├── context/      — AuthContext (user, login, logout), AppContext (t, appName, theme, locale)
 ├── i18n/         — translations.js (ES+EN obligatorio)
@@ -600,8 +682,10 @@ frontend/src/
 
 Exporta componentes individuales para que `Portfolio.jsx` pueda componer
 layouts custom (no solo el panel completo):
-- `DistributionChart`, `PnLChart`, `HistoryChart` (originales).
-- `ClosedScatterChart`, `DividendBarChart`, `DividendScatterChart` (v1.6.7+).
+- `DistributionChart` (donut top 8 + «Otros»), `GroupedDistributionChart` (por
+  tipo/divisa), `PnLChart`, `HistoryChart`.
+- `ClosedScatterChart` (con puntos `still_open`), `DividendBarChart`,
+  `DividendScatterChart`.
 
 ### Permisos en UI
 
