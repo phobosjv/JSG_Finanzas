@@ -353,6 +353,7 @@ class ClosedPositionAnalytics(ClosedPositionSummary):
     avg_days_held: float   # media ponderada de (sell_date - buy_date).days por lote FIFO
     pnl_pct: float         # realized_pnl_eur / cost_eur × 100
     last_sell_date: str    # fecha de la última venta (YYYY-MM-DD), para la etiqueta
+    still_open: bool = False  # True si la posición SIGUE abierta (round-trip parcial pasado)
 
 
 class SecurityDividendSummary(BaseModel):

@@ -400,9 +400,17 @@ export function ClosedScatterChart({ data, t }) {
     const r = Math.max(6, Math.sqrt(Number(payload.cost_eur) / maxCost) * 24)
     const color = pnlColor(payload.pnl_pct, payload.avg_days_held)
     const label = `${payload.name} - ${fmtDate(payload.last_sell_date)}`
+    // Round-trip parcial de una posición que sigue abierta: borde discontinuo
+    // y relleno más tenue para distinguirlo de una posición cerrada del todo.
+    const open = payload.still_open
     return (
       <g>
-        <circle cx={cx} cy={cy} r={r} fill={color} fillOpacity={0.85} stroke="#fff" strokeWidth={1} />
+        <circle
+          cx={cx} cy={cy} r={r} fill={color}
+          fillOpacity={open ? 0.45 : 0.85}
+          stroke="#fff" strokeWidth={open ? 1.5 : 1}
+          strokeDasharray={open ? '3 2' : undefined}
+        />
         <text x={cx} y={cy - r - 4} textAnchor="middle" fontSize={10}
           fill="var(--text-muted)" style={{ pointerEvents: 'none' }}>
           {label}
@@ -424,6 +432,11 @@ export function ClosedScatterChart({ data, t }) {
         </div>
         <div>Resultado: {Number(d.realized_pnl_eur) >= 0 ? '+' : ''}{Number(d.realized_pnl_eur).toFixed(2)} €</div>
         <div style={{ color: 'var(--text-muted)' }}>Capital: {Number(d.cost_eur).toFixed(0)} €</div>
+        {d.still_open && (
+          <div style={{ color: '#fbbf24', marginTop: 4, fontStyle: 'italic' }}>
+            {t('portfolio.closed_scatter_still_open')}
+          </div>
+        )}
       </div>
     )
   }

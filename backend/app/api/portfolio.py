@@ -786,6 +786,13 @@ def get_closed_analytics(
     """
     Como /closed pero añade avg_days_held (media ponderada por lote FIFO) y pnl_pct.
     Usado por el scatter plot de posiciones cerradas en Portfolio.
+
+    Incluye también los round-trips YA realizados de posiciones que siguen
+    ABIERTAS (ventas parciales pasadas): cada punto representa la parte vendida
+    (sale_matches). Esos puntos se marcan con `still_open=True` para que el
+    frontend pueda distinguirlos. Para los abiertos no se atribuyen dividendos
+    al round-trip parcial (no es posible repartirlos limpiamente entre lo
+    vendido y lo que se conserva), así que `dividends_eur=0`.
     """
     positions = db.scalars(
         select(Position).where(Position.user_id == user.id)
@@ -803,9 +810,13 @@ def get_closed_analytics(
         splits = repo.splits_for_security(sec.id)
         computed = compute_position(txs, divs, splits)
 
-        if not computed.is_closed or not computed.sale_matches:
+        # Antes solo se incluían las posiciones cerradas. Ahora también las
+        # ABIERTAS que tengan ventas parciales ya realizadas: su round-trip
+        # cerrado pasado merece estar en el scatter.
+        if not computed.sale_matches:
             continue
 
+        still_open = not computed.is_closed
         matches = computed.sale_matches
         shares_sold  = sum((m.shares       for m in matches), Decimal("0"))
         cost_eur     = sum((m.cost_eur     for m in matches), Decimal("0"))
@@ -827,6 +838,12 @@ def get_closed_analytics(
 
         last_sell_date = max(m.sell_date for m in matches).isoformat()
 
+        # Para posiciones abiertas (round-trip parcial) no atribuimos dividendos
+        # al tramo vendido: no se pueden repartir limpiamente entre lo vendido y
+        # lo que se conserva. Para cerradas, todos los dividendos pertenecen a
+        # acciones ya vendidas, así que se incluyen.
+        dividends_eur = Decimal("0") if still_open else computed.dividends_net_eur
+
         result.append(ClosedPositionAnalytics(
             position_id=pos.id,
             security_id=sec.id,
@@ -839,12 +856,13 @@ def get_closed_analytics(
             cost_eur=cost_eur,
             proceeds_eur=proceeds_eur,
             realized_pnl_eur=computed.realized_gain_eur,
-            dividends_eur=computed.dividends_net_eur,
-            total_profit_eur=computed.realized_gain_eur + computed.dividends_net_eur,
+            dividends_eur=dividends_eur,
+            total_profit_eur=computed.realized_gain_eur + dividends_eur,
             fees_eur=fees_eur,
             avg_days_held=avg_days,
             pnl_pct=pnl_pct,
             last_sell_date=last_sell_date,
+            still_open=still_open,
         ))
 
     return result

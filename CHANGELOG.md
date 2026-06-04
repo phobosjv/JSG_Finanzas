@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.0] — 2026-06-04
+
+### Añadido — Scatter rentabilidad/tiempo: round-trips parciales de posiciones abiertas
+
+- El gráfico «Rentabilidad vs. tiempo» dejaba fuera las ventas parciales ya
+  realizadas de posiciones que siguen abiertas. Ahora cada round-trip cerrado
+  del pasado se representa también, aunque la posición conserve acciones.
+- Los puntos de posiciones aún abiertas se dibujan con **borde discontinuo y
+  relleno más tenue**, y el tooltip lo indica («venta parcial · la posición
+  sigue abierta»).
+- `GET /api/portfolio/closed-analytics` incluye el campo `still_open` y, para
+  los round-trips parciales, no atribuye dividendos al tramo vendido
+  (`dividends_eur=0`), ya que no se pueden repartir limpiamente entre lo
+  vendido y lo conservado.
+
+---
+
 ## [1.8.9] — 2026-06-04
 
 ### Cambiado — Informe fiscal: fondos en sección propia

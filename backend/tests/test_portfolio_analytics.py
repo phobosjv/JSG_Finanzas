@@ -77,8 +77,8 @@ class TestClosedAnalytics:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    def test_posicion_abierta_no_aparece(self, admin_client, seed_markets):
-        """Una posición con acciones en cartera NO debe aparecer en closed-analytics."""
+    def test_posicion_abierta_sin_ventas_no_aparece(self, admin_client, seed_markets):
+        """Una posición solo con compras (sin ventas realizadas) NO aparece."""
         sec_id = _crear_security(admin_client, ticker="OPEN1.MC")
         pos_id = admin_client.post(
             "/api/portfolio/positions", json={"security_id": sec_id}
@@ -87,6 +87,46 @@ class TestClosedAnalytics:
         resp = admin_client.get("/api/portfolio/closed-analytics")
         assert resp.status_code == 200
         assert not any(p["position_id"] == pos_id for p in resp.json())
+
+    def test_posicion_abierta_con_venta_parcial_aparece(self, admin_client, seed_markets):
+        """
+        Compra 20 acc, vende 8 (round-trip parcial) y conserva 12.
+        El round-trip cerrado pasado SÍ debe aparecer, marcado still_open=True.
+
+        Aritmética del tramo vendido (FIFO):
+          coste vendido = 8 * 10 = 80 €
+          ingreso       = 8 * 15 = 120 €
+          pnl           = 40 €  →  pnl_pct = 50 %
+        """
+        sec_id = _crear_security(admin_client, ticker="PART.MC")
+        pos_id = admin_client.post(
+            "/api/portfolio/positions", json={"security_id": sec_id}
+        ).json()["id"]
+        _buy(admin_client, pos_id, 20, "10.00", d="2023-12-01")
+        _sell(admin_client, pos_id, 8, "15.00", d="2024-06-01")
+
+        resp = admin_client.get("/api/portfolio/closed-analytics")
+        assert resp.status_code == 200
+        row = next((r for r in resp.json() if r["position_id"] == pos_id), None)
+        assert row is not None
+        assert row["still_open"] is True
+        assert abs(row["pnl_pct"] - 50.0) < 0.001
+        assert float(row["shares_sold"]) == 8.0
+        # Dividendos no se atribuyen al round-trip parcial de una posición abierta
+        assert float(row["dividends_eur"]) == 0.0
+
+    def test_posicion_cerrada_marca_still_open_false(self, admin_client, seed_markets):
+        """Una posición cerrada del todo aparece con still_open=False."""
+        sec_id = _crear_security(admin_client, ticker="DONE.MC")
+        pos_id = admin_client.post(
+            "/api/portfolio/positions", json={"security_id": sec_id}
+        ).json()["id"]
+        _buy(admin_client, pos_id, 10, "10.00", d="2023-12-01")
+        _sell(admin_client, pos_id, 10, "12.00", d="2024-06-01")
+        resp = admin_client.get("/api/portfolio/closed-analytics")
+        row = next((r for r in resp.json() if r["position_id"] == pos_id), None)
+        assert row is not None
+        assert row["still_open"] is False
 
     def test_posicion_cerrada_calcula_pnl_pct_y_dias(self, admin_client, seed_markets):
         """Compra 10 acc x 10€ y vende 6 meses después a 15€.

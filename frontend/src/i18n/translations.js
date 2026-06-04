@@ -339,9 +339,10 @@ export const translations = {
 
     // ── Portfolio — nuevas secciones y gráficos ─────────────────────────
     'portfolio.pnl_open_positions':    'Beneficio / Pérdida por valor (posiciones abiertas)',
-    'portfolio.closed_scatter_title':  'Rentabilidad vs. tiempo en cartera (posiciones cerradas)',
+    'portfolio.closed_scatter_title':  'Rentabilidad vs. tiempo en cartera (operaciones cerradas)',
     'portfolio.closed_scatter_days':   'Días en cartera',
     'portfolio.closed_scatter_pnl':    'Rentabilidad (%)',
+    'portfolio.closed_scatter_still_open': 'Venta parcial · la posición sigue abierta',
     'portfolio.div_by_security_title': 'Dividendos cobrados por acción',
     'portfolio.div_count':             'Cobros',
     'portfolio.div_months':            'Tiempo en cartera',
@@ -774,9 +775,10 @@ export const translations = {
 
     // ── Portfolio — new sections and charts ──────────────────────────────
     'portfolio.pnl_open_positions':    'Gain / Loss by security (open positions)',
-    'portfolio.closed_scatter_title':  'Return vs. time held (closed positions)',
+    'portfolio.closed_scatter_title':  'Return vs. time held (closed trades)',
     'portfolio.closed_scatter_days':   'Days held',
     'portfolio.closed_scatter_pnl':    'Return (%)',
+    'portfolio.closed_scatter_still_open': 'Partial sale · position is still open',
     'portfolio.div_by_security_title': 'Dividends collected by stock',
     'portfolio.div_count':             'Payments',
     'portfolio.div_months':            'Time held',
