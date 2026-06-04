@@ -9,7 +9,7 @@ from decimal import Decimal as D
 
 from sqlalchemy.orm import Session
 
-from app.models import PriceHistory, PriceSnapshot
+from app.models import EcbRate, PriceHistory, PriceSnapshot
 from app.services.returns import xirr, modified_dietz
 
 
@@ -177,3 +177,35 @@ def test_history_carry_forward_ultimas_fechas_desalineadas(admin_client, seed_ma
     data = admin_client.get("/api/portfolio/period-returns").json()
     assert data["total"] is not None
     assert abs(data["total"] - 10.0) < 1.0
+
+
+def test_history_usa_fx_historico_por_fecha(admin_client, seed_markets, engine):
+    """
+    El histórico convierte cada cierre con el tipo de cambio de SU fecha, no con
+    el actual. Valor en USD, precio plano (100 USD), pero el EUR/USD pasa de 1,0
+    a 2,0: el valor en EUR debe caer de 100 € a 50 € entre ambas fechas.
+    """
+    admin_client.patch("/api/admin/config/currencies", json={"currencies": ["EUR", "USD"]})
+    sec = admin_client.post("/api/securities", json={
+        "name": "UsdCo", "yahoo_ticker": "USD.OQ", "market": "nasdaq", "currency": "USD",
+    }).json()["id"]
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos}/transactions", json={
+        "type": "buy", "date": "2024-01-02", "shares": "1", "price": "100",
+        "fee": "0", "currency": "USD", "exchange_rate": "1.10",
+    })
+    hoy = date.today().isoformat()
+    with Session(engine) as s:
+        s.add_all([
+            PriceHistory(security_id=sec, date="2024-01-02", close=D("100")),
+            PriceHistory(security_id=sec, date=hoy, close=D("100")),
+            EcbRate(date="2024-01-02", currency="USD", rate=D("1.0")),
+            EcbRate(date=hoy, currency="USD", rate=D("2.0")),
+        ])
+        s.commit()
+
+    hist = admin_client.get("/api/portfolio/history").json()
+    by_date = {h["date"]: h["value"] for h in hist}
+    # 2024-01-02: 100 USD / 1,0 = 100 € ; hoy: 100 USD / 2,0 = 50 €
+    assert abs(by_date["2024-01-02"] - 100.0) < 0.01
+    assert abs(by_date[hoy] - 50.0) < 0.01

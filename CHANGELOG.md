@@ -5,6 +5,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.9] — 2026-06-04
+
+### Corregido — Histórico de cartera con tipo de cambio de cada fecha (FX histórico)
+
+- El gráfico de evolución de cartera convertía **todos** los cierres pasados con
+  el tipo de cambio **actual** (`latest_rate`), distorsionando la curva —y los
+  retornos por periodo que se apoyan en ella— de los valores en divisa
+  extranjera. Ahora cada cierre se convierte a EUR con el tipo del BCE **vigente
+  en esa fecha** (`rate_on_date`), precargando los tipos por divisa y buscándolos
+  por fecha con bisect (sin penalizar el rendimiento).
+
+---
+
 ## [1.9.8] — 2026-06-04
 
 ### Mejorado — Donut de distribución: top 8 + «Otros»

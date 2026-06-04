@@ -19,6 +19,7 @@ DELETE /portfolio/{position_id}/dividends/{div_id}    — borrar dividendo.
 
 from __future__ import annotations
 
+import bisect
 import uuid
 from datetime import date as date_type, timedelta
 from decimal import Decimal
@@ -439,7 +440,6 @@ def _history_series(
         sec: Security = pos.security
         if selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
             continue
-        rate = latest_rate(db, sec.currency)
 
         tx_rows = db.scalars(
             select(TransactionRow)
@@ -469,16 +469,44 @@ def _history_series(
         ).all()
 
         prices = [(p.date, p.close) for p in price_rows]
-        sec_series.append((rate, list(tx_rows), list(split_rows), prices))
+        sec_series.append((sec.currency, list(tx_rows), list(split_rows), prices))
         all_dates.update(d for d, _ in prices)
 
     if not all_dates:
         return []
 
+    # Tipos de cambio HISTÓRICOS: cada cierre pasado se convierte a EUR con el
+    # tipo del BCE vigente EN ESA FECHA, no con el tipo actual. Antes se usaba el
+    # tipo de hoy para toda la serie, lo que distorsionaba la curva (y los
+    # retornos por periodo que se apoyan en ella) de los valores en divisa.
+    # Se precargan los tipos por divisa y se busca por fecha con bisect (rápido).
+    currencies = {cur for cur, _, _, _ in sec_series if cur != "EUR"}
+    rate_index: dict[str, tuple[list[str], list[Decimal]]] = {}
+    fallback_rate: dict[str, Decimal] = {}
+    for cur in currencies:
+        rows = db.scalars(
+            select(EcbRate).where(EcbRate.currency == cur).order_by(EcbRate.date)
+        ).all()
+        rate_index[cur] = ([r.date for r in rows], [r.rate for r in rows])
+        fallback_rate[cur] = latest_rate(db, cur)
+
+    def _rate_for(cur: str, d: str) -> Decimal:
+        """Tipo de 'cur' vigente en la fecha 'd' (más reciente <= d). 1 para EUR.
+        Si no hay tipo en/antes de 'd', usa el más reciente disponible (igual que
+        rate_on_date)."""
+        if cur == "EUR":
+            return Decimal("1")
+        dates, rates = rate_index.get(cur, ([], []))
+        if dates:
+            i = bisect.bisect_right(dates, d) - 1
+            if i >= 0:
+                return rates[i]
+        return fallback_rate.get(cur, Decimal("1"))
+
     axis = sorted(all_dates)
     date_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
-    for rate, tx_rows, split_rows, prices in sec_series:
+    for currency, tx_rows, split_rows, prices in sec_series:
 
         def _adj_shares(tx_date_str: str, raw: Decimal) -> Decimal:
             result = raw
@@ -506,7 +534,7 @@ def _history_series(
                 last_close = prices[price_idx][1]
                 price_idx += 1
             if last_close is not None and running_shares > Decimal("0"):
-                date_totals[d] += running_shares * last_close / rate
+                date_totals[d] += running_shares * last_close / _rate_for(currency, d)
 
     return [{"date": d, "value": float(date_totals[d])} for d in sorted(date_totals)]
 
