@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.10] — 2026-06-05
+
+### Corregido — Histórico de cartera inflado antes de un split de acciones
+
+- `_history_series` aplicaba todos los splits **futuros** a cada transacción sin
+  importar la fecha `d` que se estaba procesando. Con `price_history` en precios
+  reales (`auto_adjust=False`), esto causaba que para fechas **anteriores** al
+  split el valor de la posición se multiplicara por el ratio (p. ej. ×2 en un
+  split 2:1), inflando el gráfico de evolución y distorsionando los retornos por
+  período (YTD/1a/3a/total) de cualquier usuario que tuviera valores con splits.
+- **Fix**: los splits ahora se aplican progresivamente conforme el eje de fechas
+  cruza cada `ex_date` (tres punteros: splits, transacciones y carry-forward de
+  precio). Las compras en la propia fecha de split se contabilizan ya en escala
+  post-split, coherente con `_normalize_splits`.
+- Se añade test de regresión `test_history_split_no_infla_valor_pre_split`.
+- Se corrigen los comentarios obsoletos en `providers/yahoo.py` que indicaban
+  erróneamente que `fetch_history` usaba `auto_adjust=True`.
+
+---
+
 ## [1.9.9] — 2026-06-04
 
 ### Corregido — Histórico de cartera con tipo de cambio de cada fecha (FX histórico)

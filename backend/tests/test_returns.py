@@ -209,3 +209,49 @@ def test_history_usa_fx_historico_por_fecha(admin_client, seed_markets, engine):
     # 2024-01-02: 100 USD / 1,0 = 100 € ; hoy: 100 USD / 2,0 = 50 €
     assert abs(by_date["2024-01-02"] - 100.0) < 0.01
     assert abs(by_date[hoy] - 50.0) < 0.01
+
+
+def test_history_split_no_infla_valor_pre_split(admin_client, seed_markets, engine):
+    """
+    Regresión: _history_series aplicaba todos los splits futuros a las
+    transacciones sin importar la fecha 'd' que se estaba procesando.
+    Resultado: para fechas ANTERIORES al split, running_shares ya estaba
+    multiplicado por el ratio pero last_close seguía siendo el precio
+    pre-split (auto_adjust=False) → valor ×ratio, inflado.
+
+    Escenario:
+      Compra 100 acc × 100 € el 2024-01-02.
+      Split 2:1 el 2024-04-01: precio pasa de 100 € a 50 €.
+      Valor correcto en AMBAS fechas: 10.000 €.
+      Valor BUGGY en 2024-01-02: 200 × 100 = 20.000 € (el doble).
+    """
+    sec = admin_client.post("/api/securities", json={
+        "name": "SplitCo", "yahoo_ticker": "SPLIT.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos}/transactions", json={
+        "type": "buy", "date": "2024-01-02", "shares": "100", "price": "100",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    # Split 2:1 el 2024-04-01
+    admin_client.post(f"/api/admin/securities/{sec}/splits", json={
+        "ex_date": "2024-04-01", "ratio_num": 2, "ratio_den": 1,
+    })
+    with Session(engine) as s:
+        s.add_all([
+            PriceHistory(security_id=sec, date="2024-01-02", close=D("100")),  # pre-split
+            PriceHistory(security_id=sec, date="2024-04-01", close=D("50")),   # post-split
+        ])
+        s.commit()
+
+    hist = admin_client.get("/api/portfolio/history").json()
+    by_date = {h["date"]: h["value"] for h in hist}
+
+    # Pre-split: 100 acc × 100 € = 10.000 € (no 200 × 100 = 20.000)
+    assert abs(by_date["2024-01-02"] - 10_000.0) < 0.01, (
+        f"Bug splits: valor pre-split es {by_date['2024-01-02']}, esperado 10000"
+    )
+    # Post-split: 200 acc × 50 € = 10.000 €
+    assert abs(by_date["2024-04-01"] - 10_000.0) < 0.01, (
+        f"Bug splits: valor post-split es {by_date['2024-04-01']}, esperado 10000"
+    )

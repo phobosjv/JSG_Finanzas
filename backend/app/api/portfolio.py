@@ -508,27 +508,27 @@ def _history_series(
 
     for currency, tx_rows, split_rows, prices in sec_series:
 
-        def _adj_shares(tx_date_str: str, raw: Decimal) -> Decimal:
-            result = raw
-            for sp in split_rows:
-                if sp.ex_date > tx_date_str:
-                    result *= Decimal(sp.ratio_num) / Decimal(sp.ratio_den)
-            return result
-
         running_shares = Decimal("0")
         tx_idx = 0
         n_tx = len(tx_rows)
+        split_idx = 0
+        n_sp = len(split_rows)
         price_idx = 0
         n_p = len(prices)
         last_close: Decimal | None = None
 
-        # Dos punteros sobre el eje global: uno para participaciones (tx) y otro
-        # para el último cierre conocido (carry-forward).
+        # Tres punteros sobre el eje global: splits (progresivos), transacciones
+        # y último cierre (carry-forward). Los splits se aplican ANTES que las tx
+        # del mismo día: coherente con _normalize_splits (usa 'ex_date > tx.date'),
+        # que trata las compras ON the ex_date como post-split.
         for d in axis:
+            while split_idx < n_sp and split_rows[split_idx].ex_date <= d:
+                sp = split_rows[split_idx]
+                running_shares *= Decimal(sp.ratio_num) / Decimal(sp.ratio_den)
+                split_idx += 1
             while tx_idx < n_tx and tx_rows[tx_idx].date <= d:
                 tx = tx_rows[tx_idx]
-                adj = _adj_shares(tx.date, tx.shares)
-                running_shares += adj if tx.type in ("buy", "transfer_in") else -adj
+                running_shares += tx.shares if tx.type in ("buy", "transfer_in") else -tx.shares
                 tx_idx += 1
             while price_idx < n_p and prices[price_idx][0] <= d:
                 last_close = prices[price_idx][1]

@@ -8,8 +8,9 @@ Decisiones de implementacion
 - Se usa Ticker.history() en lugar de yf.download() porque devuelve un
   DataFrame de columna simple (sin MultiIndex) para un unico ticker, lo
   que simplifica el parseo.
-- auto_adjust=True: precios ajustados por splits y dividendos, coherente
-  con el precio de mercado que ve el usuario.
+- auto_adjust=False: precios reales de mercado en cada fecha (no ajustados
+  retroactivamente por dividendos). Los splits se gestionan aparte (tabla
+  security_splits + lógica en _history_series y _normalize_splits).
 - El extremo 'end' de history() es EXCLUSIVO en yfinance, por eso se
   suma un dia a to_date.
 - El volumen puede llegar como NaN (p.ej. ETFs en ciertos mercados);
@@ -170,8 +171,8 @@ class YahooProvider(PriceProvider):
         # cierres de la ventana de 5 días aparecerían ~14 % más bajos).
         # El porcentaje diario se calcula como ratio y no se ve afectado por
         # el ajuste, pero el precio absoluto sí: se mostraría 2,94 en lugar
-        # de 3,44. Para el histórico (fetch_history) sí se usa auto_adjust=True
-        # para que el gráfico no muestre "caídas artificiales" en el ex-date.
+        # de 3,44. fetch_history también usa auto_adjust=False; los splits se
+        # aplican de forma progresiva en _history_series (sin retroactividad).
         df = t.history(period="5d", auto_adjust=False)
         # Descartar filas con Close NaN (pre-mercado, festivos sin datos)
         df = df.dropna(subset=["Close"])

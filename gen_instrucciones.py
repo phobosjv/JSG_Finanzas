@@ -1,11 +1,11 @@
-"""
+﻿"""
 Genera instrucciones.pdf para JSG Soft..
 Ejecutar desde la raiz del proyecto:
   python gen_instrucciones.py
 """
 from fpdf import FPDF
 
-VERSION = "1.9.9"
+VERSION = "1.9.10"
 TITLE   = f"JSG Soft. {VERSION} - Manual de usuario"
 
 SECTIONS = [
@@ -148,7 +148,7 @@ SECTIONS = [
         "    el catalogo a un servidor nuevo sin tener que introducirlos a mano.",
         "",
         "  - Importar catalogo: sube un JSON (propio o el fichero de referencia",
-        "    catalogo-valores.json incluido en el paquete de instalacion) y añade",
+        "    catalogo-valores.json incluido en el paquete de instalacion) y aÃ±ade",
         "    los mercados y valores que no existan todavia.",
         "",
         "  Reglas de importacion:",
@@ -195,7 +195,7 @@ SECTIONS = [
         "",
         "  2. Importacion de backup USD con tipo de cambio 1 rompia la cartera:",
         "     Un backup con transacciones en USD y exchange_rate=1 se importaba",
-        "     sin error, pero al cargar la cartera devolvía error 500. Ahora el",
+        "     sin error, pero al cargar la cartera devolvÃ­a error 500. Ahora el",
         "     import rechaza esa combinacion incoherente con mensaje claro.",
         "",
         "  3. Importacion de backup permitia precio cero:",
@@ -240,7 +240,7 @@ SECTIONS = [
     ("Novedades en v1.3.0", [
         "Control de suscripciones de usuarios (rol administrador):",
         "  - Habilitar o deshabilitar un usuario sin eliminar sus datos.",
-        "    Al deshabilitar se puede añadir una anotacion (motivo).",
+        "    Al deshabilitar se puede aÃ±adir una anotacion (motivo).",
         "  - Si un usuario deshabilitado intenta hacer login, recibe el mensaje",
         "    'Contactar con el administrador'.",
         "  - Fecha de caducidad opcional por usuario: llegada la fecha, el usuario",

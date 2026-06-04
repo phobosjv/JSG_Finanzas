@@ -1,4 +1,4 @@
-"""
+﻿"""
 main.py
 =======
 Crea la aplicacion FastAPI, registra los routers y arranca APScheduler.
@@ -42,7 +42,7 @@ log = logging.getLogger(__name__)
 
 
 def _ensure_default_admin() -> None:
-    """Crea el usuario admin por defecto si no existe todavía."""
+    """Crea el usuario admin por defecto si no existe todavÃ­a."""
     from sqlalchemy import select
     from app.models import User
 
@@ -98,7 +98,7 @@ def _make_scheduler() -> BackgroundScheduler:
     # Job nocturno (historia + snapshots + BCE)
     scheduler.add_job(_daily_job, "cron", hour=6, minute=30, id="daily_update")
 
-    # Job periódico de snapshots en vivo (intervalo configurable por admin)
+    # Job periÃ³dico de snapshots en vivo (intervalo configurable por admin)
     interval = _get_snapshot_interval()
     scheduler.add_job(_live_job, "interval", minutes=interval, id="snapshot_live")
 
@@ -122,7 +122,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Finanzas",
         description="Seguimiento de cartera de inversion",
-        version="1.9.9",
+        version="1.9.10",
         lifespan=lifespan,
     )
 
@@ -149,8 +149,8 @@ def create_app() -> FastAPI:
     app.include_router(csv_import.router, prefix=prefix)
     app.include_router(ghostfolio_import.router, prefix=prefix)
 
-    # Manifest PWA dinámico. Debe registrarse ANTES del catch-all serve_spa
-    # para que gane al fichero estático que genera VitePWA. Refleja el nombre
+    # Manifest PWA dinÃ¡mico. Debe registrarse ANTES del catch-all serve_spa
+    # para que gane al fichero estÃ¡tico que genera VitePWA. Refleja el nombre
     # de la app y, si hay logo subido, lo usa como icono de la PWA.
     @app.get("/manifest.webmanifest", include_in_schema=False)
     def dynamic_manifest(db: Session = Depends(get_db)):
@@ -181,7 +181,7 @@ def create_app() -> FastAPI:
             content={
                 "name": app_name,
                 "short_name": app_name,
-                "description": "Seguimiento de cartera de inversión",
+                "description": "Seguimiento de cartera de inversiÃ³n",
                 "theme_color": "#1a1a2e",
                 "background_color": "#1a1a2e",
                 "display": "standalone",
@@ -212,7 +212,7 @@ def create_app() -> FastAPI:
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def serve_spa(full_path: str):
-            # Serve exact static file if it exists (icons, SW, manifest, …)
+            # Serve exact static file if it exists (icons, SW, manifest, â€¦)
             if full_path:
                 candidate_file = os.path.realpath(os.path.join(static_dir, full_path))
                 # Path traversal guard
