@@ -132,6 +132,7 @@ export default function Portfolio() {
   const [deleting, setDeleting]           = useState(null)
   const [segTypes, setSegTypes]           = useState(() => loadSegTypes('portfolioSegTypes'))
   const [xirr, setXirr]                   = useState(null)
+  const [periods, setPeriods]             = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -161,6 +162,7 @@ export default function Portfolio() {
     const qs = segTypes.length ? `?types=${segTypes.join(',')}` : ''
     api.get(`/portfolio/history${qs}`).then(setHistory).catch(() => setHistory([]))
     api.get(`/portfolio/xirr${qs}`).then(setXirr).catch(() => setXirr(null))
+    api.get(`/portfolio/period-returns${qs}`).then(setPeriods).catch(() => setPeriods(null))
   }, [segTypes])
 
   function changeSeg(next) {
@@ -233,6 +235,20 @@ export default function Portfolio() {
           clsName={xirr?.xirr_pct != null ? cls(xirr.xirr_pct) : ''}
         />
       </div>
+
+      {/* Rentabilidad por periodo (Modified Dietz) */}
+      {periods && (periods.ytd != null || periods.y1 != null || periods.y3 != null || periods.total != null) && (
+        <div className="period-returns">
+          {[['ytd', 'portfolio.pr_ytd'], ['y1', 'portfolio.pr_1y'], ['y3', 'portfolio.pr_3y'], ['total', 'portfolio.pr_total']].map(([k, key]) => (
+            periods[k] != null && (
+              <div key={k} className="period-chip">
+                <span className="period-label">{t(key)}</span>
+                <span className={`period-val ${cls(periods[k])}`}>{sign(periods[k])}{fmt(periods[k])}%</span>
+              </div>
+            )
+          ))}
+        </div>
+      )}
 
       {/* 2. Evolución de cartera (ancho completo) */}
       {fPositions.length > 0 && (

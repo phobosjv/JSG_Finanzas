@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.5] — 2026-06-04
+
+### Añadido — Rentabilidad por periodo (YTD / 1 año / 3 años / total)
+
+- Nueva fila de indicadores en Mi Cartera (junto al gráfico de evolución) con la
+  rentabilidad **por periodo** mediante **Modified Dietz**, que ajusta por el
+  momento de las aportaciones/retiradas dentro de cada ventana (los traspasos no
+  cuentan). Es la rentabilidad acumulada del periodo (no anualizada), complemento
+  de la TIR anual.
+- `GET /api/portfolio/period-returns?types=` (respeta el segmentador). Devuelve
+  `{ytd, y1, y3, total}` en % (null si no es calculable).
+- Refactor interno: la serie de valor histórico se extrae a `_history_series`,
+  reutilizada por el gráfico y por los retornos por periodo. Lógica pura
+  `modified_dietz` en `services/returns.py`.
+
+---
+
 ## [1.8.4] — 2026-06-03
 
 ### Añadido — TIR anual (rentabilidad ponderada por dinero / XIRR)

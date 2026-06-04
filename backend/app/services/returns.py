@@ -88,3 +88,28 @@ def xirr(cashflows: list[tuple[date, float]]) -> float | None:
     if math.isfinite(rate) and abs(_npv(rate, years, amounts)) < 1e-4 and rate > -0.999999:
         return rate
     return _bisect(years, amounts)
+
+
+def modified_dietz(
+    v_start: float, v_end: float, flows: list[tuple[float, float]],
+) -> float | None:
+    """
+    Rentabilidad del periodo (Modified Dietz), que ajusta por el momento de las
+    aportaciones/retiradas. Devuelve la rentabilidad ACUMULADA del periodo (no
+    anualizada) como fracción (0.12 = 12 %), o None si no es calculable.
+
+    v_start : valor de la cartera al inicio del periodo.
+    v_end   : valor al final.
+    flows   : lista de (peso, importe), donde
+                peso   = fracción del periodo que el flujo estuvo invertido
+                         (1 = al inicio, 0 = al final),
+                importe = + aportación (entra dinero), − retirada (sale).
+
+      R = (V_fin − V_ini − ΣF) / (V_ini + Σ peso·F)
+    """
+    net_flow = sum(a for _, a in flows)
+    weighted = sum(w * a for w, a in flows)
+    denom = v_start + weighted
+    if denom <= 0:
+        return None
+    return (v_end - v_start - net_flow) / denom

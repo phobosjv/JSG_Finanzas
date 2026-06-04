@@ -20,7 +20,7 @@ DELETE /portfolio/{position_id}/dividends/{div_id}    — borrar dividendo.
 from __future__ import annotations
 
 import uuid
-from datetime import date as date_type
+from datetime import date as date_type, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -51,7 +51,7 @@ from app.services.calculations import (
     normalize_splits, value_position,
 )
 from app.services.recurring import contribution_dates_until, nth_contribution_date
-from app.services.returns import xirr
+from app.services.returns import xirr, modified_dietz
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -407,30 +407,17 @@ def get_portfolio(
 #  Historial de valor de cartera (para gráfico de líneas en Portfolio)
 # ---------------------------------------------------------------------------
 
-@router.get("/history")
-def get_portfolio_history(
-    types: str | None = Query(None),
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+def _history_series(
+    db: Session, user_id: int, selected_types: set[str] | None,
+) -> list[dict]:
     """
-    Valor histórico de la cartera reconstruido transacción a transacción.
-    Para cada fecha de precio calcula las acciones en posesión en ese momento
-    (buys acumulados - sells acumulados hasta esa fecha). Incluye posiciones
-    cerradas durante el periodo que estuvieron abiertas.
-
-    'types' (opcional): lista separada por comas de tipos de producto
-    (stock,fund,etf,crypto) para segmentar el histórico por tipo. Si se omite,
-    incluye todas las posiciones.
+    Serie diaria de valor de cartera en EUR (reconstruida transacción a
+    transacción). Reutilizada por el gráfico de historial y por los retornos
+    por periodo. 'selected_types' filtra por tipo de producto (None = todo).
     """
     positions = db.scalars(
-        select(Position).where(Position.user_id == user.id)
+        select(Position).where(Position.user_id == user_id)
     ).all()
-
-    # Filtro opcional por tipo de producto del mercado.
-    selected_types: set[str] | None = None
-    if types:
-        selected_types = {t.strip() for t in types.split(",") if t.strip()}
     market_types: dict[str, str] = {
         m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
     }
@@ -443,16 +430,13 @@ def get_portfolio_history(
             continue
         rate = latest_rate(db, sec.currency)
 
-        # Transacciones ordenadas por fecha (strings YYYY-MM-DD, orden lexicográfico correcto)
         tx_rows = db.scalars(
             select(TransactionRow)
             .where(TransactionRow.position_id == pos.id)
             .order_by(TransactionRow.date)
         ).all()
-
         if not tx_rows:
             continue
-
         first_buy_date = next(
             (tx.date for tx in tx_rows if tx.type in ("buy", "transfer_in")), None
         )
@@ -461,19 +445,12 @@ def get_portfolio_history(
 
         price_rows = db.scalars(
             select(PriceHistory)
-            .where(
-                PriceHistory.security_id == sec.id,
-                PriceHistory.date >= first_buy_date,
-            )
+            .where(PriceHistory.security_id == sec.id, PriceHistory.date >= first_buy_date)
             .order_by(PriceHistory.date)
         ).all()
-
         if not price_rows:
             continue
 
-        # Normalizar acciones de cada transacción a equivalente post-todos-los-splits.
-        # Los precios históricos de Yahoo Finance son split-adjusted, así que las
-        # acciones también deben estarlo para que value = shares × price sea correcto.
         split_rows = db.scalars(
             select(SecuritySplit)
             .where(SecuritySplit.security_id == sec.id)
@@ -487,25 +464,120 @@ def get_portfolio_history(
                     result *= Decimal(sp.ratio_num) / Decimal(sp.ratio_den)
             return result
 
-        # Barrido paralelo: acumula shares según las transacciones vigentes en cada fecha
         running_shares = Decimal("0")
         tx_idx = 0
         n_tx = len(tx_rows)
-
         for price_row in price_rows:
             while tx_idx < n_tx and tx_rows[tx_idx].date <= price_row.date:
                 tx = tx_rows[tx_idx]
                 adj = _adj_shares(tx.date, tx.shares)
                 running_shares += adj if tx.type in ("buy", "transfer_in") else -adj
                 tx_idx += 1
-
             if running_shares > Decimal("0"):
                 date_totals[price_row.date] += running_shares * price_row.close / rate
 
-    return [
-        {"date": d, "value": float(date_totals[d])}
-        for d in sorted(date_totals)
-    ]
+    return [{"date": d, "value": float(date_totals[d])} for d in sorted(date_totals)]
+
+
+@router.get("/history")
+def get_portfolio_history(
+    types: str | None = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Valor histórico de la cartera reconstruido transacción a transacción.
+
+    'types' (opcional): lista separada por comas de tipos de producto
+    (stock,fund,etf,crypto) para segmentar el histórico por tipo.
+    """
+    selected = {t.strip() for t in types.split(",") if t.strip()} if types else None
+    return _history_series(db, user.id, selected)
+
+
+def _portfolio_flows(db: Session, user_id: int, selected_types: set[str] | None) -> list[tuple[date_type, float]]:
+    """
+    Flujos de caja reales de la cartera (para retornos por periodo): compras
+    (+ aportación), ventas (− retirada) y dividendos (− retirada), en EUR. Los
+    traspasos no son flujos. Filtra por tipo de producto si se indica.
+    """
+    market_types = {m.code: m.market_type for m in db.scalars(select(MarketRow)).all()}
+    flows: list[tuple[date_type, float]] = []
+    for pos in db.scalars(select(Position).where(Position.user_id == user_id)).all():
+        sec: Security = pos.security
+        if selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
+            continue
+        for tx in db.scalars(select(TransactionRow).where(TransactionRow.position_id == pos.id)).all():
+            d = date_type.fromisoformat(tx.date)
+            if tx.type == "buy":
+                flows.append((d, float((tx.shares * tx.price + tx.fee) / tx.exchange_rate)))
+            elif tx.type == "sell":
+                flows.append((d, -float((tx.shares * tx.price - tx.fee) / tx.exchange_rate)))
+        for div in db.scalars(select(DividendRow).where(DividendRow.position_id == pos.id)).all():
+            d = date_type.fromisoformat(div.date)
+            flows.append((d, -float((div.gross_amount - div.withholding_tax) / div.exchange_rate)))
+    return flows
+
+
+@router.get("/period-returns")
+def get_period_returns(
+    types: str | None = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Rentabilidad por periodo (YTD, 1 año, 3 años, total) mediante Modified Dietz:
+    rentabilidad acumulada del periodo ajustada por el momento de las
+    aportaciones/retiradas. Cada valor es un % o null si no es calculable.
+    Respeta el segmentador por tipo ('types').
+    """
+    selected = {t.strip() for t in types.split(",") if t.strip()} if types else None
+    series = _history_series(db, user.id, selected)
+    if not series:
+        return {"ytd": None, "y1": None, "y3": None, "total": None}
+
+    flows = _portfolio_flows(db, user.id, selected)
+    today = date_type.today()
+    v_end = series[-1]["value"]
+    end_date = date_type.fromisoformat(series[-1]["date"])
+    first_date = date_type.fromisoformat(series[0]["date"])
+
+    starts = {
+        "ytd":   date_type(today.year, 1, 1),
+        "y1":    today - timedelta(days=365),
+        "y3":    today - timedelta(days=3 * 365),
+        "total": None,
+    }
+
+    def _period(start: date_type | None):
+        # Valor y fecha de inicio: último punto de la serie con fecha <= start.
+        # 'inclusive' es True cuando v_start es sintético (0): el periodo arranca
+        # antes de cualquier inversión, así que los flujos DE la fecha de inicio
+        # (las primeras compras) sí cuentan. Si v_start viene de la serie, ya
+        # incluye las operaciones de ese día → se excluyen (estricto).
+        if start is None:
+            v_start, start_actual, inclusive = 0.0, first_date, True
+        else:
+            start_str = start.isoformat()
+            prior = [p for p in series if p["date"] <= start_str]
+            if prior:
+                v_start = prior[-1]["value"]
+                start_actual = date_type.fromisoformat(prior[-1]["date"])
+                inclusive = False
+            else:
+                v_start, start_actual, inclusive = 0.0, first_date, True
+        days = (end_date - start_actual).days
+        if days <= 0:
+            return None
+        period_flows = [
+            ((days - (d - start_actual).days) / days, amt)
+            for d, amt in flows
+            if (start_actual <= d if inclusive else start_actual < d) and d <= end_date
+        ]
+        r = modified_dietz(v_start, v_end, period_flows)
+        return round(r * 100, 2) if r is not None else None
+
+    return {k: _period(v) for k, v in starts.items()}
 
 
 # ---------------------------------------------------------------------------

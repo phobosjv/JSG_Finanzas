@@ -433,6 +433,16 @@ input:focus, select:focus { border-color: var(--accent); }
   color: #fff;
 }
 
+/* Rentabilidad por periodo (chips junto al gráfico de evolución) */
+.period-returns { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.period-chip {
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 70px; padding: 5px 12px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+}
+.period-label { font-size: 0.72rem; color: var(--text-muted); }
+.period-val { font-size: 0.95rem; font-weight: 600; font-family: var(--mono); }
+
 /* =========================================================
    Alerta "¡Comprar!" parpadeante
    ========================================================= */
