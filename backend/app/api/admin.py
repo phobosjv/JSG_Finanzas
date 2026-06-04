@@ -315,49 +315,133 @@ def get_history_update_status(_admin: User = Depends(require_admin)):
 
 
 # ---------------------------------------------------------------------------
-#  Rellenar ISINs vacíos desde Yahoo (admin)
+#  Rellenar ISINs vacíos desde Yahoo (admin) — job en segundo plano
 # ---------------------------------------------------------------------------
 
-@router.post("/securities/fill-isins")
-def fill_missing_isins(
-    db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
-):
+# El rellenado consulta Yahoo VALOR A VALOR (yfinance Ticker.isin), una llamada
+# de red por valor. Con muchos valores tarda minutos: hacerlo dentro de la
+# petición HTTP provoca timeouts en el navegador/proxy ("Failed to fetch") y,
+# si se corta, no se guarda nada. Por eso se ejecuta en un hilo con commit
+# INCREMENTAL (cada acierto se persiste al momento) y el frontend consulta el
+# estado por polling. Mismo patrón que la actualización forzada de historial.
+
+_isin_job: dict = {
+    "running": False,
+    "total": 0,         # valores sin ISIN al empezar
+    "checked": 0,       # procesados hasta ahora
+    "updated": 0,       # rellenados con éxito (ya persistidos)
+    "not_found": [],    # tickers que Yahoo no resolvió
+    "started_at": None,
+    "finished_at": None,
+    "result": None,     # None | "ok" | "error: <mensaje>"
+}
+_isin_job_lock = _threading.Lock()
+
+
+def _fill_isins_worker(db: Session, provider, on_item=None) -> dict:
     """
-    Para cada valor sin ISIN, lo busca en Yahoo (Ticker.isin) y lo guarda.
+    Rellena el ISIN de los valores que no lo tienen, consultando 'provider'.
 
-    Solo toca valores con ISIN vacío o nulo: nunca sobreescribe uno existente.
-    Devuelve cuántos se rellenaron, cuántos seguían sin encontrarse y la lista
-    de tickers que Yahoo no resolvió, para que el admin sepa cuáles revisar a
-    mano.
+    Commit INCREMENTAL: cada ISIN encontrado se guarda al momento, de modo que
+    un corte/timeout (o un fallo a mitad) NO pierde lo ya hecho — lo confirmado
+    queda persistido y una nueva ejecución solo revisa los que aún faltan. Nunca
+    sobreescribe un ISIN existente (solo toca los nulos o vacíos).
+
+    'on_item(checked, updated, not_found)' es un callback opcional invocado tras
+    cada valor para reportar progreso (lo usa el job en segundo plano).
     """
-    from app.providers.yahoo import YahooProvider
-
-    provider = YahooProvider()
-    pending = db.scalars(
-        select(Security).where(
-            (Security.isin.is_(None)) | (func.trim(Security.isin) == "")
-        )
-    ).all()
-
+    pending = [
+        (s.id, s.yahoo_ticker)
+        for s in db.scalars(
+            select(Security).where(
+                (Security.isin.is_(None)) | (func.trim(Security.isin) == "")
+            )
+        ).all()
+    ]
+    total = len(pending)
+    checked = 0
     updated = 0
     not_found: list[str] = []
-    for sec in pending:
-        isin = provider.fetch_isin(sec.yahoo_ticker)
+    for sid, ticker in pending:
+        isin = provider.fetch_isin(ticker)
+        checked += 1
         if isin:
+            sec = db.get(Security, sid)
             sec.isin = isin
+            db.commit()              # persiste de inmediato
             updated += 1
         else:
-            not_found.append(sec.yahoo_ticker)
+            not_found.append(ticker)
+        if on_item is not None:
+            on_item(checked, updated, list(not_found))
+    return {"checked": total, "updated": updated, "not_found": not_found}
 
-    if updated:
-        db.commit()
 
-    return {
-        "checked": len(pending),
-        "updated": updated,
-        "not_found": not_found,
-    }
+@router.post("/securities/fill-isins", status_code=status.HTTP_202_ACCEPTED)
+def fill_missing_isins(_admin: User = Depends(require_admin)):
+    """
+    Lanza en segundo plano el rellenado de ISINs vacíos desde Yahoo.
+
+    Devuelve 202 de inmediato (evita el timeout "Failed to fetch" del navegador)
+    y 409 si ya hay un proceso en curso. El frontend consulta
+    GET /admin/securities/fill-isins/status para ver el progreso y, si falla,
+    cuántos se rellenaron antes del fallo (el commit es incremental).
+    """
+    with _isin_job_lock:
+        if _isin_job["running"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya hay un rellenado de ISINs en curso. Espera a que termine.",
+            )
+        _isin_job.update(
+            running=True, total=0, checked=0, updated=0, not_found=[],
+            started_at=_now().isoformat(timespec="seconds"),
+            finished_at=None, result=None,
+        )
+
+    def _run() -> None:
+        from app.database import SessionLocal
+        from app.providers.yahoo import YahooProvider
+
+        db = SessionLocal()
+        try:
+            total = db.scalar(
+                select(func.count()).select_from(Security).where(
+                    (Security.isin.is_(None)) | (func.trim(Security.isin) == "")
+                )
+            )
+            with _isin_job_lock:
+                _isin_job["total"] = int(total or 0)
+
+            def _progress(checked: int, updated: int, not_found: list[str]) -> None:
+                with _isin_job_lock:
+                    _isin_job["checked"] = checked
+                    _isin_job["updated"] = updated
+                    _isin_job["not_found"] = not_found
+
+            _fill_isins_worker(db, YahooProvider(), on_item=_progress)
+            with _isin_job_lock:
+                _isin_job["result"] = "ok"
+            log.info("fill-isins completado: %s rellenados", _isin_job["updated"])
+        except Exception as exc:
+            log.exception("Error en fill-isins")
+            with _isin_job_lock:
+                _isin_job["result"] = f"error: {exc}"
+        finally:
+            db.close()
+            with _isin_job_lock:
+                _isin_job["running"] = False
+                _isin_job["finished_at"] = _now().isoformat(timespec="seconds")
+
+    _threading.Thread(target=_run, daemon=True, name="fill-isins").start()
+    return {"detail": "Rellenado de ISINs iniciado en segundo plano"}
+
+
+@router.get("/securities/fill-isins/status")
+def fill_isins_status(_admin: User = Depends(require_admin)):
+    """Estado del job de rellenado de ISINs (en curso o último ejecutado)."""
+    with _isin_job_lock:
+        return {**_isin_job, "not_found": list(_isin_job["not_found"])}
 
 
 # ---------------------------------------------------------------------------

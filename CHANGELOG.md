@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.6] — 2026-06-04
+
+### Corregido — Rellenar ISINs daba «Failed to fetch» en el VPS
+
+- El rellenado de ISINs consultaba Yahoo valor a valor **dentro de la propia
+  petición HTTP**. Con muchos valores tardaba minutos y superaba el timeout del
+  navegador/proxy (Caddy) → «Failed to fetch»; además solo guardaba al final, así
+  que un corte no dejaba nada.
+- Ahora se ejecuta **en segundo plano** con **commit incremental** (cada ISIN se
+  guarda al momento) y el frontend muestra el **progreso** (revisados/total,
+  rellenados) por polling. `POST /admin/securities/fill-isins` responde 202 y hay
+  `GET /admin/securities/fill-isins/status`.
+- Si el proceso falla a mitad, el estado indica **cuántos se rellenaron antes del
+  fallo** (lo ya hecho queda persistido). Re-ejecutar solo revisa los que aún
+  faltan.
+
+---
+
 ## [1.9.5] — 2026-06-04
 
 ### Corregido — Retornos por periodo (YTD/1 año/3 años/total) imposibles y gráfico de historial infravalorado
