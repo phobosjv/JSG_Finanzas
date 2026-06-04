@@ -12,6 +12,32 @@ import pytest
 #  GET /admin/markets
 # ---------------------------------------------------------------------------
 
+def test_sync_currency_sobreescribe_valores(admin_client, seed_markets):
+    """El botón de sincronizar divisa fija la divisa de los valores a la del mercado."""
+    # nasdaq es USD (seed). Creamos un valor mal dado de alta en EUR.
+    admin_client.patch("/api/admin/config/currencies", json={"currencies": ["USD"]})
+    sec = admin_client.post("/api/securities", json={
+        "name": "Mal", "yahoo_ticker": "BAD.OQ", "market": "nasdaq", "currency": "EUR",
+    }).json()["id"]
+    # Otro ya correcto en USD.
+    admin_client.post("/api/securities", json={
+        "name": "Ok", "yahoo_ticker": "OK.OQ", "market": "nasdaq", "currency": "USD",
+    })
+
+    r = admin_client.post("/api/admin/markets/nasdaq/sync-currency")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["currency"] == "USD"
+    assert data["updated"] == 1     # solo el que estaba en EUR
+    # El valor mal quedó en USD.
+    assert admin_client.get(f"/api/securities/{sec}").json()["currency"] == "USD"
+
+
+def test_sync_currency_no_admin(auth_client, seed_markets):
+    resp = auth_client.post("/api/admin/markets/ibex35/sync-currency")
+    assert resp.status_code == 403
+
+
 def test_admin_lista_mercados(admin_client, seed_markets):
     resp = admin_client.get("/api/admin/markets")
     assert resp.status_code == 200

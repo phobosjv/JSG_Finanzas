@@ -165,6 +165,28 @@ def update_market(
     return market
 
 
+@router.post("/markets/{code}/sync-currency")
+def sync_market_currency(
+    code: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Fija la divisa de TODOS los valores del mercado a la divisa del mercado
+    "padre". Útil para corregir valores dados de alta con la divisa equivocada
+    (p. ej. acciones extranjeras creadas en EUR). Devuelve cuántos se cambiaron.
+    """
+    market = _require_market(db, code)
+    secs = db.scalars(select(Security).where(Security.market == code)).all()
+    updated = 0
+    for s in secs:
+        if s.currency != market.currency:
+            s.currency = market.currency
+            updated += 1
+    db.commit()
+    return {"updated": updated, "total": len(secs), "currency": market.currency}
+
+
 @router.delete("/markets/{code}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_market(
     code: str,

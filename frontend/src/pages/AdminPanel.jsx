@@ -1080,6 +1080,16 @@ function MarketsSection() {
     } catch (e) { setErr(e.message) }
   }
 
+  async function syncCurrency(m) {
+    if (!confirm(t('admin.market_sync_currency_confirm').replace('{c}', m.currency).replace('{code}', m.code))) return
+    setErr(null); setMsg(null)
+    try {
+      const r = await api.post(`/admin/markets/${m.code}/sync-currency`)
+      setMsg(t('admin.market_sync_currency_done').replace('{n}', r.updated).replace('{c}', r.currency))
+      await load()
+    } catch (e) { setErr(e.message) }
+  }
+
   function startEdit(m) {
     setEditing(m)
     setForm({ code: m.code, name: m.name, index_ticker: m.index_ticker ?? '', currency: m.currency, fiscal_window_days: m.fiscal_window_days, yahoo_exchange: m.yahoo_exchange ?? '', market_type: m.market_type ?? 'stock' })
@@ -1296,6 +1306,7 @@ function MarketsSection() {
                         title={t('admin.market_yahoo_btn')}
                       >🔍</button>
                     )}
+                    <button className="btn-ghost btn-sm" onClick={() => syncCurrency(m)} title={t('admin.market_sync_currency')}>💱</button>
                     <button className="btn-ghost btn-sm" onClick={() => startEdit(m)}>✎</button>
                     <button className="btn-danger btn-sm" onClick={() => del(m.code)}>✕</button>
                   </div>

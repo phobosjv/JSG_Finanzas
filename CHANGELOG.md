@@ -5,6 +5,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.8] — 2026-06-04
+
+### Añadido — Admin: sincronizar la divisa de un catálogo
+
+- Nuevo botón 💱 en cada mercado del AdminPanel: fija la divisa de **todos** los
+  valores del mercado a la divisa del mercado "padre". Corrige de golpe valores
+  dados de alta con la divisa equivocada (p. ej. acciones extranjeras creadas en
+  EUR).
+- `POST /api/admin/markets/{code}/sync-currency` (solo admin) → devuelve cuántos
+  valores se actualizaron.
+
+---
+
 ## [1.8.7] — 2026-06-04
 
 ### Corregido — Historial de operaciones en posiciones cerradas
