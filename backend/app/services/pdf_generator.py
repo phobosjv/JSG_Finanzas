@@ -115,6 +115,17 @@ _LABELS: dict[str, dict[str, str]] = {
         "col_withholding":         "Retención origen (€)",
         "col_net":                 "Neto (€)",
         "total":                   "TOTAL",
+        # Bloque 4: fondos de inversión (reembolsos)
+        "block4_title":            "4. Ganancias y pérdidas por venta de fondos de inversión",
+        "block4_empty":            "No se han registrado ventas ni reembolsos de fondos en este ejercicio.",
+        "block4_hint":             (
+            "Una fila por fondo y ejercicio (los movimientos individuales no se "
+            "detallan). El resultado va a la base del ahorro junto con el de las "
+            "acciones; la retención del 19% la practica la gestora. Los traspasos "
+            "entre fondos son fiscalmente neutros y no aparecen aquí."
+        ),
+        "col_redeem_year":         "Año reembolso",
+        "col_units":               "Participaciones",
         # Avisos
         "warnings_title":          "Avisos importantes",
         "warn_generic":            (
@@ -194,6 +205,16 @@ _LABELS: dict[str, dict[str, str]] = {
         "col_withholding":         "Withholding tax (€)",
         "col_net":                 "Net (€)",
         "total":                   "TOTAL",
+        "block4_title":            "4. Gains and losses from investment fund redemptions",
+        "block4_empty":            "No fund sales or redemptions recorded for this fiscal year.",
+        "block4_hint":             (
+            "One row per fund and year (individual transactions are not detailed). "
+            "The result goes to the savings tax base together with shares; the 19% "
+            "withholding is applied by the management company. Fund-to-fund transfers "
+            "are tax-neutral and do not appear here."
+        ),
+        "col_redeem_year":         "Redemption year",
+        "col_units":               "Units",
         "warnings_title":          "Important notices",
         "warn_generic":            (
             "Indicative report for reference only. It does not replace the review "
@@ -275,7 +296,9 @@ def _fmt_disallowed_reason(fiscal_window_days: int, lang: str) -> str:
 # Bloque 1: pares FIFO agrupados por valor (una fila por security)
 # ---------------------------------------------------------------------------
 
-def _build_sale_lines_grouped(sale_lines: list[SaleLine]) -> list[dict]:
+def _build_sale_lines_grouped(
+    sale_lines: list[SaleLine], mark_funds: bool = True
+) -> list[dict]:
     """
     Agrega los pares FIFO en UNA fila por valor y ejercicio.
 
@@ -283,6 +306,10 @@ def _build_sale_lines_grouped(sale_lines: list[SaleLine]) -> list[dict]:
     importe de venta y resultado. Se marca la fila si algún par tiene
     'loss_disallowed' para que el usuario sepa que parte de su resultado
     puede estar afectado por la regla de recompra.
+
+    'mark_funds': si True añade el sufijo «(F)» a los fondos. En la sección
+    dedicada a fondos es redundante (todas las filas son fondos), así que se
+    pasa False.
     """
     # key: (security_name, isin, sell_year)
     groups: dict = {}
@@ -315,7 +342,7 @@ def _build_sale_lines_grouped(sale_lines: list[SaleLine]) -> list[dict]:
         {
             # Los fondos se marcan con «(F)»: retención del 19% gestionada por
             # la entidad (explicado en los avisos del informe).
-            "security_name":  g["security_name"] + (" (F)" if g["is_fund"] else ""),
+            "security_name":  g["security_name"] + (" (F)" if (mark_funds and g["is_fund"]) else ""),
             "isin":           g["isin"],
             "sell_year":      str(g["sell_year"]),
             "shares":         _fmt_shares(g["shares"]),
@@ -604,11 +631,21 @@ def _build_context(
 ) -> dict:
     lbl = _LABELS.get(lang, _LABELS["es"])
 
+    # Las ventas de fondos van en una sección propia (Bloque 4, tras dividendos)
+    # y NO se detallan movimiento a movimiento. Los Bloques 1 y 2 quedan solo
+    # con acciones/ETF/cripto. Fiscalmente, ambos resultados van a la base del
+    # ahorro (el resumen ejecutivo los sigue agregando).
+    stock_sales = [s for s in report.sale_lines if not s.is_fund]
+    fund_sales  = [s for s in report.sale_lines if s.is_fund]
+
     # Bloque 1: una fila por valor (agrupado), con flag si hay pérdidas no computables
-    sale_lines = _build_sale_lines_grouped(report.sale_lines)
+    sale_lines = _build_sale_lines_grouped(stock_sales)
 
     # Bloque 2: movimientos detallados (una fila por operación/fecha, con subtotal)
-    movement_lines = _build_movement_lines(report.sale_lines, lang)
+    movement_lines = _build_movement_lines(stock_sales, lang)
+
+    # Bloque 4: reembolsos de fondos, agregados por fondo (sin detalle de movimientos)
+    fund_lines = _build_sale_lines_grouped(fund_sales, mark_funds=False)
 
     # Bloque 3: dividendos
     dividend_lines = [
@@ -634,14 +671,19 @@ def _build_context(
         "sale_lines":           sale_lines,
         "movement_lines":       movement_lines,
         "dividend_lines":       dividend_lines,
+        "fund_lines":           fund_lines,
         "net_capital_positive": report.net_capital_result_eur >= Decimal("0"),
+        "fund_net_positive":    _compute_adjusted_totals(fund_sales)["net_capital"] >= Decimal("0"),
         "totals": {
             # Totales usando el resultado NETO por valor (coherente con la tabla del Bloque 1).
             # Si un valor tuvo pérdida y ganancia, el neto positivo cuenta solo como ganancia.
-            **{k: _fmt_money(v) for k, v in _compute_adjusted_totals(report.sale_lines).items()},
+            **{k: _fmt_money(v) for k, v in _compute_adjusted_totals(stock_sales).items()},
             "div_gross":          _fmt_money(report.total_dividends_gross_eur),
             "div_withholding":    _fmt_money(report.total_dividends_withholding_eur),
             "div_net":            _fmt_money(report.total_dividends_net_eur),
+        },
+        "fund_totals": {
+            k: _fmt_money(v) for k, v in _compute_adjusted_totals(fund_sales).items()
         },
         "warnings": _build_warnings(report, lang),
     }

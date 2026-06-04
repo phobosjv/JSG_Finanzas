@@ -5,6 +5,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.9] — 2026-06-04
+
+### Cambiado — Informe fiscal: fondos en sección propia
+
+- Las ventas/reembolsos de **fondos de inversión** ya no se mezclan con las
+  acciones en el Bloque 1 ni se detallan movimiento a movimiento en el Bloque 2.
+  Ahora aparecen en un **Bloque 4 «Ganancias y pérdidas por venta de fondos»**,
+  situado **después** de los dividendos, agregado por fondo (una fila por fondo y
+  ejercicio) y con su propio subtotal.
+- El resumen ejecutivo y la base imponible siguen agregando acciones + fondos
+  (fiscalmente ambos van a la base del ahorro). Los traspasos entre fondos, al
+  ser fiscalmente neutros, no aparecen en esta sección.
+
+---
+
 ## [1.8.8] — 2026-06-04
 
 ### Añadido — Admin: sincronizar la divisa de un catálogo

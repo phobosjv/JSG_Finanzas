@@ -120,3 +120,55 @@ def test_avisos_presentes():
     """El informe siempre lleva el aviso de 'orientativo'."""
     r = build_tax_report(2023, [], [])
     assert any("orientativo" in w for w in r.warnings)
+
+
+# --- v1.8.9: las ventas de fondos van en su propia sección (Bloque 4) ---
+
+FONDO = SecurityRef(3, "Bulnes FI", "ES0000000003", "fondos",
+                    fiscal_window_days=60, is_fund_market=True)
+
+
+def test_fondos_en_seccion_aparte_del_pdf():
+    """
+    Las ventas de fondos NO aparecen en el Bloque 1/2 (acciones) sino en el
+    Bloque 4 (fund_lines), y los movimientos de fondos no se detallan.
+    """
+    from app.services.pdf_generator import _build_context
+
+    sales = [
+        SecuritySales(IBEX, [
+            sm(date(2023, 5, 1), date(2020, 1, 1), "10", "100", "200"),  # +100 acción
+        ], all_buys=[buy(date(2020, 1, 1))]),
+        SecuritySales(FONDO, [
+            sm(date(2023, 6, 1), date(2021, 1, 1), "50", "500", "650"),  # +150 fondo
+        ], all_buys=[buy(date(2021, 1, 1))]),
+    ]
+    r = build_tax_report(2023, sales, [])
+    ctx = _build_context(r, lang="es")
+
+    # Bloque 1 (acciones): solo Iberdrola, sin el fondo
+    nombres_acc = {l["security_name"] for l in ctx["sale_lines"]}
+    assert "Iberdrola" in nombres_acc
+    assert all("Bulnes" not in n for n in nombres_acc)
+
+    # Bloque 2 (movimientos): no detalla el fondo
+    assert all("Bulnes" not in m["security_name"] for m in ctx["movement_lines"])
+
+    # Bloque 4 (fondos): aparece el fondo, sin sufijo «(F)» (redundante aquí)
+    nombres_fondo = {l["security_name"] for l in ctx["fund_lines"]}
+    assert nombres_fondo == {"Bulnes FI"}
+    # Resultado del fondo +150 €
+    assert ctx["fund_totals"]["gains"] == "150,00"
+    # El resumen ejecutivo sigue agregando acción + fondo: 100 + 150 = 250
+    assert ctx["summary"]["net_capital"] == "250,00"
+
+
+def test_sin_fondos_bloque4_vacio():
+    """Sin ventas de fondos, fund_lines está vacío (la plantilla muestra el aviso)."""
+    from app.services.pdf_generator import _build_context
+
+    sales = [SecuritySales(IBEX, [
+        sm(date(2023, 5, 1), date(2020, 1, 1), "10", "100", "200"),
+    ], all_buys=[buy(date(2020, 1, 1))])]
+    ctx = _build_context(build_tax_report(2023, sales, []), lang="es")
+    assert ctx["fund_lines"] == []

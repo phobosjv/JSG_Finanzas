@@ -22,8 +22,12 @@
                           shares, unit_price, fee, currency, total
     dividend_lines[]    : security_name, isin, market, pay_date,
                           gross_eur, withholding_eur, net_eur
+    fund_lines[]        : security_name, isin, sell_year, shares, cost_eur,
+                          proceeds_eur, gain_eur, gain_positive, has_disallowed
     totals              : gains, losses_computable, losses_disallowed, net_capital,
                           div_gross, div_withholding, div_net
+    fund_totals         : gains, losses_computable, losses_disallowed, net_capital
+    fund_net_positive
     warnings[]
 -->
 <!DOCTYPE html>
@@ -548,6 +552,68 @@
   </table>
   {% else %}
   <p class="empty">{{ labels.block3_empty }}</p>
+  {% endif %}
+
+  <!-- ============ BLOQUE 4: FONDOS DE INVERSIÓN (REEMBOLSOS) ============ -->
+  <h2>{{ labels.block4_title }}</h2>
+
+  {% if fund_lines %}
+  <p class="hint">{{ labels.block4_hint }}</p>
+  <table>
+    <thead>
+      <tr>
+        <th class="left">{{ labels.col_security }}</th>
+        <th class="left">{{ labels.col_isin }}</th>
+        <th>{{ labels.col_redeem_year }}</th>
+        <th>{{ labels.col_units }}</th>
+        <th>{{ labels.col_cost }}</th>
+        <th>{{ labels.col_proceeds }}</th>
+        <th>{{ labels.col_result }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in fund_lines %}
+      <tr class="{{ 'disallowed' if line.has_disallowed else '' }}">
+        <td class="left">{{ line.security_name }}</td>
+        <td class="left">{{ line.isin or '—' }}</td>
+        <td>{{ line.sell_year }}</td>
+        <td>{{ line.shares }}</td>
+        <td>{{ line.cost_eur }}</td>
+        <td>{{ line.proceeds_eur }}</td>
+        <td class="{{ 'pos' if line.gain_positive else 'neg' }}">{{ line.gain_eur }}</td>
+      </tr>
+      {% if line.has_disallowed %}
+      <tr class="disallowed">
+        <td colspan="7" class="note-disallowed">
+          <span class="flag">{{ labels.flag_no_compute }}</span>
+          {{ labels.flag_no_compute_note }}
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="summary">
+    <div class="summary-row">
+      <span>{{ labels.sum_gains }}</span>
+      <span class="pos">{{ fund_totals.gains }} €</span>
+    </div>
+    <div class="summary-row">
+      <span>{{ labels.sum_losses_computable }}</span>
+      <span class="neg">{{ fund_totals.losses_computable }} €</span>
+    </div>
+    <div class="summary-row">
+      <span>{{ labels.sum_losses_disallowed }}</span>
+      <span>{{ fund_totals.losses_disallowed }} €</span>
+    </div>
+    <div class="summary-row highlight">
+      <span>{{ labels.sum_net_capital }}</span>
+      <span class="{{ 'pos' if fund_net_positive else 'neg' }}">{{ fund_totals.net_capital }} €</span>
+    </div>
+  </div>
+  {% else %}
+  <p class="empty">{{ labels.block4_empty }}</p>
   {% endif %}
 
   <!-- ============ AVISOS ============ -->
