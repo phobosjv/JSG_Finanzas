@@ -5,6 +5,17 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.8] — 2026-06-04
+
+### Mejorado — Donut de distribución: top 8 + «Otros»
+
+- El gráfico de distribución de cartera quedaba ilegible con muchas posiciones
+  abiertas. Ahora muestra el **top 8 por volumen** y agrupa el resto bajo
+  **«Otros»** (porción gris neutra, no clicable). El porcentaje del tooltip sigue
+  siendo sobre el total de la cartera.
+
+---
+
 ## [1.9.7] — 2026-06-04
 
 ### Mejorado — Rellenar ISINs: 2ª fuente (Business Insider), dos pasadas y exclusión de cripto

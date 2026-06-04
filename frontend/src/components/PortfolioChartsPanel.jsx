@@ -68,6 +68,26 @@ function Bar3D({ x, y, width, height, value }) {
 
 export function DistributionChart({ positions, t, navigate }) {
   const totalValue = positions.reduce((s, p) => s + Number(p.market_value_eur), 0)
+
+  // Con muchas posiciones el donut y su leyenda quedan ilegibles. Mostramos el
+  // top 8 por volumen y agrupamos el resto bajo "Otros" (no clicable, gris).
+  const TOP_N = 8
+  const sorted = positions
+    .map(p => ({ name: p.name, value: Number(p.market_value_eur), security_id: p.security_id }))
+    .sort((a, b) => b.value - a.value)
+  const rest = sorted.slice(TOP_N)
+  const data = rest.length > 0
+    ? [
+        ...sorted.slice(0, TOP_N),
+        {
+          name: t('portfolio.others'),
+          value: rest.reduce((s, d) => s + d.value, 0),
+          security_id: null,
+          _others: true,
+        },
+      ]
+    : sorted
+
   return (
     <div className="card" style={{ flex: '1 1 340px', minWidth: 0 }}>
       <h2>{t('portfolio.chart_distribution')}</h2>
@@ -89,11 +109,7 @@ export function DistributionChart({ positions, t, navigate }) {
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
-                data={positions.map(p => ({
-                  name: p.name,
-                  value: Number(p.market_value_eur),
-                  security_id: p.security_id,
-                }))}
+                data={data}
                 cx="50%"
                 cy="52%"
                 innerRadius="46%"
@@ -102,10 +118,10 @@ export function DistributionChart({ positions, t, navigate }) {
                 paddingAngle={3}
                 strokeWidth={0}
                 style={{ cursor: 'pointer' }}
-                onClick={(data) => data?.security_id && navigate(`/securities/${data.security_id}`)}
+                onClick={(d) => d?.security_id && navigate(`/securities/${d.security_id}`)}
               >
-                {positions.map((_, i) => {
-                  const base = DONUT_COLORS[i % DONUT_COLORS.length]
+                {data.map((d, i) => {
+                  const base = d._others ? '#6b7280' : DONUT_COLORS[i % DONUT_COLORS.length]
                   return (
                     <Cell
                       key={i}
