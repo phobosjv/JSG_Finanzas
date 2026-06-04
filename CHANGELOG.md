@@ -5,6 +5,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.4] — 2026-06-04
+
+### Corregido — Indicadores del año en curso (home fiscal): fondos aparecían junto a ventas
+
+- La pantalla del año en curso de la sección fiscal seguía mostrando los fondos
+  sumados en «Resultado neto ventas» (el desglose se había hecho solo en el PDF).
+  Ahora replica las tarjetas del informe: «Resultado neto ventas» con solo
+  acciones/ETF/cripto, nueva tarjeta «Resultado venta fondos» entre dividendos y
+  comisiones, y cuota IRPF estimada bajo cada tarjeta de ganancia.
+- `GET /api/reports/tax/{year}/summary` añade `net_sales_eur` (acciones) y
+  `fund_net_eur` (fondos); su suma sigue siendo `net_capital_result_eur`.
+- Etiquetas alineadas con el PDF: «Cuota IRPF est.» y «Ret. origen».
+
+---
+
 ## [1.9.3] — 2026-06-04
 
 ### Cambiado — Informe fiscal: etiquetas más claras y avisos sobre la estimación

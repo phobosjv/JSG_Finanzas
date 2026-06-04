@@ -121,6 +121,10 @@ export default function TaxReport() {
     ? Math.max(0, summary.net_capital_result_eur) + summary.total_dividends_net_eur
     : 0
 
+  // Tipo efectivo para repartir la cuota estimada por concepto (igual que el PDF).
+  const effRate = base > 0 ? computeTax(base) / base : 0
+  const estTax = (value) => eur(Math.max(0, value) * effRate)
+
   return (
     <div>
       {/* ── Año en curso ── */}
@@ -137,13 +141,14 @@ export default function TaxReport() {
           <div className="tax-cards">
             <SummaryCard
               label={t('tax.card_net_sales')}
-              value={summary.net_capital_result_eur}
+              value={summary.net_sales_eur ?? summary.net_capital_result_eur}
               sub={
                 <span>
                   {t('tax.card_net_sales_sub')}
                   {summary.total_losses_disallowed_eur < 0 && (
                     <><br />{t('tax.disallowed_losses')} {eur(summary.total_losses_disallowed_eur)}</>
                   )}
+                  <br />{t('tax.est_tax')} <strong>{estTax(summary.net_sales_eur ?? summary.net_capital_result_eur)}</strong>
                 </span>
               }
               positive
@@ -151,7 +156,23 @@ export default function TaxReport() {
             <SummaryCard
               label={t('tax.card_dividends')}
               value={summary.total_dividends_net_eur}
-              sub={`${t('tax.gross')} ${eur(summary.total_dividends_gross_eur)} · ${t('tax.withholding_short')} ${eur(summary.total_dividends_withholding_eur)}`}
+              sub={
+                <span>
+                  {t('tax.gross')} {eur(summary.total_dividends_gross_eur)} · {t('tax.withholding_short')} {eur(summary.total_dividends_withholding_eur)}
+                  <br />{t('tax.est_tax')} <strong>{estTax(summary.total_dividends_net_eur)}</strong>
+                </span>
+              }
+              positive
+            />
+            <SummaryCard
+              label={t('tax.card_funds')}
+              value={summary.fund_net_eur ?? 0}
+              sub={
+                <span>
+                  {t('tax.card_funds_sub')}
+                  <br />{t('tax.est_tax')} <strong>{estTax(summary.fund_net_eur ?? 0)}</strong>
+                </span>
+              }
               positive
             />
             <SummaryCard

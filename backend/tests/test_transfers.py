@@ -235,6 +235,47 @@ def test_traspaso_no_genera_resultado_fiscal(admin_client):
     assert float(report["net_capital_result_eur"]) == 0.0
 
 
+def test_summary_separa_acciones_y_fondos(admin_client, seed_markets):
+    """
+    El resumen JSON desglosa el resultado de ventas en acciones (net_sales_eur)
+    y fondos (fund_net_eur), igual que el PDF. La suma es net_capital_result_eur.
+
+    Acción: compra 10 @ 10 (coste 100) y vende a 15 (ingreso 150) → +50.
+    Fondo:  compra 50 @ 10 (coste 500) y reembolsa a 13 (ingreso 650) → +150.
+    """
+    sec_a, _ = _crear_fondos(admin_client)
+
+    # Acción IBEX (seed): compra y venta
+    acc = admin_client.post("/api/securities", json={
+        "name": "Iberdrola", "yahoo_ticker": "IBE.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    pos_acc = admin_client.post("/api/portfolio/positions", json={"security_id": acc}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos_acc}/transactions", json={
+        "type": "buy", "date": "2023-02-01", "shares": "10", "price": "10",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    admin_client.post(f"/api/portfolio/{pos_acc}/transactions", json={
+        "type": "sell", "date": "2023-09-01", "shares": "10", "price": "15",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+
+    # Fondo: compra y reembolso (venta)
+    pos_f = admin_client.post("/api/portfolio/positions", json={"security_id": sec_a}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos_f}/transactions", json={
+        "type": "buy", "date": "2023-02-01", "shares": "50", "price": "10",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    admin_client.post(f"/api/portfolio/{pos_f}/transactions", json={
+        "type": "sell", "date": "2023-09-01", "shares": "50", "price": "13",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+
+    r = admin_client.get("/api/reports/tax/2023/summary").json()
+    assert float(r["net_sales_eur"]) == 50.0    # solo la acción
+    assert float(r["fund_net_eur"]) == 150.0     # solo el fondo
+    assert float(r["net_capital_result_eur"]) == 200.0  # suma
+
+
 # ---------------------------------------------------------------------------
 #  Deshacer traspaso (DELETE /portfolio/transfer/{group_id})
 # ---------------------------------------------------------------------------

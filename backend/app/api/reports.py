@@ -32,9 +32,22 @@ def get_tax_report_summary(
 ):
     sales, dividends = build_tax_report_input(db, user.id)
     report = build_tax_report(year, sales, dividends)
+
+    # Desglose del resultado de ventas en acciones vs. fondos, igual que el PDF:
+    # el saldo computable excluye las pérdidas marcadas por recompra.
+    stock_net = sum(
+        (l.gain_eur for l in report.sale_lines if not l.is_fund and not l.loss_disallowed),
+        Decimal("0"),
+    )
+    fund_net = sum(
+        (l.gain_eur for l in report.sale_lines if l.is_fund and not l.loss_disallowed),
+        Decimal("0"),
+    )
     return {
         "year": report.year,
         "net_capital_result_eur":        float(report.net_capital_result_eur),
+        "net_sales_eur":                 float(stock_net),   # solo acciones/ETF/cripto
+        "fund_net_eur":                  float(fund_net),    # solo reembolsos de fondos
         "total_gains_eur":               float(report.total_gains_eur),
         "total_losses_computable_eur":   float(report.total_losses_computable_eur),
         "total_losses_disallowed_eur":   float(report.total_losses_disallowed_eur),
