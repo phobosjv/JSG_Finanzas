@@ -134,6 +134,64 @@ export function DistributionChart({ positions, t, navigate }) {
   )
 }
 
+// ─── Donut de distribución agrupada (por tipo de producto o por divisa) ──────
+
+export function GroupedDistributionChart({ positions, groupBy, title, t }) {
+  // Agrupa el valor de mercado por tipo de producto o por divisa.
+  const groups = {}
+  for (const p of positions) {
+    const key = groupBy === 'market_type' ? (p.market_type || 'stock') : (p.currency || '—')
+    groups[key] = (groups[key] || 0) + Number(p.market_value_eur)
+  }
+  const label = key => groupBy === 'market_type' ? t(`seg.${key}`) : key
+  const data = Object.entries(groups)
+    .map(([key, value]) => ({ name: label(key), value }))
+    .sort((a, b) => b.value - a.value)
+  const totalValue = data.reduce((s, d) => s + d.value, 0)
+
+  // Con un solo grupo no aporta nada.
+  if (data.length < 2 || totalValue <= 0) return null
+
+  return (
+    <div className="card" style={{ flex: '1 1 320px', minWidth: 0 }}>
+      <h2>{title}</h2>
+      <div style={{ position: 'relative' }}>
+        <div style={{
+          position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)',
+          width: '52%', height: 18, background: 'rgba(0,0,0,0.45)',
+          borderRadius: '50%', filter: 'blur(10px)', pointerEvents: 'none',
+        }} />
+        <div style={{
+          transform: 'perspective(520px) rotateX(22deg)',
+          transformOrigin: 'center 68%',
+          filter: 'drop-shadow(0 14px 18px rgba(0,0,0,0.55))',
+        }}>
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie data={data} cx="50%" cy="52%" innerRadius="46%" outerRadius="72%"
+                   dataKey="value" paddingAngle={3} strokeWidth={0}>
+                {data.map((_, i) => {
+                  const base = DONUT_COLORS[i % DONUT_COLORS.length]
+                  return <Cell key={i} fill={base} stroke={shadeHex(base, -30)} strokeWidth={1.5} />
+                })}
+              </Pie>
+              <ReTooltip
+                contentStyle={{ background: '#1e1b2e', border: '1px solid #4f46e5', borderRadius: 6, fontSize: '0.82rem', color: '#f1f5f9' }}
+                labelStyle={{ color: '#f1f5f9', fontWeight: 600 }}
+                itemStyle={{ color: '#c4b5fd' }}
+                formatter={(value, name) => [
+                  `${fmt(value)} € (${fmt(value / totalValue * 100)}%)`, name,
+                ]}
+              />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '0.78rem' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Gráfico 2: Barras 3D B/P por acción ────────────────────────────────────
 
 export function PnLChart({ positions, t, navigate }) {

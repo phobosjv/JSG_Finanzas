@@ -5,6 +5,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.8.6] — 2026-06-04
+
+### Añadido — Distribución por tipo de producto y por divisa
+
+- Dos nuevos donuts en Mi Cartera: distribución del **valor de mercado** por
+  **tipo de producto** (Acciones/Fondos/ETF/Crypto) y por **divisa**
+  (EUR/USD/GBP…). Complementan la distribución por valor ya existente.
+- Cada gráfico se muestra solo si hay variedad (≥2 grupos) y respeta el
+  segmentador por tipo. Solo frontend (los campos `market_type` y `currency` ya
+  venían en el resumen de posiciones).
+
+---
+
 ## [1.8.5] — 2026-06-04
 
 ### Añadido — Rentabilidad por periodo (YTD / 1 año / 3 años / total)

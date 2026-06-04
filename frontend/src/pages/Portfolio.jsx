@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
 import PortfolioChartsPanel, {
   DistributionChart,
+  GroupedDistributionChart,
   HistoryChart,
   PnLChart,
   ClosedScatterChart,
@@ -365,6 +366,14 @@ export default function Portfolio() {
           <div style={{ flex: '2 1 400px', minWidth: 0 }}>
             <PnLChart positions={fPositions} t={t} navigate={navigate} />
           </div>
+        </div>
+      )}
+
+      {/* 4b. Distribución por tipo de producto y por divisa (si hay variedad) */}
+      {fPositions.length > 0 && (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16, alignItems: 'flex-start' }}>
+          <GroupedDistributionChart positions={fPositions} groupBy="market_type" title={t('portfolio.dist_by_type')} t={t} />
+          <GroupedDistributionChart positions={fPositions} groupBy="currency" title={t('portfolio.dist_by_currency')} t={t} />
         </div>
       )}
 
