@@ -896,9 +896,10 @@ export default function SecurityDetail() {
     loadAll()
   }
 
-  if (error)     return <div className="state-error">{error}</div>
-  if (!security) return <div className="state-loading"><div className="spinner" /></div>
-
+  // IMPORTANTE: los hooks de ordenación (useSortableData, más abajo) NO pueden
+  // ir después de un return condicional. Por eso los guards de error/carga se
+  // colocan DESPUÉS de todos los hooks. Los cálculos intermedios usan los
+  // valores iniciales seguros de snapshot/history/transactions/dividends.
   const pct    = snapshot?.daily_change_pct != null ? Number(snapshot.daily_change_pct) : null
   const pctCls = pct == null ? 'neu' : pct > 0 ? 'pos' : pct < 0 ? 'neg' : 'neu'
   const chartData = history.map(h => ({ date: h.date, close: Number(h.close) }))
@@ -938,6 +939,10 @@ export default function SecurityDetail() {
   const sellsSort     = useSortableData(sells)
   const transfersSort = useSortableData(transfers)
   const divsSort      = useSortableData(dividends)
+
+  // Guards DESPUÉS de todos los hooks (ver nota arriba).
+  if (error)     return <div className="state-error">{error}</div>
+  if (!security) return <div className="state-loading"><div className="spinner" /></div>
   const totalDivsGross = dividends.reduce(
     (s, d) => s + Number(d.gross_amount), 0
   )

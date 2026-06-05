@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.10.5] — 2026-06-06
+
+### Corregido — Pantalla en negro al cargar Mi Cartera o el detalle de un valor
+
+La ordenación de tablas introducida en v1.10.3 colocó las llamadas al hook
+`useSortableData` **después** de los `return` de error/carga en `Portfolio.jsx`
+y `SecurityDetail.jsx`. En el primer render (datos aún sin llegar) esos hooks
+no se ejecutaban; al llegar los datos React veía más hooks que antes y lanzaba
+«Rendered more hooks than during the previous render», tumbando todo el árbol
+(pantalla en negro tras el spinner).
+
+- Los datasets y los hooks de ordenación se calculan ahora **antes** de los
+  guards de error/carga, usando arrays seguros (`positions || []`). Los guards
+  pasan a estar después de todos los hooks, respetando las reglas de React.
+- `SecurityTable` no estaba afectado (su hook ya se ejecutaba siempre).
+
+---
+
 ## [1.10.4] — 2026-06-06
 
 ### Añadido — Umbral de cierre por «polvo» configurable por el admin

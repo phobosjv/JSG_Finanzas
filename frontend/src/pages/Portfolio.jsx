@@ -193,12 +193,17 @@ export default function Portfolio() {
     }
   }
 
-  if (error)      return <div className="state-error">{error}</div>
-  if (!positions) return <div className="state-loading"><div className="spinner" /></div>
+  // IMPORTANTE: ningún hook (useSortableData) puede ir después de un return
+  // condicional. Por eso los datasets y los hooks de ordenación se calculan
+  // ANTES de los guards de error/carga, usando arrays seguros (positions puede
+  // ser null en el primer render). Mover los guards arriba rompería las reglas
+  // de hooks ("rendered more hooks than during the previous render" → pantalla
+  // en negro al cargar los datos).
+  const safePositions = positions || []
 
   // Tipos presentes (abiertas + cerradas) y datasets filtrados por la segmentación.
-  const available  = presentTypes([...positions, ...closed])
-  const fPositions = positions.filter(p => matchesTypes(p, segTypes))
+  const available  = presentTypes([...safePositions, ...closed])
+  const fPositions = safePositions.filter(p => matchesTypes(p, segTypes))
   const fClosed    = closed.filter(p => matchesTypes(p, segTypes))
   const fClosedAn  = closedAnalytics.filter(p => matchesTypes(p, segTypes))
   const fDivsBySec = dividendsBySec.filter(d => matchesTypes(d, segTypes))
@@ -216,6 +221,10 @@ export default function Portfolio() {
   // Ordenación por cabecera (cliente, no persistente).
   const openSort   = useSortableData(searchedOpen)
   const closedSort = useSortableData(searchedClosed)
+
+  // Guards DESPUÉS de todos los hooks.
+  if (error)      return <div className="state-error">{error}</div>
+  if (!positions) return <div className="state-loading"><div className="spinner" /></div>
 
   const numN = v => (v != null ? Number(v) : null)
   const openColumns = [
