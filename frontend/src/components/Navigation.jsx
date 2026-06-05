@@ -14,22 +14,37 @@ const NAV_LINKS = [
   { to: '/utilities',  key: 'nav.utilities', icon: '⚙' },
 ]
 
-function computeAlerts(portfolio) {
+// Alertas de COMPRA: fuente = favorites.target_buy_price + last_price
+function computeBuyAlerts(favorites) {
+  const result = []
+  for (const fav of favorites) {
+    const price = fav.last_price != null ? Number(fav.last_price) : null
+    const buy = fav.target_buy_price != null ? Number(fav.target_buy_price) : null
+    if (price !== null && buy !== null && buy > 0 && price <= buy) {
+      result.push({
+        security_id: fav.security_id,
+        name: fav.name,
+        yahoo_ticker: fav.yahoo_ticker,
+        alertType: 'buy',
+      })
+    }
+  }
+  return result
+}
+
+// Alertas de VENTA: fuente = positions.target_sell_price + current_price
+function computeSellAlerts(portfolio) {
   const result = []
   for (const pos of portfolio) {
     const price = pos.current_price != null ? Number(pos.current_price) : null
     if (price === null) continue
-    const buy = pos.target_buy_price != null ? Number(pos.target_buy_price) : null
     const sell = pos.target_sell_price != null ? Number(pos.target_sell_price) : null
-    const sellHit = sell !== null && sell > 0 && price >= sell
-    const buyHit = buy !== null && buy > 0 && price <= buy
-    if (sellHit || buyHit) {
+    if (sell !== null && sell > 0 && price >= sell) {
       result.push({
         security_id: pos.security_id,
         name: pos.name,
         yahoo_ticker: pos.yahoo_ticker,
-        market_type: pos.market_type,
-        alertType: sellHit ? 'sell' : 'buy',
+        alertType: 'sell',
       })
     }
   }
@@ -124,8 +139,23 @@ export default function Navigation() {
     let cancelled = false
     async function loadAlerts() {
       try {
-        const portfolio = await api.get('/portfolio')
-        if (!cancelled) setAlerts(computeAlerts(portfolio))
+        const [portfolio, favorites] = await Promise.all([
+          api.get('/portfolio'),
+          api.get('/favorites'),
+        ])
+        if (cancelled) return
+        const buyAlerts = computeBuyAlerts(favorites)
+        const sellAlerts = computeSellAlerts(portfolio)
+        // Combinar: si un valor tiene alerta de venta Y de compra, mostrar venta.
+        const seen = new Set()
+        const combined = []
+        for (const a of [...sellAlerts, ...buyAlerts]) {
+          if (!seen.has(a.security_id)) {
+            combined.push(a)
+            seen.add(a.security_id)
+          }
+        }
+        setAlerts(combined)
       } catch { /* silencioso */ }
     }
     loadAlerts()

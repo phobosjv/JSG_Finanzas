@@ -774,6 +774,9 @@ export default function SecurityDetail() {
       setSnapshot(snap)
       setHistory(hist.slice(-365))
       setIsFav(favs.some(f => f.security_id === secId))
+      // target_buy_price: fuente única = favorites (compartido con la lista de mercados)
+      const fav = favs.find(f => f.security_id === secId)
+      setTargetBuyVal(fav?.target_buy_price != null ? String(fav.target_buy_price) : '')
 
       // Refresco perezoso: si el valor no está "en uso" y su snapshot está
       // rancio, el backend lo actualiza ahora (anti-rebote 1 h). No entra en la
@@ -801,8 +804,9 @@ export default function SecurityDetail() {
         setPosResult(posResult)
         setIsClosed(false)
         setNotesVal(posResult.notes ?? '')
-        setTargetBuyVal(posResult.target_buy_price != null ? String(posResult.target_buy_price) : '')
+        // target_sell: solo tiene sentido en posición abierta (positions.target_sell_price)
         setTargetSellVal(posResult.target_sell_price != null ? String(posResult.target_sell_price) : '')
+        // target_buy se inicializa arriba desde favorites (antes del if posResult)
       } else if (ops) {
         // Hay operaciones pero la posición está cerrada (vendida o traspasada).
         setIsClosed(true)
@@ -863,7 +867,13 @@ export default function SecurityDetail() {
     const num = val === '' ? null : parseFloat(val)
     if (num !== null && (isNaN(num) || num < 0)) return
     try {
-      await api.patch(`/portfolio/${positionId}/target-buy`, { target_buy_price: num })
+      // target_buy vive en favorites (fuente única, misma que la lista de mercados).
+      // Si el valor aún no es favorito, lo añadimos primero.
+      if (!isFav) {
+        await api.post(`/favorites/${secId}`)
+        setIsFav(true)
+      }
+      await api.patch(`/favorites/${secId}`, { target_buy_price: num })
     } catch { /* silencioso */ }
   }
 

@@ -5,6 +5,35 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.14] — 2026-06-05
+
+### Corregido — Precio objetivo de compra: fuente única en favoritos
+
+**Problema**: en v1.9.11 se añadió un campo `target_buy_price` redundante en
+la tabla `positions`, creando dos fuentes de verdad desincronizadas:
+
+- **Lista de mercados** (favoritos) → leía/escribía `favorites.target_buy_price`
+- **Detalle de acción** (SecurityDetail) → leía/escribía `positions.target_buy_price`
+- **Campanita** → solo leía `positions.target_buy_price` (ignoraba favoritos)
+
+El usuario veía valores distintos según desde dónde editara, el guardado en
+SecurityDetail no se reflejaba en la lista, y la campanita nunca detectaba
+las alertas de compra fijadas en la lista de mercados.
+
+**Corrección**:
+- `favorites.target_buy_price` pasa a ser la **única fuente de verdad** para
+  alertas de compra, coherente con el comportamiento preexistente de la lista.
+- SecurityDetail ahora **lee** el precio objetivo de compra desde los favoritos
+  cargados (no desde la posición) y **guarda** via `PATCH /favorites/{id}`.
+  Si el valor no es favorito al guardar, se añade automáticamente.
+- La **campanita** consulta `GET /favorites` para alertas de compra
+  (`last_price ≤ target_buy_price`) y `GET /portfolio` para alertas de venta
+  (`current_price ≥ target_sell_price`). Combina ambas con deduplicación
+  (si el mismo valor tiene alerta de venta y de compra, prevalece venta).
+- `positions.target_buy_price` queda en la BD pero ya no se usa en la UI.
+
+---
+
 ## [1.9.13] — 2026-06-05
 
 ### Añadido — Borrar datos de cartera (usuario)
