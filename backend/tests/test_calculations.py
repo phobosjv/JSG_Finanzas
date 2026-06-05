@@ -153,6 +153,54 @@ def test_venta_total_posicion_cerrada():
 
 
 # --------------------------------------------------------------------------
+#  3b. Umbral de "polvo": posiciones residuales por redondeo (DUST_THRESHOLD)
+# --------------------------------------------------------------------------
+
+def test_posicion_residual_polvo_se_considera_cerrada():
+    """
+    Compra 10 acc a 6 €, vende 9,999 acc: queda un residuo de 0,001 acc.
+    Coste vivo = 0,001 × 6 = 0,006 € < DUST_THRESHOLD (0,10) → cerrada.
+    (Reproduce el caso del usuario: 0 € y ~0 participaciones, pero is_closed
+    daba False por el residuo de redondeo.)
+    """
+    txs = [
+        buy_eur(date(2022, 1, 1), "10", "6"),
+        sell_eur(date(2023, 1, 1), "9.999", "8"),
+    ]
+    r = compute_position(txs, [])
+
+    assert r.current_shares == D("0.001")        # queda el polvo
+    assert r.invested_native < D("0.10")          # coste vivo ínfimo
+    assert r.is_closed                            # pero se considera cerrada
+
+
+def test_posicion_pequena_pero_real_sigue_abierta():
+    """
+    Una posición con coste vivo POR ENCIMA del umbral sigue abierta:
+    compra 1 acc a 6 € (coste 6 € > 0,10) → abierta.
+    """
+    txs = [buy_eur(date(2022, 1, 1), "1", "6")]
+    r = compute_position(txs, [])
+
+    assert r.current_shares == D("1")
+    assert not r.is_closed
+
+
+def test_umbral_polvo_justo_por_debajo_y_por_encima():
+    """
+    Frontera del umbral: coste vivo 0,09 € → cerrada; 0,11 € → abierta.
+    Se usa precio 1 € para que coste vivo = participaciones.
+    """
+    # 0,09 acc a 1 € → coste vivo 0,09 < 0,10 → cerrada
+    r_bajo = compute_position([buy_eur(date(2022, 1, 1), "0.09", "1")], [])
+    assert r_bajo.is_closed
+
+    # 0,11 acc a 1 € → coste vivo 0,11 > 0,10 → abierta
+    r_alto = compute_position([buy_eur(date(2022, 1, 1), "0.11", "1")], [])
+    assert not r_alto.is_closed
+
+
+# --------------------------------------------------------------------------
 #  4. Dividendos intercalados
 # --------------------------------------------------------------------------
 

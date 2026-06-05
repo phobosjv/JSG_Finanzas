@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.10.2] — 2026-06-05
+
+### Corregido — Posiciones residuales por redondeo se consideran cerradas
+
+Algunas posiciones que el usuario daba por cerradas seguían apareciendo como
+abiertas (mostrando 0 € y 0 participaciones) porque arrastraban un residuo de
+redondeo de milésimas de participación. Esto ocurre al comprar fondos por
+importe (`participaciones = importe / precio`), en traspasos con coste heredado
+por división, y en splits con ratios periódicos.
+
+- `PositionResult.is_closed` ahora considera cerrada una posición cuando no
+  quedan acciones vivas **o** cuando el coste de los lotes vivos cae por debajo
+  de un umbral de «polvo» (`DUST_THRESHOLD = 0,10` en divisa nativa).
+- El criterio vive en la capa de cálculo pura (no depende del precio en vivo) y
+  es el único punto de verdad, así que se propaga de forma coherente a cartera
+  abierta, posiciones cerradas, scatter e informe fiscal.
+- Una posición que solo es «polvo» (sin ventas reales) desaparece de ambas
+  vistas; una con ventas reales y residuo aparece en cerradas con el resultado
+  de sus ventas. El residuo (coste ínfimo) no se realiza ni afecta al informe
+  fiscal (nunca se vendió).
+- 3 tests nuevos en `test_calculations.py` (residuo cerrado, posición pequeña
+  real abierta, frontera del umbral).
+
+---
+
 ## [1.10.1] — 2026-06-05
 
 ### Corregido / Mejorado — Ajustes de UI en cartera y detalle

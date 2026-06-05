@@ -38,6 +38,14 @@ from typing import Literal
 CENT = Decimal("0.01")          # redondeo a céntimo
 SHARE_PREC = Decimal("0.000001")  # precisión para fracciones de acción
 
+# Umbral de "polvo": si el coste de los lotes vivos (en divisa nativa) queda por
+# debajo de este valor, la posición se considera CERRADA. Descarta residuos de
+# redondeo —fondos comprados por importe (shares = importe/precio), traspasos con
+# coste heredado por división, splits de ratio periódico— que dejaban milésimas
+# de participación manteniendo la posición artificialmente "abierta" pese a
+# mostrar 0 € y 0 participaciones. El coste de un residuo así es siempre ínfimo.
+DUST_THRESHOLD = Decimal("0.10")
+
 
 @dataclass(frozen=True)
 class Transaction:
@@ -155,8 +163,12 @@ class PositionResult:
 
     @property
     def is_closed(self) -> bool:
-        """Posición cerrada: no quedan acciones vivas."""
-        return self.current_shares <= Decimal("0")
+        """Posición cerrada: no quedan acciones vivas, o solo queda 'polvo' de
+        redondeo (coste de los lotes vivos por debajo de DUST_THRESHOLD, en
+        divisa nativa). Ver DUST_THRESHOLD."""
+        if self.current_shares <= Decimal("0"):
+            return True
+        return self.invested_native < DUST_THRESHOLD
 
 
 # --------------------------------------------------------------------------
