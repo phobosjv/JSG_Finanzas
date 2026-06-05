@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.12] — 2026-06-05
+
+### Añadido — Botón «Cerrar sesión» visible en todas las secciones
+
+- En móvil, el botón de cerrar sesión ahora aparece siempre en la cabecera
+  superior (junto a la campana de alertas), en lugar de solo en el Dashboard.
+  En escritorio ya estaba en la barra lateral (sin cambios).
+- Se elimina el botón redundante de logout del propio Dashboard.
+
+### Añadido — Campana de alertas de precio
+
+- Icono 🔔 en la esquina superior derecha de todas las secciones (cabecera
+  móvil y sidebar escritorio), a la izquierda del botón de cerrar sesión.
+- La campana resalta (opacidad plena + badge verde con el número de alertas)
+  cuando hay posiciones cuyo precio actual alcanza el objetivo fijado:
+  - Precio actual ≥ precio venta objetivo → alerta «**Vender**».
+  - Precio actual ≤ precio compra objetivo → alerta «**Comprar**».
+- Al pulsar se abre un popup con la lista de valores con alertas activas:
+  nombre, ticker y tipo de alerta. Haciendo clic en cualquiera se navega
+  al detalle de ese valor.
+- Sin alertas activas: campana semi-transparente sin badge.
+- Los datos se cargan al entrar y se refrescan automáticamente cada 5 minutos.
+
+---
+
 ## [1.9.11] — 2026-06-05
 
 ### Añadido — Fondo relacionado en tabla de traspasos

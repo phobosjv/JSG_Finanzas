@@ -14,9 +14,11 @@ export const translations = {
     'nav.markets':     'Mercados',
     'nav.portfolio':   'Mi cartera',
     'nav.tax':         'Fiscal',
-    'nav.utilities':   'Utilidades',
-    'nav.admin':       'Administración',
-    'nav.logout':      'Cerrar sesión',
+    'nav.utilities':     'Utilidades',
+    'nav.admin':         'Administración',
+    'nav.logout':        'Cerrar sesión',
+    'nav.alerts_title':  'Alertas de precio',
+    'nav.alerts_empty':  'Sin alertas activas',
 
     // ── Dashboard ────────────────────────────────────────────────────────
     'dashboard.title':                 'Dashboard',
@@ -460,9 +462,11 @@ export const translations = {
     'nav.markets':     'Markets',
     'nav.portfolio':   'My Portfolio',
     'nav.tax':         'Tax',
-    'nav.utilities':   'Utilities',
-    'nav.admin':       'Administration',
-    'nav.logout':      'Log out',
+    'nav.utilities':     'Utilities',
+    'nav.admin':         'Administration',
+    'nav.logout':        'Log out',
+    'nav.alerts_title':  'Price alerts',
+    'nav.alerts_empty':  'No active alerts',
 
     // ── Dashboard ────────────────────────────────────────────────────────
     'dashboard.title':                 'Dashboard',

@@ -445,7 +445,7 @@ function DashboardConfigModal({ config, onSave, onClose, allMarkets, t }) {
 // ─── Dashboard principal ──────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const { t }            = useAppConfig()
   const navigate         = useNavigate()
 
@@ -549,10 +549,7 @@ export default function Dashboard() {
         <h1>{t('dashboard.hello').replace('{name}',
           user?.username?.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') ?? ''
         )}</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-ghost btn-sm" onClick={() => setConfigOpen(true)} title={t('dashboard.configure')}>⚙</button>
-          <button className="btn-ghost btn-sm" onClick={logout}>{t('dashboard.logout')}</button>
-        </div>
+        <button className="btn-ghost btn-sm" onClick={() => setConfigOpen(true)} title={t('dashboard.configure')}>⚙</button>
       </div>
 
       {/* Segmentador por tipo de producto (afecta a resumen, posiciones y gráficos) */}
