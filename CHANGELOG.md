@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.10.3] — 2026-06-06
+
+### Añadido — Ordenación de tablas por cabecera y buscador en cartera
+
+- **Ordenación por columna**: en las tablas principales (cartera abierta,
+  cerradas, favoritos, mercados) y en las del detalle de un valor (compras,
+  ventas, dividendos, traspasos) ahora se puede ordenar pulsando la cabecera
+  de la columna. Tres estados por columna: 1er clic ascendente (▲), 2º
+  descendente (▼), 3º vuelve al orden por defecto. Los valores vacíos van
+  siempre al final. La ordenación es en cliente y **no se persiste**: al
+  recargar se vuelve al orden por defecto.
+- **Buscador** en las tablas de cartera **abierta** y **cerrada** (filtra por
+  ticker o nombre).
+- Nuevo hook reutilizable `useSortableData` + componente `SortableHead`.
+
+---
+
 ## [1.10.2] — 2026-06-05
 
 ### Corregido — Posiciones residuales por redondeo se consideran cerradas

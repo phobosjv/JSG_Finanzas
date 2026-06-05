@@ -6,6 +6,7 @@ import {
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import { useSortableData, SortableHead } from '../hooks/useSortableData'
 
 function fmt(val, dec = 2) {
   if (val == null) return '—'
@@ -905,6 +906,38 @@ export default function SecurityDetail() {
   const buys  = transactions.filter(t => t.type === 'buy')
   const sells = transactions.filter(t => t.type === 'sell')
   const transfers = transactions.filter(t => t.type === 'transfer_in' || t.type === 'transfer_out')
+
+  // Ordenación de las tablas del detalle (cliente, no persistente).
+  const numN = v => (v != null && v !== '' ? Number(v) : null)
+  const txColumns = [
+    { key: 'date',     label: t('sd.col_date'),     accessor: tx => tx.date },
+    { key: 'shares',   label: t('sd.col_shares'),   className: 'num', accessor: tx => numN(tx.shares) },
+    { key: 'price',    label: t('sd.col_price'),    className: 'num', accessor: tx => numN(tx.price) },
+    { key: 'fee',      label: t('sd.col_fee'),      className: 'num', accessor: tx => numN(tx.fee) },
+    { key: 'currency', label: t('sd.col_currency'), className: 'num', accessor: tx => tx.currency },
+    { key: 'total',    label: t('sd.col_total_op'), className: 'num', accessor: tx => totalOp(tx) },
+    { key: 'actions',  label: '' },
+  ]
+  const divColumns = [
+    { key: 'date',     label: t('sd.col_date'),       accessor: d => d.date },
+    { key: 'shares',   label: t('sd.col_shares'),     className: 'num', accessor: d => numN(d.shares_at_date) },
+    { key: 'pershare', label: t('sd.col_per_share'),  className: 'num', accessor: d => numN(d.gross_per_share) },
+    { key: 'gross',    label: t('sd.col_gross'),      className: 'num', accessor: d => numN(d.gross_amount) },
+    { key: 'currency', label: t('sd.col_currency'),   className: 'num', accessor: d => d.currency },
+    { key: 'actions',  label: '' },
+  ]
+  const transferColumns = [
+    { key: 'date',      label: t('sd.col_date'),            accessor: tx => tx.date },
+    { key: 'direction', label: t('sd.transfer_direction'),  accessor: tx => tx.type },
+    { key: 'related',   label: t('sd.col_related_fund'),    accessor: tx => tx.related_security_name || null },
+    { key: 'shares',    label: t('sd.col_shares'),          className: 'num', accessor: tx => numN(tx.shares) },
+    { key: 'cost',      label: t('sd.transfer_cost'),       className: 'num', accessor: tx => Number(tx.shares) * Number(tx.price) },
+    { key: 'actions',   label: '' },
+  ]
+  const buysSort      = useSortableData(buys)
+  const sellsSort     = useSortableData(sells)
+  const transfersSort = useSortableData(transfers)
+  const divsSort      = useSortableData(dividends)
   const totalDivsGross = dividends.reduce(
     (s, d) => s + Number(d.gross_amount), 0
   )
@@ -1246,18 +1279,8 @@ export default function SecurityDetail() {
         ) : (
           <div className="table-wrap" style={tableScrollStyle(buys.length)}>
             <table>
-              <thead>
-                <tr>
-                  <th>{t('sd.col_date')}</th>
-                  <th className="num">{t('sd.col_shares')}</th>
-                  <th className="num">{t('sd.col_price')}</th>
-                  <th className="num">{t('sd.col_fee')}</th>
-                  <th className="num">{t('sd.col_currency')}</th>
-                  <th className="num">{t('sd.col_total_op')}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>{buys.map(tx => <TxRow key={tx.id} tx={tx} onDelete={deleteTx} onEdit={tx => { setEditingTx(tx); setTxModal(true) }} />)}</tbody>
+              <SortableHead columns={txColumns} sortKey={buysSort.sortKey} sortDir={buysSort.sortDir} requestSort={buysSort.requestSort} />
+              <tbody>{buysSort.sorted.map(tx => <TxRow key={tx.id} tx={tx} onDelete={deleteTx} onEdit={tx => { setEditingTx(tx); setTxModal(true) }} />)}</tbody>
             </table>
           </div>
         )}
@@ -1315,18 +1338,8 @@ export default function SecurityDetail() {
           ) : (
             <div className="table-wrap" style={tableScrollStyle(sells.length)}>
               <table>
-                <thead>
-                  <tr>
-                    <th>{t('sd.col_date')}</th>
-                    <th className="num">{t('sd.col_shares')}</th>
-                    <th className="num">{t('sd.col_price')}</th>
-                    <th className="num">{t('sd.col_fee')}</th>
-                    <th className="num">{t('sd.col_currency')}</th>
-                    <th className="num">{t('sd.col_total_op')}</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>{sells.map(tx => <TxRow key={tx.id} tx={tx} onDelete={deleteTx} onEdit={tx => { setEditingTx(tx); setTxModal(true) }} />)}</tbody>
+                <SortableHead columns={txColumns} sortKey={sellsSort.sortKey} sortDir={sellsSort.sortDir} requestSort={sellsSort.requestSort} />
+                <tbody>{sellsSort.sorted.map(tx => <TxRow key={tx.id} tx={tx} onDelete={deleteTx} onEdit={tx => { setEditingTx(tx); setTxModal(true) }} />)}</tbody>
               </table>
             </div>
           )}
@@ -1368,18 +1381,9 @@ export default function SecurityDetail() {
           ) : (
             <div className="table-wrap" style={tableScrollStyle(transfers.length)}>
               <table>
-                <thead>
-                  <tr>
-                    <th>{t('sd.col_date')}</th>
-                    <th>{t('sd.transfer_direction')}</th>
-                    <th>{t('sd.col_related_fund')}</th>
-                    <th className="num">{t('sd.col_shares')}</th>
-                    <th className="num">{t('sd.transfer_cost')}</th>
-                    <th></th>
-                  </tr>
-                </thead>
+                <SortableHead columns={transferColumns} sortKey={transfersSort.sortKey} sortDir={transfersSort.sortDir} requestSort={transfersSort.requestSort} />
                 <tbody>
-                  {transfers.map(tx => (
+                  {transfersSort.sorted.map(tx => (
                     <tr key={tx.id}>
                       <td>{tx.date}</td>
                       <td>{tx.type === 'transfer_in' ? `↓ ${t('sd.transfer_in')}` : `↑ ${t('sd.transfer_out')}`}</td>
@@ -1438,17 +1442,8 @@ export default function SecurityDetail() {
         ) : (
           <div className="table-wrap" style={tableScrollStyle(dividends.length)}>
             <table>
-              <thead>
-                <tr>
-                  <th>{t('sd.col_date')}</th>
-                  <th className="num">{t('sd.col_shares')}</th>
-                  <th className="num">{t('sd.col_per_share')}</th>
-                  <th className="num">{t('sd.col_gross')}</th>
-                  <th className="num">{t('sd.col_currency')}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>{dividends.map(d => <DivRow key={d.id} div={d} onDelete={deleteDiv} onEdit={d => { setEditingDiv(d); setDivModal(true) }} />)}</tbody>
+              <SortableHead columns={divColumns} sortKey={divsSort.sortKey} sortDir={divsSort.sortDir} requestSort={divsSort.requestSort} />
+              <tbody>{divsSort.sorted.map(d => <DivRow key={d.id} div={d} onDelete={deleteDiv} onEdit={d => { setEditingDiv(d); setDivModal(true) }} />)}</tbody>
             </table>
           </div>
         )}

@@ -12,6 +12,7 @@ import PortfolioChartsPanel, {
   DividendScatterChart,
 } from '../components/PortfolioChartsPanel'
 import AssetTypeFilter, { matchesTypes, presentTypes } from '../components/AssetTypeFilter'
+import { useSortableData, SortableHead } from '../hooks/useSortableData'
 
 // Persistencia de la selección de tipos por pantalla.
 function loadSegTypes(key) {
@@ -134,6 +135,8 @@ export default function Portfolio() {
   const [segTypes, setSegTypes]           = useState(() => loadSegTypes('portfolioSegTypes'))
   const [xirr, setXirr]                   = useState(null)
   const [periods, setPeriods]             = useState(null)
+  const [searchOpen, setSearchOpen]       = useState('')
+  const [searchClosed, setSearchClosed]   = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -200,6 +203,52 @@ export default function Portfolio() {
   const fClosedAn  = closedAnalytics.filter(p => matchesTypes(p, segTypes))
   const fDivsBySec = dividendsBySec.filter(d => matchesTypes(d, segTypes))
 
+  // Buscador (por ticker o nombre) sobre cartera abierta y cerrada.
+  const matchSearch = (p, q) => {
+    if (!q.trim()) return true
+    const s = q.trim().toLowerCase()
+    return (p.yahoo_ticker || '').toLowerCase().includes(s)
+      || (p.name || '').toLowerCase().includes(s)
+  }
+  const searchedOpen   = fPositions.filter(p => matchSearch(p, searchOpen))
+  const searchedClosed = fClosed.filter(p => matchSearch(p, searchClosed))
+
+  // Ordenación por cabecera (cliente, no persistente).
+  const openSort   = useSortableData(searchedOpen)
+  const closedSort = useSortableData(searchedClosed)
+
+  const numN = v => (v != null ? Number(v) : null)
+  const openColumns = [
+    { key: 'security', label: t('portfolio.col_security'), accessor: p => p.name },
+    { key: 'shares',   label: t('portfolio.col_shares'),     className: 'num', accessor: p => numN(p.shares) },
+    { key: 'avg',      label: t('portfolio.col_avg'),        className: 'num', accessor: p => numN(p.avg_cost_eur) },
+    { key: 'cost',     label: t('portfolio.col_cost'),       className: 'num', accessor: p => numN(p.cost_eur) },
+    { key: 'price',    label: t('portfolio.col_price'),      className: 'num', accessor: p => numN(p.current_price) },
+    { key: 'value',    label: t('portfolio.col_value'),      className: 'num', accessor: p => numN(p.market_value_eur) },
+    { key: 'unreal',   label: t('portfolio.col_unrealized'), className: 'num', accessor: p => numN(p.unrealized_pnl_eur) },
+    { key: 'pct',      label: t('portfolio.col_pct'),        className: 'num', accessor: p => numN(p.unrealized_pnl_pct) },
+    { key: 'dayeur',   label: `${t('portfolio.col_daily')} €`, className: 'num', accessor: p => numN(p.daily_change_eur) },
+    { key: 'daypct',   label: `${t('portfolio.col_daily')} %`, className: 'num', accessor: p => numN(p.daily_change_pct) },
+    { key: 'divs',     label: t('portfolio.col_divs'),       className: 'num', accessor: p => numN(p.dividends_eur) },
+    { key: 'total',    label: t('portfolio.col_total'),      className: 'num', accessor: p => numN(p.total_profit_eur) },
+    { key: 'range',    label: t('portfolio.col_range'),      className: 'num', accessor: p => numN(p.max_1y) },
+    { key: 'target',   label: t('portfolio.col_target'),     className: 'num', accessor: p => numN(p.target_sell_price) },
+    { key: 'targetpct', label: t('portfolio.col_target_pct'), className: 'num',
+      accessor: p => (p.target_sell_price != null && p.current_price != null)
+        ? (Number(p.target_sell_price) - Number(p.current_price)) / Number(p.current_price) * 100 : null },
+    { key: 'alert',    label: t('markets.col_alert'), style: { textAlign: 'center' } },
+    { key: 'actions',  label: '' },
+  ]
+  const closedColumns = [
+    { key: 'security', label: t('portfolio.col_security'), accessor: p => p.name },
+    { key: 'shares',   label: t('portfolio.col_shares'),   className: 'num', accessor: p => numN(p.shares_sold) },
+    { key: 'cost',     label: t('portfolio.col_cost'),     className: 'num', accessor: p => numN(p.cost_eur) },
+    { key: 'value',    label: t('portfolio.col_value'),    className: 'num', accessor: p => numN(p.proceeds_eur) },
+    { key: 'realized', label: t('portfolio.col_realized'), className: 'num', accessor: p => numN(p.realized_pnl_eur) },
+    { key: 'divs',     label: t('portfolio.col_divs'),     className: 'num', accessor: p => numN(p.dividends_eur) },
+    { key: 'total',    label: t('portfolio.col_total'),    className: 'num', accessor: p => numN(p.total_profit_eur) },
+  ]
+
   const totalValue    = fPositions.reduce((s, p) => s + Number(p.market_value_eur), 0)
   const totalCost     = fPositions.reduce((s, p) => s + Number(p.cost_eur), 0)
   const totalPnL      = fPositions.reduce((s, p) => s + Number(p.unrealized_pnl_eur), 0)
@@ -261,32 +310,21 @@ export default function Portfolio() {
         <div className="state-empty">{t('portfolio.open')}</div>
       ) : (
         <div className="card">
-          <h2>{t('portfolio.open')}</h2>
-          <div className="table-wrap" style={tableScrollStyle(fPositions.length)}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+            <h2 style={{ margin: 0 }}>{t('portfolio.open')}</h2>
+            <input
+              type="search"
+              value={searchOpen}
+              onChange={e => setSearchOpen(e.target.value)}
+              placeholder={t('markets.search_placeholder')}
+              style={{ flex: '0 1 240px', padding: '5px 10px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: '0.85rem' }}
+            />
+          </div>
+          <div className="table-wrap" style={tableScrollStyle(openSort.sorted.length)}>
             <table>
-              <thead>
-                <tr>
-                  <th>{t('portfolio.col_security')}</th>
-                  <th className="num">{t('portfolio.col_shares')}</th>
-                  <th className="num">{t('portfolio.col_avg')}</th>
-                  <th className="num">{t('portfolio.col_cost')}</th>
-                  <th className="num">{t('portfolio.col_price')}</th>
-                  <th className="num">{t('portfolio.col_value')}</th>
-                  <th className="num">{t('portfolio.col_unrealized')}</th>
-                  <th className="num">{t('portfolio.col_pct')}</th>
-                  <th className="num">{t('portfolio.col_daily')} €</th>
-                  <th className="num">{t('portfolio.col_daily')} %</th>
-                  <th className="num">{t('portfolio.col_divs')}</th>
-                  <th className="num">{t('portfolio.col_total')}</th>
-                  <th className="num">{t('portfolio.col_range')}</th>
-                  <th className="num">{t('portfolio.col_target')}</th>
-                  <th className="num">{t('portfolio.col_target_pct')}</th>
-                  <th style={{ textAlign: 'center' }}>{t('markets.col_alert')}</th>
-                  <th></th>
-                </tr>
-              </thead>
+              <SortableHead columns={openColumns} sortKey={openSort.sortKey} sortDir={openSort.sortDir} requestSort={openSort.requestSort} />
               <tbody>
-                {fPositions.map(p => {
+                {openSort.sorted.map(p => {
                   const isSellAlert = p.target_sell_price != null
                     && p.current_price != null
                     && Number(p.current_price) >= Number(p.target_sell_price)
@@ -380,22 +418,21 @@ export default function Portfolio() {
       {/* 5. Tabla posiciones cerradas */}
       {fClosed.length > 0 && (
         <div className="card">
-          <h2>{t('portfolio.closed')}</h2>
-          <div className="table-wrap" style={tableScrollStyle(fClosed.length)}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+            <h2 style={{ margin: 0 }}>{t('portfolio.closed')}</h2>
+            <input
+              type="search"
+              value={searchClosed}
+              onChange={e => setSearchClosed(e.target.value)}
+              placeholder={t('markets.search_placeholder')}
+              style={{ flex: '0 1 240px', padding: '5px 10px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: '0.85rem' }}
+            />
+          </div>
+          <div className="table-wrap" style={tableScrollStyle(closedSort.sorted.length)}>
             <table>
-              <thead>
-                <tr>
-                  <th>{t('portfolio.col_security')}</th>
-                  <th className="num">{t('portfolio.col_shares')}</th>
-                  <th className="num">{t('portfolio.col_cost')}</th>
-                  <th className="num">{t('portfolio.col_value')}</th>
-                  <th className="num">{t('portfolio.col_realized')}</th>
-                  <th className="num">{t('portfolio.col_divs')}</th>
-                  <th className="num">{t('portfolio.col_total')}</th>
-                </tr>
-              </thead>
+              <SortableHead columns={closedColumns} sortKey={closedSort.sortKey} sortDir={closedSort.sortDir} requestSort={closedSort.requestSort} />
               <tbody>
-                {fClosed.map(p => (
+                {closedSort.sorted.map(p => (
                   <tr key={p.position_id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/securities/${p.security_id}`)}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

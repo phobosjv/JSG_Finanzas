@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
+import { useSortableData, SortableHead } from '../hooks/useSortableData'
 
 /**
  * Formateador de precio adaptativo.
@@ -128,28 +129,34 @@ export default function SecurityTable({ securities, favoritesTab = false, onTogg
 
   const scrollStyle = securities.length > 10 ? { maxHeight: 540, overflowY: 'auto' } : {}
 
+  const numN = v => (v != null && v !== '' ? Number(v) : null)
+  const pctToTargetOf = sec => (sec.is_favorite && sec.target_buy_price != null && sec.last_price != null)
+    ? (Number(sec.target_buy_price) - Number(sec.last_price)) / Number(sec.last_price) * 100
+    : null
+  const columns = [
+    { key: 'name',   label: t('markets.col_name'),   accessor: s => s.name },
+    hasIsin   && { key: 'isin',   label: t('markets.col_isin'),   accessor: s => s.isin || null },
+    hasGoogle && { key: 'google', label: t('markets.col_google'), accessor: s => s.google_ticker || null },
+    { key: 'price',  label: t('markets.col_price'),  className: 'num', accessor: s => numN(s.last_price) },
+    { key: 'change', label: t('markets.col_change'), className: 'num', accessor: s => numN(s.daily_change_pct) },
+    { key: 'min1y',  label: t('markets.col_min1y'),  className: 'num', accessor: s => numN(s.min_1y) },
+    { key: 'min2y',  label: t('markets.col_min2y'),  className: 'num', accessor: s => numN(s.min_2y) },
+    { key: 'min5y',  label: t('markets.col_min5y'),  className: 'num', accessor: s => numN(s.min_5y) },
+    { key: 'alert',  label: t('markets.col_alert') },
+    hasDividend && { key: 'dividend', label: t('markets.col_dividend'), className: 'num', accessor: s => numN(s.last_dividend) },
+    { key: 'target',    label: t('markets.col_target'),     className: 'num', accessor: s => numN(s.target_buy_price) },
+    { key: 'targetpct', label: t('markets.col_target_pct'), className: 'num', accessor: pctToTargetOf },
+    { key: 'action',    label: t('markets.col_action'), style: { textAlign: 'center' } },
+  ].filter(Boolean)
+
+  const { sorted, sortKey, sortDir, requestSort } = useSortableData(securities)
+
   return (
     <div className="table-wrap" style={scrollStyle}>
       <table>
-        <thead>
-          <tr>
-            <th>{t('markets.col_name')}</th>
-            {hasIsin   && <th>{t('markets.col_isin')}</th>}
-            {hasGoogle && <th>{t('markets.col_google')}</th>}
-            <th className="num">{t('markets.col_price')}</th>
-            <th className="num">{t('markets.col_change')}</th>
-            <th className="num">{t('markets.col_min1y')}</th>
-            <th className="num">{t('markets.col_min2y')}</th>
-            <th className="num">{t('markets.col_min5y')}</th>
-            <th>{t('markets.col_alert')}</th>
-            {hasDividend && <th className="num">{t('markets.col_dividend')}</th>}
-            <th className="num">{t('markets.col_target')}</th>
-            <th className="num">{t('markets.col_target_pct')}</th>
-            <th style={{ textAlign: 'center' }}>{t('markets.col_action')}</th>
-          </tr>
-        </thead>
+        <SortableHead columns={columns} sortKey={sortKey} sortDir={sortDir} requestSort={requestSort} />
         <tbody>
-          {securities.map(sec => {
+          {sorted.map(sec => {
             const pct = sec.daily_change_pct != null ? Number(sec.daily_change_pct) : null
             const pctCls = pct == null ? 'neu' : pct > 0 ? 'pos' : pct < 0 ? 'neg' : 'neu'
 
