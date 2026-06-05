@@ -32,7 +32,7 @@ from app.api.deps import get_current_user, get_db
 from collections import defaultdict
 
 from app.models import DividendRow, EcbRate, Position, PriceHistory, PriceSnapshot, RecurringPlanRow, Security, SecuritySplit, TransactionRow, User
-from app.repositories.portfolio_repository import PortfolioRepository
+from app.repositories.portfolio_repository import PortfolioRepository, get_dust_threshold
 from app.repositories.exchange_rates import latest_rate, rate_on_date
 from app.models.market import MarketRow
 from app.schemas.portfolio import (
@@ -70,7 +70,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
     txs    = repo.transactions_for_position(pos.id)
     divs   = repo.dividends_for_position(pos.id)
     splits = repo.splits_for_security(sec.id)
-    result = compute_position(txs, divs, splits)
+    result = compute_position(txs, divs, splits, dust_threshold=get_dust_threshold(db))
 
     if result.is_closed:
         return None
@@ -808,6 +808,7 @@ def get_closed_positions(
         select(Position).where(Position.user_id == user.id)
     ).all()
     repo = PortfolioRepository(db)
+    dust = get_dust_threshold(db)
     market_types: dict[str, str] = {
         m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
     }
@@ -820,7 +821,7 @@ def get_closed_positions(
         if not txs:
             continue
         splits = repo.splits_for_security(sec.id)
-        computed = compute_position(txs, divs, splits)
+        computed = compute_position(txs, divs, splits, dust_threshold=dust)
         if not computed.is_closed:
             continue
         # Una posición cerrada SIN sale_matches lo está por un traspaso íntegro
@@ -884,6 +885,7 @@ def get_closed_analytics(
         select(Position).where(Position.user_id == user.id)
     ).all()
     repo = PortfolioRepository(db)
+    dust = get_dust_threshold(db)
     market_types: dict[str, str] = {
         m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
     }
@@ -894,7 +896,7 @@ def get_closed_analytics(
         txs    = repo.transactions_for_position(pos.id)
         divs   = repo.dividends_for_position(pos.id)
         splits = repo.splits_for_security(sec.id)
-        computed = compute_position(txs, divs, splits)
+        computed = compute_position(txs, divs, splits, dust_threshold=dust)
 
         # Antes solo se incluían las posiciones cerradas. Ahora también las
         # ABIERTAS que tengan ventas parciales ya realizadas: su round-trip

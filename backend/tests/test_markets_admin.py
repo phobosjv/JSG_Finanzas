@@ -208,6 +208,62 @@ def test_usuario_normal_no_puede_cambiar_intervalo(auth_client):
 
 
 # ---------------------------------------------------------------------------
+#  PATCH /admin/config/dust-threshold (umbral de cierre por "polvo")
+# ---------------------------------------------------------------------------
+
+def test_admin_config_incluye_dust_threshold(admin_client):
+    """GET /admin/config devuelve el umbral de polvo (por defecto 0,10)."""
+    data = admin_client.get("/api/admin/config").json()
+    assert "dust_threshold" in data
+    assert float(data["dust_threshold"]) == 0.10
+
+
+def test_admin_cambia_dust_threshold(admin_client):
+    resp = admin_client.patch("/api/admin/config/dust-threshold", json={"dust_threshold": "0.5"})
+    assert resp.status_code == 200
+    assert float(resp.json()["dust_threshold"]) == 0.5
+    # Persistido
+    cfg = admin_client.get("/api/admin/config").json()
+    assert float(cfg["dust_threshold"]) == 0.5
+
+
+def test_admin_dust_threshold_negativo_rechazado(admin_client):
+    resp = admin_client.patch("/api/admin/config/dust-threshold", json={"dust_threshold": "-1"})
+    assert resp.status_code == 422
+
+
+def test_usuario_normal_no_puede_cambiar_dust(auth_client):
+    resp = auth_client.patch("/api/admin/config/dust-threshold", json={"dust_threshold": "0.5"})
+    assert resp.status_code == 403
+
+
+def test_dust_threshold_configurado_afecta_clasificacion(admin_client, seed_markets, engine):
+    """
+    Con umbral por defecto (0,10), una posición con coste vivo 0,30 € está ABIERTA.
+    Subiendo el umbral a 0,50 €, esa misma posición pasa a CERRADA (desaparece
+    de la cartera abierta).
+    """
+    sec = admin_client.post("/api/securities", json={
+        "name": "DustCo", "yahoo_ticker": "DUST.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    # Compra 0,3 acc a 1 € → coste vivo 0,30 €
+    admin_client.post(f"/api/portfolio/{pos}/transactions", json={
+        "type": "buy", "date": "2024-01-02", "shares": "0.3", "price": "1",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+
+    # Umbral por defecto 0,10 → 0,30 > 0,10 → abierta
+    open_before = admin_client.get("/api/portfolio").json()
+    assert any(p["security_id"] == sec for p in open_before)
+
+    # Subir umbral a 0,50 → 0,30 < 0,50 → cerrada (desaparece de abiertas)
+    admin_client.patch("/api/admin/config/dust-threshold", json={"dust_threshold": "0.5"})
+    open_after = admin_client.get("/api/portfolio").json()
+    assert not any(p["security_id"] == sec for p in open_after)
+
+
+# ---------------------------------------------------------------------------
 #  is_fund_market (v1.7.0)
 # ---------------------------------------------------------------------------
 

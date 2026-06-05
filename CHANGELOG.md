@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.10.4] — 2026-06-06
+
+### Añadido — Umbral de cierre por «polvo» configurable por el admin
+
+El umbral que decide cuándo una posición residual por redondeo se considera
+cerrada (introducido fijo en 0,10 en v1.10.2) ahora es **configurable desde
+AdminPanel → Configuración**.
+
+- El valor se guarda en `app_config` (`dust_threshold`) con fallback a 0,10.
+- `compute_position` acepta un parámetro `dust_threshold` (default
+  `DUST_THRESHOLD`) que se almacena en `PositionResult` y usa `is_closed`. La
+  capa de cálculo **sigue siendo pura**: el valor se inyecta desde la capa API
+  vía el helper `get_dust_threshold(db)`; no se lee BD dentro del cálculo.
+- Nuevo endpoint `PATCH /api/admin/config/dust-threshold` y campo
+  `dust_threshold` en `GET /api/admin/config`.
+- 5 tests nuevos, incluido uno que verifica que cambiar el umbral reclasifica
+  una posición de abierta a cerrada.
+
+---
+
 ## [1.10.3] — 2026-06-06
 
 ### Añadido — Ordenación de tablas por cabecera y buscador en cartera

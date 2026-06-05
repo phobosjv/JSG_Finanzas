@@ -160,15 +160,18 @@ class PositionResult:
     # --- Lotes vivos y emparejamientos de venta ---
     open_lots: list[Lot] = field(default_factory=list)
     sale_matches: list[SaleMatch] = field(default_factory=list)
+    # Umbral de "polvo" efectivo para esta posición (configurable por admin;
+    # por defecto DUST_THRESHOLD). compute_position lo inyecta.
+    dust_threshold: Decimal = DUST_THRESHOLD
 
     @property
     def is_closed(self) -> bool:
         """Posición cerrada: no quedan acciones vivas, o solo queda 'polvo' de
-        redondeo (coste de los lotes vivos por debajo de DUST_THRESHOLD, en
-        divisa nativa). Ver DUST_THRESHOLD."""
+        redondeo (coste de los lotes vivos por debajo del umbral, en divisa
+        nativa). Ver DUST_THRESHOLD / dust_threshold."""
         if self.current_shares <= Decimal("0"):
             return True
-        return self.invested_native < DUST_THRESHOLD
+        return self.invested_native < self.dust_threshold
 
 
 # --------------------------------------------------------------------------
@@ -229,6 +232,7 @@ def compute_position(
     transactions: list[Transaction],
     dividends: list[Dividend],
     splits: list[Split] | None = None,
+    dust_threshold: Decimal = DUST_THRESHOLD,
 ) -> PositionResult:
     """
     Reconstruye el estado completo de una posición a partir de sus
@@ -310,6 +314,7 @@ def compute_position(
         dividends_net_eur=div_net_eur,
         open_lots=open_lots,
         sale_matches=sale_matches,
+        dust_threshold=dust_threshold,
     )
 
 

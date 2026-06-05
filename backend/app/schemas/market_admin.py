@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import binascii
 from datetime import date
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, field_validator
@@ -104,6 +105,21 @@ class SnapshotIntervalUpdate(BaseModel):
 
 class CurrenciesUpdate(BaseModel):
     currencies: list[str]
+
+
+class DustThresholdUpdate(BaseModel):
+    """Umbral de 'polvo': coste de lotes vivos por debajo del cual una posición
+    se considera cerrada (en divisa nativa)."""
+    dust_threshold: Decimal
+
+    @field_validator("dust_threshold")
+    @classmethod
+    def non_negative(cls, v: Decimal) -> Decimal:
+        if v < 0:
+            raise ValueError("El umbral no puede ser negativo")
+        if v > 100:
+            raise ValueError("El umbral no puede superar 100")
+        return v
 
 
 class AppNameUpdate(BaseModel):

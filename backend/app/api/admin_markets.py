@@ -25,9 +25,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_admin
 from app.models import AppConfig, MarketRow, Security, TaxBracketRow, User
 from app.schemas.market_admin import (
-    AppNameUpdate, CatalogImportBody, CurrenciesUpdate, LogoUpdate,
+    AppNameUpdate, CatalogImportBody, CurrenciesUpdate, DustThresholdUpdate, LogoUpdate,
     MarketCreate, MarketOut, MarketReorderItem, MarketUpdate, SnapshotIntervalUpdate,
 )
+from app.repositories.portfolio_repository import DUST_THRESHOLD_KEY, get_dust_threshold
 from app.schemas.tax_bracket import TaxBracketCreate, TaxBracketOut, TaxBracketUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -411,7 +412,26 @@ def get_config(
         "has_logo": db.get(AppConfig, _CONFIG_LOGO_DATA_KEY) is not None,
         "logo_updated_at": logo_updated.value if logo_updated else None,
         "supported_currencies": _get_supported_currencies(db),
+        "dust_threshold": str(get_dust_threshold(db)),
     }
+
+
+@router.patch("/config/dust-threshold")
+def set_dust_threshold(
+    body: DustThresholdUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Fija el umbral de 'polvo' (coste de lotes vivos por debajo del cual una
+    posición se considera cerrada). En divisa nativa."""
+    value = str(body.dust_threshold)
+    row = db.get(AppConfig, DUST_THRESHOLD_KEY)
+    if row is None:
+        db.add(AppConfig(key=DUST_THRESHOLD_KEY, value=value))
+    else:
+        row.value = value
+    db.commit()
+    return {"dust_threshold": value}
 
 
 @router.patch("/config/app-name")

@@ -645,6 +645,8 @@ function ConfigSection() {
   const [currencyList, setCurrencyList] = useState(ctxCurrencies.filter(c => c !== 'EUR'))
   const [newCurrency, setNewCurrency]   = useState('')
   const [currencyBusy, setCurrencyBusy] = useState(false)
+  const [dustVal, setDustVal]       = useState('0.10')
+  const [dustBusy, setDustBusy]     = useState(false)
   const [msg, setMsg]               = useState(null)
   const [err, setErr]               = useState(null)
 
@@ -718,8 +720,20 @@ function ConfigSection() {
       setInterval(d.snapshot_interval_minutes)
       setInputVal(d.snapshot_interval_minutes)
       setAppNameVal(d.app_name ?? 'JSG Soft.')
+      if (d.dust_threshold != null) setDustVal(String(d.dust_threshold))
     }).catch(() => {})
   }, [])
+
+  async function saveDust(e) {
+    e.preventDefault()
+    setDustBusy(true); setMsg(null); setErr(null)
+    try {
+      const d = await api.patch('/admin/config/dust-threshold', { dust_threshold: dustVal })
+      setDustVal(String(d.dust_threshold))
+      setMsg(t('admin.dust_saved'))
+    } catch (e) { setErr(e.message) }
+    finally { setDustBusy(false) }
+  }
 
   async function saveInterval(e) {
     e.preventDefault()
@@ -888,6 +902,25 @@ function ConfigSection() {
       <button className="btn-ghost btn-sm" disabled={refreshBusy} onClick={refreshAll}>
         {refreshBusy ? 'Actualizando…' : '↺ Actualizar todos los valores ahora'}
       </button>
+
+      {/* Umbral de "polvo" (posiciones residuales por redondeo) */}
+      <form onSubmit={saveDust} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 20, marginBottom: 4 }}>
+        <div className="form-group" style={{ flex: '0 0 auto', marginBottom: 0 }}>
+          <label>{t('admin.dust_label')}</label>
+          <input
+            type="number" min={0} step="0.01"
+            value={dustVal}
+            onChange={e => setDustVal(e.target.value)}
+            style={{ width: 90 }}
+          />
+        </div>
+        <button type="submit" className="btn-primary btn-sm" disabled={dustBusy}>
+          {dustBusy ? t('admin.saving') : t('admin.save')}
+        </button>
+      </form>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: 0, maxWidth: 560 }}>
+        {t('admin.dust_help')}
+      </p>
 
       {/* ── Tramos IRPF ─────────────────────────────── */}
       <hr style={{ margin: '24px 0', borderColor: 'var(--border-color, #333)' }} />

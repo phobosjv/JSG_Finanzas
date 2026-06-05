@@ -30,12 +30,34 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import (
-    DividendRow, MarketRow, Position, Security, SecuritySplit, TransactionRow,
+    AppConfig, DividendRow, MarketRow, Position, Security, SecuritySplit, TransactionRow,
 )
-from app.services.calculations import Dividend, Split, Transaction
+from app.services.calculations import Dividend, Split, Transaction, DUST_THRESHOLD
 from app.services.tax_report import (
     SecurityRef, SecuritySales, DividendRecord,
 )
+
+
+# --------------------------------------------------------------------------
+#  Umbral de "polvo" configurable (app_config)
+# --------------------------------------------------------------------------
+
+DUST_THRESHOLD_KEY = "dust_threshold"
+
+
+def get_dust_threshold(db: Session) -> Decimal:
+    """Lee el umbral de 'polvo' de app_config; fallback al valor por defecto.
+
+    Una posición cuyo coste de lotes vivos (divisa nativa) caiga por debajo de
+    este umbral se considera cerrada (descarta residuos de redondeo)."""
+    row = db.get(AppConfig, DUST_THRESHOLD_KEY)
+    if row is None or not row.value:
+        return DUST_THRESHOLD
+    try:
+        v = Decimal(str(row.value))
+        return v if v >= Decimal("0") else DUST_THRESHOLD
+    except Exception:
+        return DUST_THRESHOLD
 
 
 # --------------------------------------------------------------------------
