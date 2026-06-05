@@ -492,6 +492,103 @@ def test_borrar_transaccion_traspaso_bloqueada(admin_client):
 
 
 # ---------------------------------------------------------------------------
+#  Fondo relacionado en tabla de operaciones (v1.9.11)
+# ---------------------------------------------------------------------------
+
+def test_operations_incluye_fondo_relacionado(admin_client):
+    """
+    GET /portfolio/by-security/{id}/operations debe devolver related_security_id
+    y related_security_name para las filas de traspaso (transfer_in / transfer_out).
+
+    Para la transfer_out de A → B:   related = B.
+    Para la transfer_in  de B ← A:   related = A.
+    """
+    sec_a, sec_b, pos_a, resp = _traspaso_simple(admin_client)
+    assert resp.status_code == 201, resp.text
+
+    # Operaciones del fondo origen (A): la transfer_out debe referenciar a B.
+    # (La posición A está cerrada tras el traspaso total, pero operations la devuelve.)
+    ops_a = admin_client.get(f"/api/portfolio/by-security/{sec_a}/operations").json()
+    out_tx = next(t for t in ops_a["transactions"] if t["type"] == "transfer_out")
+    assert out_tx["related_security_id"] == sec_b, (
+        f"transfer_out de A debe apuntar a sec_b={sec_b}, got {out_tx['related_security_id']}"
+    )
+    assert out_tx["related_security_name"] is not None
+
+    # Operaciones del fondo destino (B): la transfer_in debe referenciar a A.
+    ops_b = admin_client.get(f"/api/portfolio/by-security/{sec_b}/operations").json()
+    in_tx = next(t for t in ops_b["transactions"] if t["type"] == "transfer_in")
+    assert in_tx["related_security_id"] == sec_a, (
+        f"transfer_in de B debe apuntar a sec_a={sec_a}, got {in_tx['related_security_id']}"
+    )
+    assert in_tx["related_security_name"] is not None
+
+
+def test_operations_sin_traspaso_sin_related(admin_client, seed_markets):
+    """Las compras/ventas normales no tienen related_security_id."""
+    sec = admin_client.post("/api/securities", json={
+        "name": "NormalSec", "yahoo_ticker": "NRM.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos}/transactions", json={
+        "type": "buy", "date": "2024-01-02", "shares": "10", "price": "5",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    ops = admin_client.get(f"/api/portfolio/by-security/{sec}/operations").json()
+    buy_tx = ops["transactions"][0]
+    assert buy_tx["related_security_id"] is None
+    assert buy_tx["related_security_name"] is None
+
+
+# ---------------------------------------------------------------------------
+#  Precio objetivo de compra (PATCH /target-buy) — v1.9.11
+# ---------------------------------------------------------------------------
+
+def test_target_buy_set_and_clear(admin_client, seed_markets):
+    """PATCH /portfolio/{pos}/target-buy guarda y limpia el precio objetivo de compra."""
+    sec = admin_client.post("/api/securities", json={
+        "name": "TargetCo", "yahoo_ticker": "TGT.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+
+    # Fijar precio objetivo de compra
+    r = admin_client.patch(f"/api/portfolio/{pos}/target-buy", json={"target_buy_price": "12.50"})
+    assert r.status_code == 200
+    assert float(r.json()["target_buy_price"]) == 12.50
+
+    # Limpiar precio objetivo de compra
+    r = admin_client.patch(f"/api/portfolio/{pos}/target-buy", json={"target_buy_price": None})
+    assert r.status_code == 200
+    assert r.json()["target_buy_price"] is None
+
+
+def test_target_buy_negativo_rechazado(admin_client, seed_markets):
+    """PATCH /portfolio/{pos}/target-buy rechaza precios negativos (422)."""
+    sec = admin_client.post("/api/securities", json={
+        "name": "NegTarget", "yahoo_ticker": "NEGT.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    r = admin_client.patch(f"/api/portfolio/{pos}/target-buy", json={"target_buy_price": "-1"})
+    assert r.status_code == 422
+
+
+def test_target_buy_incluido_en_portfolio(admin_client, seed_markets):
+    """GET /portfolio incluye target_buy_price en cada posición."""
+    sec = admin_client.post("/api/securities", json={
+        "name": "PortTgt", "yahoo_ticker": "PRT.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos}/transactions", json={
+        "type": "buy", "date": "2024-01-02", "shares": "5", "price": "10",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    admin_client.patch(f"/api/portfolio/{pos}/target-buy", json={"target_buy_price": "8.00"})
+    portfolio = admin_client.get("/api/portfolio").json()
+    pos_data = next(p for p in portfolio if p["security_id"] == sec)
+    assert float(pos_data["target_buy_price"]) == 8.00
+
+
+# ---------------------------------------------------------------------------
 #  Scheduler: refresco de fondos una vez por hora
 # ---------------------------------------------------------------------------
 

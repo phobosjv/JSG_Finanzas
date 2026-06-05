@@ -66,10 +66,22 @@ class TargetSellUpdate(BaseModel):
         return v
 
 
+class TargetBuyUpdate(BaseModel):
+    target_buy_price: Decimal | None = None
+
+    @field_validator("target_buy_price")
+    @classmethod
+    def non_negative(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v < 0:
+            raise ValueError("El precio objetivo no puede ser negativo")
+        return v
+
+
 class PositionOut(BaseModel):
     id: int
     security_id: int
     user_id: int
+    target_buy_price: Decimal | None
     target_sell_price: Decimal | None
     notes: str | None
 
@@ -128,6 +140,8 @@ class TransactionOut(BaseModel):
     currency: str
     exchange_rate: Decimal
     transfer_group_id: str | None = None
+    related_security_id: int | None = None
+    related_security_name: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -322,7 +336,8 @@ class PositionSummary(BaseModel):
     realized_pnl_eur: Decimal    # beneficio realizado de ventas parciales
     total_profit_eur: Decimal    # unrealized_pnl + realized_pnl + dividends
     fees_eur: Decimal            # suma de comisiones de todas las transacciones en EUR
-    # Objetivo de venta e indicadores
+    # Objetivos de precio e indicadores
+    target_buy_price: Decimal | None = None
     target_sell_price: Decimal | None
     max_1y: Decimal | None
     notes: str | None = None

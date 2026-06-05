@@ -39,7 +39,7 @@ from app.schemas.portfolio import (
     ClosedPositionAnalytics,
     ClosedPositionSummary,
     DividendCreate, DividendOut,
-    NotesUpdate, TargetSellUpdate,
+    NotesUpdate, TargetBuyUpdate, TargetSellUpdate,
     PositionCreate, PositionOut,
     PositionSummary,
     RecurringBuyCreate, RecurringBuyResult, RecurringPlanOut, SkippedContribution,
@@ -152,6 +152,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         realized_pnl_eur=realized_pnl_eur,
         total_profit_eur=total_profit_eur,
         fees_eur=fees_eur,
+        target_buy_price=pos.target_buy_price,
         target_sell_price=pos.target_sell_price,
         max_1y=max_1y,
         notes=pos.notes,
@@ -762,9 +763,34 @@ def get_operations_by_security(
     divs = db.scalars(
         select(DividendRow).where(DividendRow.position_id == pos.id).order_by(DividendRow.date)
     ).all()
+
+    # Para las operaciones de traspaso, enriquecer con el nombre del fondo
+    # relacionado (la otra punta del traspaso: origen → destino o viceversa).
+    # Una sola query: busca las transacciones con el mismo transfer_group_id
+    # pero de otra posición, uniendo con positions y securities.
+    group_ids = [t.transfer_group_id for t in txs if t.transfer_group_id]
+    related_by_group: dict[str, tuple[int, str]] = {}
+    if group_ids:
+        rows = db.execute(
+            select(TransactionRow.transfer_group_id, Security.id, Security.name)
+            .join(Position, TransactionRow.position_id == Position.id)
+            .join(Security, Position.security_id == Security.id)
+            .where(
+                TransactionRow.transfer_group_id.in_(group_ids),
+                TransactionRow.position_id != pos.id,
+            )
+        ).all()
+        related_by_group = {row[0]: (row[1], row[2]) for row in rows}
+
+    def _tx_out(t: TransactionRow) -> TransactionOut:
+        out = TransactionOut.model_validate(t)
+        if t.transfer_group_id and t.transfer_group_id in related_by_group:
+            out.related_security_id, out.related_security_name = related_by_group[t.transfer_group_id]
+        return out
+
     return {
         "position_id": pos.id,
-        "transactions": [TransactionOut.model_validate(t) for t in txs],
+        "transactions": [_tx_out(t) for t in txs],
         "dividends": [DividendOut.model_validate(d) for d in divs],
     }
 
@@ -1090,6 +1116,20 @@ def update_notes(
 ):
     pos = _require_position(db, position_id, user.id)
     pos.notes = body.notes or None
+    db.commit()
+    db.refresh(pos)
+    return pos
+
+
+@router.patch("/{position_id}/target-buy", response_model=PositionOut)
+def update_target_buy(
+    position_id: int,
+    body: TargetBuyUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    pos = _require_position(db, position_id, user.id)
+    pos.target_buy_price = body.target_buy_price
     db.commit()
     db.refresh(pos)
     return pos

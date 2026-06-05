@@ -5,6 +5,35 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.11] — 2026-06-05
+
+### Añadido — Fondo relacionado en tabla de traspasos
+
+- La tabla de traspasos de fondos (SecurityDetail) muestra una nueva columna
+  **Fondo relacionado**: el nombre del fondo en la otra punta del traspaso
+  (origen para `transfer_in`, destino para `transfer_out`). Haciendo clic en
+  el nombre se navega a la ficha de ese fondo.
+- El endpoint `GET /portfolio/by-security/{id}/operations` enriquece las
+  transacciones de traspaso con `related_security_id` y `related_security_name`
+  (una sola query JOIN extra; `null` si la contraparte fue eliminada).
+
+### Añadido — Precios objetivo de compra y venta en SecurityDetail
+
+- Nuevo campo **Precio compra objetivo** y **Precio venta objetivo** en la ficha
+  de cada valor (a la derecha de Notas en pantallas anchas, debajo en móvil).
+  Se editan directamente y se guardan al perder el foco.
+- Nuevo campo `target_buy_price` en la tabla `positions` (migración Alembic
+  `d5e6f7a8b9c1`). El `target_sell_price` ya existía; ambos aparecen ahora
+  también en SecurityDetail (antes solo en la lista de cartera).
+- Nuevo endpoint `PATCH /portfolio/{position_id}/target-buy`.
+- **Indicador de alerta parpadeante** en la esquina superior derecha de la
+  ficha (a la izquierda del botón de favorito):
+  - **«Vender»** (verde, parpadeo suave ~1.5 s) si precio actual ≥ objetivo venta.
+  - **«Comprar»** si precio actual ≤ objetivo compra.
+  - Si ambos se cumplen, prevalece «Vender».
+
+---
+
 ## [1.9.10] — 2026-06-05
 
 ### Corregido — Histórico de cartera inflado antes de un split de acciones

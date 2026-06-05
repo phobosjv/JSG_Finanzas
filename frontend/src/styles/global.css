@@ -466,3 +466,9 @@ input:focus, select:focus { border-color: var(--accent); }
   font-size: 0.8rem;
   text-align: right;
 }
+
+/* Indicador de alerta de precio (Comprar / Vender) en SecurityDetail */
+@keyframes priceAlertBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}

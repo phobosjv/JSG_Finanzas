@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
@@ -724,6 +724,7 @@ function EditSecurityModal({ security, onClose, onSaved }) {
 
 export default function SecurityDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { t } = useAppConfig()
   const { user } = useAuth()
   const secId = parseInt(id, 10)
@@ -748,6 +749,8 @@ export default function SecurityDetail() {
   const [isFundMarket, setIsFundMarket] = useState(false)
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesVal, setNotesVal]         = useState('')
+  const [targetBuyVal, setTargetBuyVal] = useState('')
+  const [targetSellVal, setTargetSellVal] = useState('')
   const [startingTracking, setStarting] = useState(false)
   const [error, setError]           = useState(null)
   const [opError, setOpError]       = useState(null)
@@ -798,6 +801,8 @@ export default function SecurityDetail() {
         setPosResult(posResult)
         setIsClosed(false)
         setNotesVal(posResult.notes ?? '')
+        setTargetBuyVal(posResult.target_buy_price != null ? String(posResult.target_buy_price) : '')
+        setTargetSellVal(posResult.target_sell_price != null ? String(posResult.target_sell_price) : '')
       } else if (ops) {
         // Hay operaciones pero la posición está cerrada (vendida o traspasada).
         setIsClosed(true)
@@ -851,6 +856,22 @@ export default function SecurityDetail() {
     setEditingNotes(false)
     try {
       await api.patch(`/portfolio/${positionId}/notes`, { notes: notesVal || null })
+    } catch { /* silencioso */ }
+  }
+
+  async function saveTargetBuy(val) {
+    const num = val === '' ? null : parseFloat(val)
+    if (num !== null && (isNaN(num) || num < 0)) return
+    try {
+      await api.patch(`/portfolio/${positionId}/target-buy`, { target_buy_price: num })
+    } catch { /* silencioso */ }
+  }
+
+  async function saveTargetSell(val) {
+    const num = val === '' ? null : parseFloat(val)
+    if (num !== null && (isNaN(num) || num < 0)) return
+    try {
+      await api.patch(`/portfolio/${positionId}/target-sell`, { target_sell_price: num })
     } catch { /* silencioso */ }
   }
 
@@ -933,7 +954,29 @@ export default function SecurityDetail() {
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {(() => {
+            if (!snapshot?.last_price || !positionId) return null
+            const cur = Number(snapshot.last_price)
+            const buy = targetBuyVal !== '' ? Number(targetBuyVal) : null
+            const sell = targetSellVal !== '' ? Number(targetSellVal) : null
+            const sellAlert = sell !== null && !isNaN(sell) && sell > 0 && cur >= sell
+            const buyAlert = buy !== null && !isNaN(buy) && buy > 0 && cur <= buy
+            if (!sellAlert && !buyAlert) return null
+            return (
+              <span style={{
+                color: 'var(--green, #16a34a)',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                border: '1px solid var(--green, #16a34a)',
+                borderRadius: 4,
+                padding: '3px 10px',
+                animation: 'priceAlertBlink 1.5s ease-in-out infinite',
+              }}>
+                {sellAlert ? t('sd.alert_sell') : t('sd.alert_buy')}
+              </span>
+            )
+          })()}
           <button className="btn-ghost btn-sm" onClick={toggleFav}>
             {isFav ? t('sd.fav_remove') : t('sd.fav_add')}
           </button>
@@ -1045,29 +1088,63 @@ export default function SecurityDetail() {
         </div>
       )}
 
-      {/* Notas de posición */}
+      {/* Notas + Precios objetivo (flex-wrap: en ancho queda en fila, en móvil en columna) */}
       {positionId && (
-        <div className="card" style={{ padding: '10px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', minWidth: 48, paddingTop: 2 }}>{t('sd.notes')}</span>
-            {editingNotes ? (
-              <textarea
-                autoFocus
-                value={notesVal}
-                onChange={e => setNotesVal(e.target.value)}
-                onBlur={saveNotes}
-                onKeyDown={e => { if (e.key === 'Escape') { setEditingNotes(false); setNotesVal(posResult?.notes ?? '') } }}
-                style={{ flex: 1, resize: 'vertical', minHeight: 48, fontFamily: 'inherit', fontSize: '0.85rem', padding: '4px 6px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)' }}
-              />
-            ) : (
-              <span
-                style={{ flex: 1, fontSize: '0.85rem', color: notesVal ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer', padding: '2px 0' }}
-                title={t('sd.notes_click_edit')}
-                onClick={() => setEditingNotes(true)}
-              >
-                {notesVal || t('sd.notes_add')}
-              </span>
-            )}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {/* Notas */}
+          <div className="card" style={{ padding: '10px 16px', flex: '2 1 260px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', minWidth: 48, paddingTop: 2 }}>{t('sd.notes')}</span>
+              {editingNotes ? (
+                <textarea
+                  autoFocus
+                  value={notesVal}
+                  onChange={e => setNotesVal(e.target.value)}
+                  onBlur={saveNotes}
+                  onKeyDown={e => { if (e.key === 'Escape') { setEditingNotes(false); setNotesVal(posResult?.notes ?? '') } }}
+                  style={{ flex: 1, resize: 'vertical', minHeight: 48, fontFamily: 'inherit', fontSize: '0.85rem', padding: '4px 6px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)' }}
+                />
+              ) : (
+                <span
+                  style={{ flex: 1, fontSize: '0.85rem', color: notesVal ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer', padding: '2px 0' }}
+                  title={t('sd.notes_click_edit')}
+                  onClick={() => setEditingNotes(true)}
+                >
+                  {notesVal || t('sd.notes_add')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Precios objetivo */}
+          <div className="card" style={{ padding: '10px 16px', flex: '1 1 200px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: t('sd.target_buy'), val: targetBuyVal, set: setTargetBuyVal, save: saveTargetBuy },
+                { label: t('sd.target_sell'), val: targetSellVal, set: setTargetSellVal, save: saveTargetSell },
+              ].map(({ label, val, set, save }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', minWidth: 90 }}>{label}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={val}
+                    onChange={e => set(e.target.value)}
+                    onBlur={e => save(e.target.value)}
+                    placeholder={t('sd.target_ph')}
+                    style={{ width: 90, padding: '3px 6px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: '0.85rem', fontFamily: 'var(--mono)' }}
+                  />
+                  {val !== '' && (
+                    <button
+                      className="btn-ghost btn-sm"
+                      style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                      onClick={() => { set(''); save('') }}
+                    >✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1265,6 +1342,7 @@ export default function SecurityDetail() {
                   <tr>
                     <th>{t('sd.col_date')}</th>
                     <th>{t('sd.transfer_direction')}</th>
+                    <th>{t('sd.col_related_fund')}</th>
                     <th className="num">{t('sd.col_shares')}</th>
                     <th className="num">{t('sd.transfer_cost')}</th>
                     <th></th>
@@ -1275,6 +1353,19 @@ export default function SecurityDetail() {
                     <tr key={tx.id}>
                       <td>{tx.date}</td>
                       <td>{tx.type === 'transfer_in' ? `↓ ${t('sd.transfer_in')}` : `↑ ${t('sd.transfer_out')}`}</td>
+                      <td>
+                        {tx.related_security_id ? (
+                          <a
+                            href={`/securities/${tx.related_security_id}`}
+                            style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: '0.85rem' }}
+                            onClick={e => { e.preventDefault(); navigate(`/securities/${tx.related_security_id}`) }}
+                          >
+                            {tx.related_security_name}
+                          </a>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
                       <td className="num">{fmtShares(tx.shares)}</td>
                       <td className="num">{fmt(Number(tx.shares) * Number(tx.price))} €</td>
                       <td className="num">

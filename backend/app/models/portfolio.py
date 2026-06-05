@@ -72,6 +72,7 @@ class Position(Base):
     security_id: Mapped[int] = mapped_column(
         ForeignKey("securities.id", ondelete="RESTRICT"), nullable=False
     )
+    target_buy_price: Mapped["object | None"] = mapped_column(Money, nullable=True)
     target_sell_price: Mapped["object | None"] = mapped_column(Money, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
