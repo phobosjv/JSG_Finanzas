@@ -159,11 +159,11 @@
   overflow: hidden;
 }
 
-/* Sidebar-footer: abre hacia arriba */
-.alert-popup-up   { bottom: calc(100% + 8px); }
+/* Sidebar-footer (borde izquierdo pantalla): abre hacia arriba y hacia la DERECHA */
+.alert-popup-up   { bottom: calc(100% + 8px); left: 0; right: auto; }
 
-/* Mobile-header: abre hacia abajo */
-.alert-popup-down { top: calc(100% + 8px); }
+/* Mobile-header (borde derecho pantalla): abre hacia abajo y hacia la IZQUIERDA */
+.alert-popup-down { top: calc(100% + 8px); right: 0; left: auto; max-width: calc(100vw - 16px); }
 
 .alert-popup-header {
   display: flex;

@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.15] — 2026-06-05
+
+### Corregido — Popup de alertas salía por la izquierda en escritorio
+
+El popup de la campana usaba `right: 0` (alinea el borde derecho del popup
+con el del botón). En el sidebar, el botón está a ~150 px del borde izquierdo
+de la pantalla, por lo que un popup de 260 px se salía ~110 px fuera de
+pantalla hacia la izquierda mostrando solo el botón de cierre y la etiqueta.
+
+- **Sidebar** (`alert-popup-up`): cambiado a `left: 0` → el popup abre hacia
+  la derecha, sobre el área de contenido principal.
+- **Cabecera móvil** (`alert-popup-down`): mantiene `right: 0` (correcto, el
+  botón está en el borde derecho de la pantalla) + `max-width: calc(100vw - 16px)`
+  para evitar desbordamiento en pantallas muy estrechas.
+
+---
+
 ## [1.9.14] — 2026-06-05
 
 ### Corregido — Precio objetivo de compra: fuente única en favoritos
