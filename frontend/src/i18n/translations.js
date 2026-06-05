@@ -334,6 +334,16 @@ export const translations = {
     'utilities.reset_ok':           'Cartera borrada. Se ha descargado la copia de seguridad.',
     'utilities.reset_err':          'Error al borrar la cartera. Inténtalo de nuevo.',
 
+    // ── Notificaciones push ───────────────────────────────────────────────
+    'utilities.push_title':         'Notificaciones push',
+    'utilities.push_desc':          'Recibe una notificación en este dispositivo cuando se active una alerta de precio, aunque la app esté cerrada. Requiere que la app esté instalada como PWA.',
+    'utilities.push_enable':        'Activar notificaciones',
+    'utilities.push_disable':       'Desactivar notificaciones',
+    'utilities.push_enabled':       '✓ Notificaciones activadas en este dispositivo.',
+    'utilities.push_denied':        'El navegador ha denegado el permiso. Actívalo manualmente en la configuración del navegador.',
+    'utilities.push_unsupported':   'Este navegador no soporta notificaciones push.',
+    'utilities.push_err':           'Error al registrar las notificaciones. Inténtalo de nuevo.',
+
     // ── Informe fiscal ───────────────────────────────────────────────────
     'tax.title':                'Informe fiscal IRPF',
     // Cabecera del ejercicio en curso (estas claves se usan en TaxReport.jsx)
@@ -794,6 +804,16 @@ export const translations = {
     'utilities.reset_deleting':     'Deleting data…',
     'utilities.reset_ok':           'Portfolio deleted. Backup downloaded.',
     'utilities.reset_err':          'Error deleting portfolio. Please try again.',
+
+    // ── Push notifications ────────────────────────────────────────────────
+    'utilities.push_title':         'Push notifications',
+    'utilities.push_desc':          'Receive a notification on this device when a price alert triggers, even when the app is closed. Requires the app to be installed as a PWA.',
+    'utilities.push_enable':        'Enable notifications',
+    'utilities.push_disable':       'Disable notifications',
+    'utilities.push_enabled':       '✓ Notifications enabled on this device.',
+    'utilities.push_denied':        'The browser denied permission. Enable it manually in browser settings.',
+    'utilities.push_unsupported':   'This browser does not support push notifications.',
+    'utilities.push_err':           'Error registering notifications. Please try again.',
 
     // ── Tax report ────────────────────────────────────────────────────────
     'tax.title':                'Tax report (IRPF)',

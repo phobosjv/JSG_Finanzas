@@ -38,7 +38,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.models import (
     AppConfig, EcbRate, Favorite, Position, PriceHistory, PriceSnapshot,
-    RecurringPlanRow, Security, TransactionRow,
+    PushSubscription, RecurringPlanRow, Security, TransactionRow,
 )
 from app.models.market import MarketRow
 from app.providers.yahoo import YahooProvider
@@ -540,3 +540,143 @@ def update_snapshots_live(db: Session) -> None:
     if include_funds:
         _mark_funds_refreshed(db, now)
     log.info("Snapshots live completados")
+    try:
+        check_push_alerts(db)
+    except Exception:
+        log.exception("Error en check_push_alerts (no crítico)")
+
+
+# ---------------------------------------------------------------------------
+#  5. Alertas push — comprobar precios y enviar notificaciones push
+# ---------------------------------------------------------------------------
+
+def _compute_user_alert_keys(db: Session, user_id: int) -> list[str]:
+    """
+    Devuelve las claves activas de alertas para el usuario:
+    - "buy:{security_id}" si last_price <= target_buy_price en favorites
+    - "sell:{security_id}" si last_price >= target_sell_price en positions
+    """
+    from decimal import Decimal
+    keys: list[str] = []
+
+    # Alertas de compra — fuente: favorites.target_buy_price
+    favs = db.scalars(select(Favorite).where(Favorite.user_id == user_id)).all()
+    for fav in favs:
+        if fav.target_buy_price is None:
+            continue
+        snap = db.get(PriceSnapshot, fav.security_id)
+        if snap and snap.last_price is not None:
+            if Decimal(str(snap.last_price)) <= fav.target_buy_price:
+                keys.append(f"buy:{fav.security_id}")
+
+    # Alertas de venta — fuente: positions.target_sell_price
+    positions = db.scalars(select(Position).where(Position.user_id == user_id)).all()
+    for pos in positions:
+        if pos.target_sell_price is None:
+            continue
+        snap = db.get(PriceSnapshot, pos.security_id)
+        if snap and snap.last_price is not None:
+            if Decimal(str(snap.last_price)) >= pos.target_sell_price:
+                keys.append(f"sell:{pos.security_id}")
+
+    return sorted(set(keys))
+
+
+def _build_push_payload(db: Session, alert_keys: list[str]) -> dict:
+    """Construye el payload JSON de la notificación push."""
+    import json
+
+    lines: list[str] = []
+    for key in alert_keys[:5]:            # máximo 5 en el texto
+        kind, sec_id_str = key.split(":")
+        sec_id = int(sec_id_str)
+        sec = db.get(Security, sec_id)
+        snap = db.get(PriceSnapshot, sec_id)
+        name = sec.name if sec else sec_id_str
+        price_str = f" ({float(snap.last_price):.2f})" if snap and snap.last_price else ""
+        tipo = "Comprar" if kind == "buy" else "Vender"
+        lines.append(f"{tipo}: {name}{price_str}")
+
+    n = len(alert_keys)
+    title = f"JSG Portfolio — {'alerta' if n == 1 else f'{n} alertas'} de precio"
+    body  = "\n".join(lines)
+    if n > 5:
+        body += f"\n(+{n - 5} más)"
+
+    # La URL de destino: si es una sola alerta, ir directamente al valor
+    url = "/markets"
+    if n == 1:
+        sec_id = int(alert_keys[0].split(":")[1])
+        url = f"/securities/{sec_id}"
+
+    return {"title": title, "body": body, "url": url}
+
+
+def check_push_alerts(db: Session) -> None:
+    """
+    Para cada suscripción push activa:
+    1. Calcula las alertas activas del usuario.
+    2. Compara con las últimas notificadas (last_notified_keys).
+    3. Si hay alertas nuevas → envía push y actualiza last_notified_keys.
+    """
+    import json as _json
+    from app.api.push import get_vapid_private_key, get_vapid_email
+
+    private_key = get_vapid_private_key(db)
+    if not private_key:
+        return
+
+    vapid_claims = {"sub": get_vapid_email(db)}
+
+    subs = db.scalars(select(PushSubscription)).all()
+    if not subs:
+        return
+
+    # Agrupar suscripciones por usuario para calcular alertas una vez
+    by_user: dict[int, list[PushSubscription]] = {}
+    for sub in subs:
+        by_user.setdefault(sub.user_id, []).append(sub)
+
+    for user_id, user_subs in by_user.items():
+        current_keys = _compute_user_alert_keys(db, user_id)
+        current_set  = set(current_keys)
+
+        for sub in user_subs:
+            last_set: set[str] = set()
+            if sub.last_notified_keys:
+                try:
+                    last_set = set(_json.loads(sub.last_notified_keys))
+                except Exception:
+                    last_set = set()
+
+            new_keys = sorted(current_set - last_set)
+            if not new_keys:
+                # Actualizar la lista de activas (pueden haber desaparecido)
+                if set(last_set) != current_set:
+                    sub.last_notified_keys = _json.dumps(current_keys)
+                continue
+
+            # Hay alertas nuevas → enviar push
+            payload = _build_push_payload(db, new_keys)
+            try:
+                from pywebpush import webpush, WebPushException
+                webpush(
+                    subscription_info={
+                        "endpoint": sub.endpoint,
+                        "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
+                    },
+                    data=_json.dumps(payload).encode(),
+                    vapid_private_key=private_key,
+                    vapid_claims=vapid_claims,
+                    content_type="application/json",
+                )
+                sub.last_notified_keys = _json.dumps(current_keys)
+                log.info("Push enviado a user %d (%d alertas nuevas)", user_id, len(new_keys))
+            except Exception as exc:
+                log.warning("Push fallido (user=%d): %s", user_id, exc)
+                # Si el endpoint ya no existe (HTTP 410), borrar la suscripción
+                err_str = str(exc).lower()
+                if "410" in err_str or "unsubscribe" in err_str or "gone" in err_str:
+                    db.delete(sub)
+
+    db.commit()

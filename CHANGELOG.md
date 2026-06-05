@@ -5,6 +5,48 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.10.0] — 2026-06-05
+
+### Añadido — Notificaciones push (Web Push) al dispositivo
+
+Ahora la app puede enviar una **notificación al dispositivo** (móvil u
+ordenador) en el momento en que se activa una alerta de precio, **aunque la
+app esté cerrada o en segundo plano**. Usa el estándar Web Push Protocol con
+claves VAPID.
+
+**Backend**
+- Nueva tabla `push_subscriptions` (migración `f7a8b9c0d1e2`): una fila por
+  dispositivo suscrito, con `endpoint`, claves `p256dh`/`auth` y
+  `last_notified_keys` para deduplicar.
+- Claves **VAPID generadas automáticamente** al arrancar y persistidas en
+  `app_config` (no requieren configuración manual). Dependencias nuevas:
+  `pywebpush`, `cryptography`.
+- Router `api/push.py`: `GET /api/push/vapid-key` (público),
+  `POST /api/push/subscribe`, `DELETE /api/push/subscribe`.
+- El job de snapshots en vivo llama a `check_push_alerts`, que recalcula las
+  alertas activas de cada usuario (compra desde `favorites.target_buy_price`,
+  venta desde `positions.target_sell_price`) y **solo envía las alertas
+  NUEVAS** respecto a la última notificación, evitando spam en cada ciclo.
+  Si un endpoint devuelve 410 (Gone), la suscripción se elimina sola.
+
+**Frontend**
+- Service worker propio (`src/sw.js`, estrategia `injectManifest`) que maneja
+  los eventos `push` (muestra la notificación) y `notificationclick` (abre o
+  enfoca la app en el detalle del valor).
+- Nueva sección **«Notificaciones push»** en Utilidades: botón para activar
+  (pide permiso al navegador, registra la suscripción) y desactivar. Gestiona
+  los estados no soportado / permiso denegado.
+
+**Limitaciones** (propias de Web Push, no del proyecto):
+- En **iOS** solo funciona si la PWA está **instalada en la pantalla de inicio**
+  (Safari 16.4+).
+- Las notificaciones llegan cuando la app está cerrada o en segundo plano; con
+  la app abierta, la campana ya muestra las alertas en vivo.
+- La frecuencia de detección depende del intervalo del job de snapshots
+  (configurable por admin, por defecto 5 min).
+
+---
+
 ## [1.9.16] — 2026-06-05
 
 ### Mejorado — Campana de alertas se refresca al navegar entre secciones

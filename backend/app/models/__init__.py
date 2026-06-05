@@ -16,6 +16,7 @@ from app.models.portfolio import (
     DividendRow, Favorite, Position, RecurringPlanRow, TransactionRow,
 )
 from app.models.tax_bracket import TaxBracketRow
+from app.models.push import PushSubscription
 
 __all__ = [
     "Base",
@@ -35,4 +36,5 @@ __all__ = [
     "RecurringPlanRow",
     "TransactionRow",
     "TaxBracketRow",
+    "PushSubscription",
 ]

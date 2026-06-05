@@ -1,6 +1,16 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
+
+// ---------------------------------------------------------------------------
+//  Helper Web Push: convierte la clave VAPID base64url → Uint8Array
+// ---------------------------------------------------------------------------
+function _urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = window.atob(base64)
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)))
+}
 
 // ---------------------------------------------------------------------------
 //  Parseo de CSV en el cliente (sin dependencias externas)
@@ -62,6 +72,10 @@ export default function Utilities() {
 
   // Reset de cartera
   const [resetStep, setResetStep]       = useState(null) // null|'confirm'|'running'|'done'|'error'
+
+  // Notificaciones push
+  const [pushState, setPushState]       = useState('idle') // 'idle'|'subscribed'|'denied'|'unsupported'|'error'
+  const [pushBusy, setPushBusy]         = useState(false)
 
   async function onGfFile(e) {
     const file = e.target.files?.[0]
@@ -181,6 +195,72 @@ export default function Utilities() {
       setResetStep('done')
     } catch {
       setResetStep('error')
+    }
+  }
+
+  // ----------------------------------------------------------
+  //  Push notifications
+  // ----------------------------------------------------------
+
+  async function initPushState() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushState('unsupported'); return
+    }
+    if (Notification.permission === 'denied') {
+      setPushState('denied'); return
+    }
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    setPushState(sub ? 'subscribed' : 'idle')
+  }
+
+  // Inicializar estado push al montar
+  useEffect(() => { initPushState() }, [])
+
+  async function enablePush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushState('unsupported'); return
+    }
+    setPushBusy(true)
+    try {
+      const perm = await Notification.requestPermission()
+      if (perm === 'denied') { setPushState('denied'); return }
+      if (perm !== 'granted') return
+
+      // Obtener clave pública VAPID del servidor
+      const { public_key: vapidKey } = await api.get('/push/vapid-key')
+      if (!vapidKey) throw new Error('no vapid key')
+
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(vapidKey),
+      })
+
+      await api.post('/push/subscribe', sub.toJSON())
+      setPushState('subscribed')
+    } catch (e) {
+      console.error('Push subscribe error:', e)
+      setPushState('error')
+    } finally {
+      setPushBusy(false)
+    }
+  }
+
+  async function disablePush() {
+    setPushBusy(true)
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        await api.delete('/push/subscribe', { endpoint: sub.endpoint })
+        await sub.unsubscribe()
+      }
+      setPushState('idle')
+    } catch (e) {
+      console.error('Push unsubscribe error:', e)
+    } finally {
+      setPushBusy(false)
     }
   }
 
@@ -520,6 +600,45 @@ export default function Utilities() {
             onChange={onGfFile}
           />
         </div>
+      </div>
+
+      {/* Notificaciones push */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>{t('utilities.push_title')}</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
+          {t('utilities.push_desc')}
+        </p>
+
+        {pushState === 'subscribed' && (
+          <div style={{ color: 'var(--green)', marginBottom: 12, fontSize: '0.9rem' }}>
+            {t('utilities.push_enabled')}
+          </div>
+        )}
+        {pushState === 'denied' && (
+          <div className="state-error" style={{ padding: 8, marginBottom: 12, fontSize: '0.85rem' }}>
+            {t('utilities.push_denied')}
+          </div>
+        )}
+        {pushState === 'unsupported' && (
+          <div style={{ color: 'var(--text-muted)', marginBottom: 12, fontSize: '0.85rem' }}>
+            {t('utilities.push_unsupported')}
+          </div>
+        )}
+        {pushState === 'error' && (
+          <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>
+            {t('utilities.push_err')}
+          </div>
+        )}
+
+        {pushState !== 'unsupported' && pushState !== 'denied' && (
+          <button
+            className={pushState === 'subscribed' ? 'btn-ghost btn-sm' : 'btn-primary btn-sm'}
+            disabled={pushBusy}
+            onClick={pushState === 'subscribed' ? disablePush : enablePush}
+          >
+            {pushState === 'subscribed' ? t('utilities.push_disable') : t('utilities.push_enable')}
+          </button>
+        )}
       </div>
 
       {/* Zona de peligro — reset de cartera */}

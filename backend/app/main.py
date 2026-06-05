@@ -31,7 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import os
 
-from app.api import admin, admin_markets, admin_splits, app_config, auth, backup, csv_import, favorites, ghostfolio_import, markets, portfolio, reports, securities
+from app.api import admin, admin_markets, admin_splits, app_config, auth, backup, csv_import, favorites, ghostfolio_import, markets, portfolio, push, reports, securities
 from app.api.deps import get_db
 from app.auth.security import hash_password
 from app.config import get_settings
@@ -105,9 +105,22 @@ def _make_scheduler() -> BackgroundScheduler:
     return scheduler
 
 
+def _ensure_vapid_keys() -> None:
+    """Genera claves VAPID en app_config si no existen todavía."""
+    from app.api.push import ensure_vapid_keys
+    db = SessionLocal()
+    try:
+        ensure_vapid_keys(db)
+    except Exception:
+        log.exception("Error generando claves VAPID")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _ensure_default_admin()
+    _ensure_vapid_keys()
     scheduler = _make_scheduler()
     scheduler.start()
     app.state.scheduler = scheduler   # expuesto para reschedule_job desde admin
@@ -122,7 +135,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Finanzas",
         description="Seguimiento de cartera de inversion",
-        version="1.9.16",
+        version="1.10.0",
         lifespan=lifespan,
     )
 
@@ -148,6 +161,7 @@ def create_app() -> FastAPI:
     app.include_router(backup.router, prefix=prefix)
     app.include_router(csv_import.router, prefix=prefix)
     app.include_router(ghostfolio_import.router, prefix=prefix)
+    app.include_router(push.router, prefix=prefix)
 
     # Manifest PWA dinÃ¡mico. Debe registrarse ANTES del catch-all serve_spa
     # para que gane al fichero estÃ¡tico que genera VitePWA. Refleja el nombre
