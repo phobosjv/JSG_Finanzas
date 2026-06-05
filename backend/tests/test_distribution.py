@@ -276,3 +276,162 @@ def test_pwa_icons_en_zip():
         f"El zip '{zip_name}' no contiene los iconos PWA compilados:\n"
         + "\n".join(f"  - {i}" for i in missing)
     )
+
+
+# ---------------------------------------------------------------------------
+# 6. Sin BOM en ficheros críticos (repo y zip)
+#
+# Bug prevenido: al usar Set-Content -Encoding utf8 en PowerShell 5.1 se
+# añade un BOM (0xEF BB BF) al principio del fichero.  Esto rompe:
+#   - backend/pyproject.toml → tomllib (Python 3.12) lanza TOMLDecodeError
+#                              → 'pip install .' falla en el build Docker.
+#   - frontend/package.json  → JSON.parse lanza SyntaxError en Vite
+#                              → 'npm run build' falla.
+#   - entrypoint.sh          → el kernel no reconoce el shebang ('#!')
+#                              → el contenedor hace crash-loop.
+# ---------------------------------------------------------------------------
+
+_UTF8_BOM = b"\xef\xbb\xbf"
+
+# Ficheros cuyo BOM rompe el despliegue o el build Docker.
+_NO_BOM_FILES = [
+    "backend/pyproject.toml",  # tomllib rechaza BOM → pip install falla
+    "frontend/package.json",   # JSON.parse rechaza BOM → vite build falla
+    "entrypoint.sh",           # shebang no reconocido → crash-loop en Docker
+]
+
+
+def test_ficheros_criticos_sin_bom_en_repo():
+    """Los ficheros críticos del repositorio no deben tener BOM UTF-8.
+
+    PowerShell 5.1 Set-Content -Encoding utf8 añade BOM silenciosamente;
+    los parsers de Python (tomllib), Node (JSON.parse) y sh (shebang) fallan.
+    """
+    with_bom = []
+    for rel in _NO_BOM_FILES:
+        path = os.path.join(PROJECT_ROOT, rel)
+        if not os.path.isfile(path):
+            continue
+        with open(path, "rb") as fh:
+            if fh.read(3) == _UTF8_BOM:
+                with_bom.append(rel)
+    assert not with_bom, (
+        "Los siguientes ficheros tienen BOM UTF-8 (0xEF BB BF) y causarán "
+        "fallos en Docker o en el build del frontend:\n"
+        + "\n".join(f"  - {f}" for f in with_bom)
+        + "\nSolución: reescribir sin BOM (usar Python open(..., encoding='utf-8') "
+        "o [System.IO.File]::WriteAllText con UTF8Encoding($false))."
+    )
+
+
+def test_ficheros_criticos_sin_bom_en_zip():
+    """El zip de distribución no debe incluir versiones con BOM de los ficheros críticos."""
+    zip_path = _latest_zip(PROJECT_ROOT)
+    if zip_path is None:
+        pytest.skip("No hay ningún zip de distribución en el proyecto.")
+
+    with_bom = []
+    with zipfile.ZipFile(zip_path) as zf:
+        names_in_zip = {info.filename for info in zf.infolist()}
+        for rel in _NO_BOM_FILES:
+            zip_rel = rel.replace("\\", "/")
+            if zip_rel not in names_in_zip:
+                continue
+            data = zf.read(zip_rel)
+            if data[:3] == _UTF8_BOM:
+                with_bom.append(zip_rel)
+
+    zip_name = os.path.basename(zip_path)
+    assert not with_bom, (
+        f"El zip '{zip_name}' contiene ficheros con BOM que fallarán al desplegar:\n"
+        + "\n".join(f"  - {f}" for f in with_bom)
+    )
+
+
+# ---------------------------------------------------------------------------
+# 7. entrypoint.sh: shebang correcto y ruta 'cd' coherente con WORKDIR
+#
+# Bug prevenido: entrypoint.sh usaba 'cd /app/backend' pero el Dockerfile
+# tiene WORKDIR /app.  /app/backend no se crea en ningún COPY → el contenedor
+# hacía crash-loop con "can't cd to /app/backend" y Caddy devolvía 502.
+# ---------------------------------------------------------------------------
+
+def _parse_workdir(dockerfile_path: str) -> str | None:
+    """Devuelve el WORKDIR final definido en el Dockerfile."""
+    workdir = None
+    with open(dockerfile_path, encoding="utf-8") as fh:
+        for line in fh:
+            stripped = line.strip()
+            if stripped.upper().startswith("WORKDIR "):
+                workdir = stripped.split(None, 1)[1]
+    return workdir
+
+
+def test_entrypoint_shebang_sin_bom():
+    """entrypoint.sh debe empezar con '#!' (0x23 0x21), sin BOM previo.
+
+    Un BOM antes del shebang hace que el kernel no reconozca el intérprete
+    y el contenedor falla al arrancar.
+    """
+    path = os.path.join(PROJECT_ROOT, "entrypoint.sh")
+    if not os.path.isfile(path):
+        pytest.skip("entrypoint.sh no encontrado.")
+    with open(path, "rb") as fh:
+        first2 = fh.read(2)
+    assert first2 == b"#!", (
+        f"entrypoint.sh no empieza con '#!' sino con {first2.hex()!r}. "
+        "Si empieza con 0xEF 0xBB 0xBF (BOM) el contenedor no arrancará."
+    )
+
+
+def test_entrypoint_cd_coincide_con_workdir():
+    """El directorio del 'cd' en entrypoint.sh debe existir en el contenedor.
+
+    Se verifica que coincide con el WORKDIR del Dockerfile o es un subdirectorio
+    creado explícitamente por alguna instrucción COPY.
+
+    Bug prevenido: 'cd /app/backend' con WORKDIR /app → /app/backend no existe
+    → crash-loop → Caddy 502 en todas las peticiones.
+    """
+    workdir = _parse_workdir(DOCKERFILE)
+    assert workdir is not None, "El Dockerfile no define WORKDIR."
+
+    path = os.path.join(PROJECT_ROOT, "entrypoint.sh")
+    if not os.path.isfile(path):
+        pytest.skip("entrypoint.sh no encontrado.")
+
+    content = open(path, encoding="utf-8-sig").read()  # utf-8-sig elimina BOM si lo hay
+
+    cd_match = re.search(r"^cd\s+(\S+)", content, re.MULTILINE)
+    if cd_match is None:
+        return  # Sin 'cd' explícito: usa el WORKDIR por defecto → OK
+
+    cd_path = cd_match.group(1)
+
+    # El 'cd' debe apuntar al WORKDIR o a un subdirectorio creado por COPY
+    copy_sources = _parse_copy_sources(DOCKERFILE)
+    # Rutas destino del Dockerfile (el segundo token de cada COPY)
+    copy_dests: list[str] = []
+    with open(DOCKERFILE, encoding="utf-8") as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line.upper().startswith("COPY "):
+                continue
+            line_no_flags = re.sub(r"--\S+\s+", "", line)
+            parts = line_no_flags.split()
+            if len(parts) >= 3:
+                copy_dests.append(parts[2])
+
+    valid_paths = {workdir} | {
+        d if d.startswith("/") else workdir.rstrip("/") + "/" + d.lstrip("./")
+        for d in copy_dests
+    }
+
+    # El cd_path debe ser el WORKDIR exacto o empezar por él
+    assert cd_path == workdir or cd_path.startswith(workdir.rstrip("/") + "/"), (
+        f"entrypoint.sh hace 'cd {cd_path}' pero el Dockerfile tiene "
+        f"WORKDIR {workdir}.\n"
+        f"Si '{cd_path}' no existe en el contenedor (no hay COPY que lo cree), "
+        "el contenedor hará crash-loop.\n"
+        f"Rutas conocidas en el contenedor: {sorted(valid_paths)}"
+    )
