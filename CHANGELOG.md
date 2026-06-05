@@ -5,6 +5,30 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.10.1] — 2026-06-05
+
+### Corregido / Mejorado — Ajustes de UI en cartera y detalle
+
+- **Tarjeta TIR anual** (Mi Cartera): el subtítulo «ponderada por dinero»
+  se abrevia a «Pond. por dinero» y se muestra en mayúsculas, coherente con
+  el resto de la tarjeta.
+- **Columna «% Obj.»** (lista de mercados): deja de colorearse en verde/rojo
+  y se muestra en blanco (color neutro). El porcentaje indica cuánto debe
+  moverse el precio hasta el objetivo de compra; su signo no implica
+  ganancia/pérdida, por eso no usa color semántico.
+- **Detalle de un valor**: junto a cada precio objetivo (compra/venta) se
+  muestra de nuevo el **% hasta el objetivo** (se había perdido respecto a la
+  lista de mercados).
+- **Detalle de un valor**: nueva tarjeta **«Precio medio»** que muestra el
+  precio medio por acción pagado (coste medio en EUR, con comisiones
+  incluidas), coherente con las demás tarjetas monetarias de la posición.
+
+> Nota: el «% Obj.» de Bitcoin (-99,9 % con objetivo 60 y precio 60.494,71 USD)
+> es correcto: el «.» es separador de miles, así que el precio real es ~60.494 USD
+> y un objetivo de 60 está, en efecto, un 99,9 % por debajo.
+
+---
+
 ## [1.10.0] — 2026-06-05
 
 ### Añadido — Notificaciones push (Web Push) al dispositivo

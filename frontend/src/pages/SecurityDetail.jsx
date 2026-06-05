@@ -1063,6 +1063,10 @@ export default function SecurityDetail() {
                 <div className="label">{t('sd.invested')}</div>
               </div>
               <div className="card small">
+                <div className="value">{fmt(posResult.avg_cost_eur)} €</div>
+                <div className="label">{t('sd.avg_cost')}</div>
+              </div>
+              <div className="card small">
                 <div className={`value ${cls(grossUnrealizedEur)}`}>
                   {sign(grossUnrealizedEur)}{fmt(grossUnrealizedEur)} €
                 </div>
@@ -1132,28 +1136,44 @@ export default function SecurityDetail() {
               {[
                 { label: t('sd.target_buy'), val: targetBuyVal, set: setTargetBuyVal, save: saveTargetBuy },
                 { label: t('sd.target_sell'), val: targetSellVal, set: setTargetSellVal, save: saveTargetSell },
-              ].map(({ label, val, set, save }) => (
-                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', minWidth: 90 }}>{label}</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={val}
-                    onChange={e => set(e.target.value)}
-                    onBlur={e => save(e.target.value)}
-                    placeholder={t('sd.target_ph')}
-                    style={{ width: 90, padding: '3px 6px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: '0.85rem', fontFamily: 'var(--mono)' }}
-                  />
-                  {val !== '' && (
-                    <button
-                      className="btn-ghost btn-sm"
-                      style={{ padding: '2px 6px', fontSize: '0.75rem' }}
-                      onClick={() => { set(''); save('') }}
-                    >✕</button>
-                  )}
-                </div>
-              ))}
+              ].map(({ label, val, set, save }) => {
+                // % hasta objetivo: cuánto debe moverse el precio actual para alcanzar el objetivo.
+                const price = snapshot?.last_price != null ? Number(snapshot.last_price) : null
+                const target = val !== '' ? Number(val) : null
+                const pctToTarget = (price != null && price > 0 && target != null && !isNaN(target))
+                  ? (target - price) / price * 100
+                  : null
+                return (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', minWidth: 90 }}>{label}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={val}
+                      onChange={e => set(e.target.value)}
+                      onBlur={e => save(e.target.value)}
+                      placeholder={t('sd.target_ph')}
+                      style={{ width: 90, padding: '3px 6px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: '0.85rem', fontFamily: 'var(--mono)' }}
+                    />
+                    {pctToTarget != null && (
+                      <span
+                        title={t('sd.target_pct')}
+                        style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)', minWidth: 64 }}
+                      >
+                        {pctToTarget >= 0 ? '+' : ''}{fmt(pctToTarget)}%
+                      </span>
+                    )}
+                    {val !== '' && (
+                      <button
+                        className="btn-ghost btn-sm"
+                        style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                        onClick={() => { set(''); save('') }}
+                      >✕</button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

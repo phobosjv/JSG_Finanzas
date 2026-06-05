@@ -58,7 +58,7 @@ function Card({ label, value, sub, clsName }) {
   return (
     <div className="card small">
       <div className={`value ${clsName ?? ''}`}>{value}</div>
-      {sub && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>{sub}</div>}
+      {sub && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{sub}</div>}
       <div className="label">{label}</div>
     </div>
   )

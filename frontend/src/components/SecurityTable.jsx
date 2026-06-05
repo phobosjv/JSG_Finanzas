@@ -229,8 +229,8 @@ export default function SecurityTable({ securities, favoritesTab = false, onTogg
                 {/* Precio objetivo compra — editable */}
                 <TargetCell sec={sec} onUpdate={onTargetUpdate} t={t} />
 
-                {/* % hasta objetivo */}
-                <td className={`num ${pctToTarget == null ? 'neu' : pctToTarget > 0 ? 'neg' : 'pos'}`}>
+                {/* % hasta objetivo — color neutro (blanco), no semántico */}
+                <td className="num">
                   {pctToTarget != null
                     ? `${pctToTarget >= 0 ? '+' : ''}${fmt(pctToTarget)}%`
                     : '—'}

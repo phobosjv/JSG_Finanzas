@@ -165,7 +165,7 @@ export default function SecurityCard({ sec, favoritesTab = false, onToggleFav, o
               {pctToTarget != null && (
                 <div className="sec-stat-row">
                   <span>{t('markets.col_target_pct')}</span>
-                  <span className={`num ${pctToTarget > 0 ? 'neg' : 'pos'}`}>
+                  <span className="num">
                     {pctToTarget >= 0 ? '+' : ''}{fmt(pctToTarget)}%
                   </span>
                 </div>
