@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.13] — 2026-06-05
+
+### Añadido — Borrar datos de cartera (usuario)
+
+- Nueva sección **«Borrar datos de cartera»** al final de la página de
+  Utilidades (solo para usuarios normales; también disponible para admin).
+  La sección tiene borde rojo para indicar que es una zona de peligro.
+- Al pulsar el botón se abre un **modal de confirmación** con aviso de
+  que la operación es irreversible.
+- Si el usuario confirma:
+  1. Se **exporta automáticamente** el backup completo en JSON (mismo
+     formato que el botón «Exportar JSON» de la sección de copia de
+     seguridad), para que el usuario tenga copia antes del borrado.
+  2. Se llama a `DELETE /api/portfolio/reset`, que borra todas las
+     **posiciones**, **transacciones**, **dividendos** y **planes de
+     aportación periódica** del usuario.
+- **Se conservan:** cuenta de usuario, contraseña, favoritos (incluidos los
+  precios objetivo de compra del catálogo), preferencias de visualización
+  (tema/idioma — almacenadas en el cliente).
+- Nuevo endpoint `DELETE /api/portfolio/reset` (usuario autenticado).
+- 4 tests de regresión: borrado en cascada, aislamiento entre usuarios,
+  conservación de favoritos, cartera ya vacía.
+
+---
+
 ## [1.9.12] — 2026-06-05
 
 ### Añadido — Botón «Cerrar sesión» visible en todas las secciones

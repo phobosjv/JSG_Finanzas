@@ -1179,3 +1179,90 @@ def test_perdida_computable_cuando_compra_totalmente_consumida_sin_otras_en_vent
         "Con compra totalmente consumida y sin otras en la ventana, "
         "la pérdida debe ser computable."
     )
+
+
+# ===========================================================================
+#  DELETE /portfolio/reset — borrar toda la cartera del usuario
+# ===========================================================================
+
+def test_reset_portfolio_borra_posiciones_y_transacciones(admin_client, seed_markets):
+    """
+    DELETE /portfolio/reset elimina todas las posiciones del usuario y en
+    cascada sus transacciones y dividendos. La cartera queda vacía.
+    """
+    sec = _crear_security(admin_client)
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    _buy(admin_client, pos, 10, 100)
+    _sell(admin_client, pos, 5, 120)
+
+    assert len(admin_client.get("/api/portfolio").json()) >= 1
+
+    resp = admin_client.delete("/api/portfolio/reset")
+    assert resp.status_code == 204
+    assert admin_client.get("/api/portfolio").json() == []
+
+
+def test_reset_portfolio_no_afecta_a_otros_usuarios(admin_client, seed_markets, engine):
+    """
+    DELETE /portfolio/reset solo borra las posiciones del usuario activo.
+    Crea un segundo usuario directamente en la BD para verificar aislamiento.
+    """
+    from sqlalchemy.orm import Session as _Session
+    from sqlalchemy import select as _select, func as _func
+    from app.models.portfolio import Position as _Position, TransactionRow as _TxRow
+    from app.models.user import User as _User
+    from app.auth.security import hash_password as _hp
+
+    # El admin crea su posición vía API
+    sec = _crear_security(admin_client)
+    pos_admin = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    _buy(admin_client, pos_admin, 5, 100)
+
+    # Segundo usuario creado directamente en BD (no vía API para evitar
+    # conflicto de cookie con admin_client)
+    with _Session(engine) as s:
+        other = _User(username="other_u", password_hash=_hp("pass"))
+        s.add(other)
+        s.flush()
+        other_pos = _Position(user_id=other.id, security_id=sec)
+        s.add(other_pos)
+        s.flush()
+        s.add(_TxRow(
+            position_id=other_pos.id, type="buy", date="2024-01-10",
+            shares=3, price=50, fee=0, currency="EUR", exchange_rate=1,
+        ))
+        s.commit()
+        other_pos_id = other_pos.id
+
+    # Reset del admin
+    assert admin_client.delete("/api/portfolio/reset").status_code == 204
+    assert admin_client.get("/api/portfolio").json() == []
+
+    # La posición del otro usuario sigue intacta en la BD
+    with _Session(engine) as s:
+        still_exists = s.scalar(
+            _select(_func.count()).select_from(_Position).where(_Position.id == other_pos_id)
+        )
+    assert still_exists == 1, "El reset no debe borrar posiciones de otros usuarios."
+
+
+def test_reset_portfolio_conserva_favoritos(admin_client, seed_markets):
+    """
+    DELETE /portfolio/reset no borra los favoritos del usuario.
+    """
+    sec = _crear_security(admin_client)
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    _buy(admin_client, pos, 10, 100)
+    admin_client.post(f"/api/favorites/{sec}")
+
+    admin_client.delete("/api/portfolio/reset")
+
+    favs = admin_client.get("/api/favorites").json()
+    assert any(f.get("id") == sec or f.get("security_id") == sec for f in favs), (
+        "El reset no debe borrar los favoritos del usuario."
+    )
+
+
+def test_reset_portfolio_cartera_ya_vacia(admin_client, seed_markets):
+    """DELETE /portfolio/reset sobre cartera vacía devuelve 204 sin errores."""
+    assert admin_client.delete("/api/portfolio/reset").status_code == 204

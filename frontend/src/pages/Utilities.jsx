@@ -60,6 +60,9 @@ export default function Utilities() {
   const [gfResult, setGfResult]         = useState(null)
   const [gfErr, setGfErr]               = useState(null)
 
+  // Reset de cartera
+  const [resetStep, setResetStep]       = useState(null) // null|'confirm'|'running'|'done'|'error'
+
   async function onGfFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -156,6 +159,29 @@ export default function Utilities() {
     const a = document.createElement('a')
     a.href = url; a.download = filename; a.click()
     URL.revokeObjectURL(url)
+  }
+
+  async function resetPortfolio() {
+    setResetStep('running')
+    try {
+      // 1. Exportar backup antes de borrar
+      const res = await fetch('/api/backup/export', { credentials: 'include' })
+      if (!res.ok) throw new Error('export')
+      const blob = await res.blob()
+      const cd = res.headers.get('Content-Disposition') ?? ''
+      const match = cd.match(/filename="([^"]+)"/)
+      const filename = match ? match[1] : `finanzas_backup_${new Date().toISOString().slice(0, 10)}.json`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = filename; a.click()
+      URL.revokeObjectURL(url)
+
+      // 2. Borrar cartera
+      await api.delete('/portfolio/reset')
+      setResetStep('done')
+    } catch {
+      setResetStep('error')
+    }
   }
 
   async function importBackup(e) {
@@ -495,6 +521,83 @@ export default function Utilities() {
           />
         </div>
       </div>
+
+      {/* Zona de peligro — reset de cartera */}
+      <div className="card" style={{ marginTop: 24, border: '1px solid var(--red, #dc2626)' }}>
+        <h2 style={{ color: 'var(--red, #dc2626)' }}>{t('utilities.reset_title')}</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
+          {t('utilities.reset_desc')}
+        </p>
+
+        {resetStep === 'done' && (
+          <div style={{ color: 'var(--green)', marginBottom: 12, fontSize: '0.9rem' }}>
+            ✓ {t('utilities.reset_ok')}
+          </div>
+        )}
+        {resetStep === 'error' && (
+          <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>
+            {t('utilities.reset_err')}
+          </div>
+        )}
+
+        <button
+          className="btn-sm"
+          disabled={resetStep === 'running'}
+          style={{
+            background: 'var(--red, #dc2626)', color: '#fff', border: 'none',
+            borderRadius: 6, padding: '6px 16px', cursor: 'pointer', fontWeight: 600,
+            opacity: resetStep === 'running' ? 0.6 : 1,
+          }}
+          onClick={() => setResetStep('confirm')}
+        >
+          {t('utilities.reset_btn')}
+        </button>
+      </div>
+
+      {/* Modal de confirmación */}
+      {resetStep === 'confirm' && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500,
+        }}>
+          <div className="card" style={{ maxWidth: 420, width: '90%', padding: 28 }}>
+            <h2 style={{ color: 'var(--red, #dc2626)', marginBottom: 12 }}>
+              {t('utilities.reset_confirm_title')}
+            </h2>
+            <p style={{ whiteSpace: 'pre-line', fontSize: '0.9rem', color: 'var(--text)', marginBottom: 24 }}>
+              {t('utilities.reset_confirm_body')}
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button className="btn-ghost btn-sm" onClick={() => setResetStep(null)}>
+                {t('utilities.reset_cancel')}
+              </button>
+              <button
+                className="btn-sm"
+                style={{
+                  background: 'var(--red, #dc2626)', color: '#fff', border: 'none',
+                  borderRadius: 6, padding: '6px 16px', cursor: 'pointer', fontWeight: 600,
+                }}
+                onClick={resetPortfolio}
+              >
+                {t('utilities.reset_continue')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overlay mientras se ejecuta el reset */}
+      {resetStep === 'running' && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500,
+        }}>
+          <div className="card" style={{ padding: 32, textAlign: 'center', fontSize: '0.95rem' }}>
+            <div style={{ fontSize: '1.8rem', marginBottom: 12 }}>⏳</div>
+            {t('utilities.reset_exporting')}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

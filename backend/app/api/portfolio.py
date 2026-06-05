@@ -1644,6 +1644,34 @@ def delete_position(
 
 
 # ---------------------------------------------------------------------------
+#  Reset de cartera (borrar todas las posiciones del usuario)
+# ---------------------------------------------------------------------------
+
+@router.delete("/reset", status_code=status.HTTP_204_NO_CONTENT)
+def reset_portfolio(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Borra TODAS las posiciones del usuario autenticado, y en cascada sus
+    transacciones, dividendos y planes de aportación periódica.
+
+    Se conservan: cuenta de usuario, contraseña, favoritos (incluidos los
+    precios objetivo de compra del catálogo) y preferencias de visualización
+    (tema/idioma, almacenadas en el cliente).
+
+    Uso previsto: el frontend exporta el backup JSON antes de llamar a este
+    endpoint, para que el usuario tenga copia antes del borrado.
+    """
+    positions = db.scalars(
+        select(Position).where(Position.user_id == user.id)
+    ).all()
+    for pos in positions:
+        db.delete(pos)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
 #  Helper
 # ---------------------------------------------------------------------------
 

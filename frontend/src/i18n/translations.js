@@ -321,6 +321,19 @@ export const translations = {
     'utilities.gf_error_row':   'Actividad {row} ({ticker}): {reason}',
     'utilities.gf_bad_format':  'El fichero no parece una exportación de Ghostfolio válida.',
 
+    // ── Reset de cartera ─────────────────────────────────────────────────
+    'utilities.reset_title':        'Borrar datos de cartera',
+    'utilities.reset_desc':         'Elimina de forma permanente todas las posiciones, transacciones, dividendos y planes periódicos. Tu cuenta, contraseñas, favoritos y preferencias se conservan.',
+    'utilities.reset_btn':          'Borrar cartera…',
+    'utilities.reset_confirm_title':'¿Borrar toda la cartera?',
+    'utilities.reset_confirm_body': 'Se borrarán permanentemente todas las operaciones de tu cartera. Esta acción no se puede deshacer.\n\nAntes de borrar se descargará automáticamente una copia de seguridad en JSON.',
+    'utilities.reset_cancel':       'Cancelar',
+    'utilities.reset_continue':     'Exportar y borrar',
+    'utilities.reset_exporting':    'Exportando copia de seguridad…',
+    'utilities.reset_deleting':     'Borrando datos…',
+    'utilities.reset_ok':           'Cartera borrada. Se ha descargado la copia de seguridad.',
+    'utilities.reset_err':          'Error al borrar la cartera. Inténtalo de nuevo.',
+
     // ── Informe fiscal ───────────────────────────────────────────────────
     'tax.title':                'Informe fiscal IRPF',
     // Cabecera del ejercicio en curso (estas claves se usan en TaxReport.jsx)
@@ -768,6 +781,19 @@ export const translations = {
     'utilities.gf_errors':      'Errors:',
     'utilities.gf_error_row':   'Activity {row} ({ticker}): {reason}',
     'utilities.gf_bad_format':  'The file does not appear to be a valid Ghostfolio export.',
+
+    // ── Reset portfolio ──────────────────────────────────────────────────
+    'utilities.reset_title':        'Delete portfolio data',
+    'utilities.reset_desc':         'Permanently deletes all positions, transactions, dividends and recurring plans. Your account, passwords, favourites and preferences are kept.',
+    'utilities.reset_btn':          'Delete portfolio…',
+    'utilities.reset_confirm_title':'Delete entire portfolio?',
+    'utilities.reset_confirm_body': 'All portfolio operations will be permanently deleted. This action cannot be undone.\n\nA JSON backup will be downloaded automatically before deletion.',
+    'utilities.reset_cancel':       'Cancel',
+    'utilities.reset_continue':     'Export & delete',
+    'utilities.reset_exporting':    'Exporting backup…',
+    'utilities.reset_deleting':     'Deleting data…',
+    'utilities.reset_ok':           'Portfolio deleted. Backup downloaded.',
+    'utilities.reset_err':          'Error deleting portfolio. Please try again.',
 
     // ── Tax report ────────────────────────────────────────────────────────
     'tax.title':                'Tax report (IRPF)',
