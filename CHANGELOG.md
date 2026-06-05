@@ -5,6 +5,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.9.16] — 2026-06-05
+
+### Mejorado — Campana de alertas se refresca al navegar entre secciones
+
+La campana solo se cargaba una vez al iniciar sesión y luego cada 5 minutos.
+Si una alerta se activaba entre dos recargas, el badge no aparecía hasta el
+siguiente ciclo o hasta refrescar la página.
+
+Ahora `useLocation().pathname` es dependencia del efecto: cada vez que el
+usuario navega a una sección distinta (Dashboard, Mercados, Cartera, Fiscal,
+Utilidades) la campana consulta de nuevo `/portfolio` y `/favorites` y
+actualiza el badge de inmediato. El refresco periódico de 5 minutos se mantiene.
+
+---
+
 ## [1.9.15] — 2026-06-05
 
 ### Corregido — Popup de alertas salía por la izquierda en escritorio

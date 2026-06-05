@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAppConfig } from '../context/AppContext'
 import { api } from '../api/client'
@@ -133,6 +133,7 @@ export default function Navigation() {
   const { user, logout } = useAuth()
   const { appName, logoUrl, theme, toggleTheme, t } = useAppConfig()
   const [alerts, setAlerts] = useState([])
+  const location = useLocation()
 
   useEffect(() => {
     if (!user) return
@@ -161,7 +162,7 @@ export default function Navigation() {
     loadAlerts()
     const id = setInterval(loadAlerts, 5 * 60 * 1000)
     return () => { cancelled = true; clearInterval(id) }
-  }, [user])
+  }, [user, location.pathname])
 
   return (
     <>
