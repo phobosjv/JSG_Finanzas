@@ -45,7 +45,7 @@ from app.schemas.portfolio import (
     RecurringBuyCreate, RecurringBuyResult, RecurringPlanOut, SkippedContribution,
     SecurityDividendSummary,
     TransactionCreate, TransactionOut,
-    TransferCreate, TransferResult,
+    TransferCreate, TransferResult, TransferUpdate,
 )
 from app.services.calculations import (
     Transaction, compute_position, consumed_cost_fifo, daily_change,
@@ -381,6 +381,125 @@ def delete_transfer(
     for r in rows:
         db.delete(r)
     db.commit()
+
+
+@router.patch("/transfer/{group_id}", response_model=TransferResult)
+def update_transfer(
+    group_id: str,
+    body: TransferUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Edita un traspaso existente: recalcula el coste heredado con los nuevos
+    valores (shares, dest_shares, date) y actualiza ATÓMICAMENTE las dos filas
+    vinculadas por el transfer_group_id. No permite cambiar los fondos implicados.
+    """
+    rows = db.scalars(
+        select(TransactionRow)
+        .join(Position, TransactionRow.position_id == Position.id)
+        .where(
+            TransactionRow.transfer_group_id == group_id,
+            Position.user_id == user.id,
+        )
+    ).all()
+    if not rows:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Traspaso no encontrado")
+
+    out_row = next((r for r in rows if r.type == "transfer_out"), None)
+    in_row  = next((r for r in rows if r.type == "transfer_in"),  None)
+    if out_row is None or in_row is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Traspaso incompleto")
+
+    transfer_date = date_type.fromisoformat(body.date)
+    repo = PortfolioRepository(db)
+
+    # ---------- Coste heredado: FIFO del origen hasta la nueva fecha ----------
+    origin_pos = db.get(Position, out_row.position_id)
+    splits_orig = repo.splits_for_security(origin_pos.security_id)
+    origin_txs_raw = db.scalars(
+        select(TransactionRow).where(
+            TransactionRow.position_id == out_row.position_id,
+            TransactionRow.id != out_row.id,
+        )
+    ).all()
+    origin_pre_txs = [
+        Transaction(type=r.type, date=date_type.fromisoformat(r.date),
+                    shares=r.shares, price=r.price, fee=r.fee, exchange_rate=r.exchange_rate)
+        for r in origin_txs_raw
+        if date_type.fromisoformat(r.date) <= transfer_date
+    ]
+    origin_state = compute_position(origin_pre_txs, [], splits_orig)
+    try:
+        _, inherited_cost_eur = consumed_cost_fifo(origin_state.open_lots, body.shares)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+
+    new_out_price = inherited_cost_eur / body.shares
+    new_in_price  = inherited_cost_eur / body.dest_shares
+
+    # ---------- Validar que el origen sigue siendo consistente post-edición ----------
+    new_out_tx = Transaction(type="transfer_out", date=transfer_date,
+                             shares=body.shares, price=new_out_price,
+                             fee=Decimal("0"), exchange_rate=Decimal("1"))
+    all_origin_txs = [
+        Transaction(type=r.type, date=date_type.fromisoformat(r.date),
+                    shares=r.shares, price=r.price, fee=r.fee, exchange_rate=r.exchange_rate)
+        for r in origin_txs_raw
+    ] + [new_out_tx]
+    try:
+        compute_position(all_origin_txs, [], splits_orig)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"No se puede editar: el fondo origen quedaría sin participaciones que respalden operaciones posteriores ({exc}).",
+        )
+
+    # ---------- Validar que el destino sigue siendo consistente post-edición ----------
+    dest_pos = db.get(Position, in_row.position_id)
+    splits_dest = repo.splits_for_security(dest_pos.security_id)
+    dest_txs_raw = db.scalars(
+        select(TransactionRow).where(
+            TransactionRow.position_id == in_row.position_id,
+            TransactionRow.id != in_row.id,
+        )
+    ).all()
+    new_in_tx = Transaction(type="transfer_in", date=transfer_date,
+                            shares=body.dest_shares, price=new_in_price,
+                            fee=Decimal("0"), exchange_rate=Decimal("1"))
+    all_dest_txs = [
+        Transaction(type=r.type, date=date_type.fromisoformat(r.date),
+                    shares=r.shares, price=r.price, fee=r.fee, exchange_rate=r.exchange_rate)
+        for r in dest_txs_raw
+    ] + [new_in_tx]
+    try:
+        compute_position(all_dest_txs, [], splits_dest)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"No se puede editar: el fondo destino quedaría sin participaciones que respalden operaciones posteriores ({exc}).",
+        )
+
+    # ---------- Actualizar ambas filas atómicamente ----------
+    out_row.date   = body.date
+    out_row.shares = body.shares
+    out_row.price  = new_out_price
+    in_row.date    = body.date
+    in_row.shares  = body.dest_shares
+    in_row.price   = new_in_price
+
+    db.commit()
+    db.refresh(out_row)
+    db.refresh(in_row)
+
+    return TransferResult(
+        origin_position_id=out_row.position_id,
+        dest_position_id=in_row.position_id,
+        transfer_out_id=out_row.id,
+        transfer_in_id=in_row.id,
+        inherited_cost_eur=inherited_cost_eur,
+        transfer_group_id=group_id,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -768,10 +887,10 @@ def get_operations_by_security(
     # Una sola query: busca las transacciones con el mismo transfer_group_id
     # pero de otra posición, uniendo con positions y securities.
     group_ids = [t.transfer_group_id for t in txs if t.transfer_group_id]
-    related_by_group: dict[str, tuple[int, str]] = {}
+    related_by_group: dict[str, tuple[int, str, Decimal]] = {}
     if group_ids:
-        rows = db.execute(
-            select(TransactionRow.transfer_group_id, Security.id, Security.name)
+        partner_rows = db.execute(
+            select(TransactionRow.transfer_group_id, Security.id, Security.name, TransactionRow.shares)
             .join(Position, TransactionRow.position_id == Position.id)
             .join(Security, Position.security_id == Security.id)
             .where(
@@ -779,12 +898,15 @@ def get_operations_by_security(
                 TransactionRow.position_id != pos.id,
             )
         ).all()
-        related_by_group = {row[0]: (row[1], row[2]) for row in rows}
+        related_by_group = {row[0]: (row[1], row[2], row[3]) for row in partner_rows}
 
     def _tx_out(t: TransactionRow) -> TransactionOut:
         out = TransactionOut.model_validate(t)
         if t.transfer_group_id and t.transfer_group_id in related_by_group:
-            out.related_security_id, out.related_security_name = related_by_group[t.transfer_group_id]
+            sec_id, sec_name, partner_shares = related_by_group[t.transfer_group_id]
+            out.related_security_id = sec_id
+            out.related_security_name = sec_name
+            out.transfer_partner_shares = partner_shares
         return out
 
     return {

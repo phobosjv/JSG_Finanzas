@@ -1,0 +1,3192 @@
+{
+  "_nota": "Fondos de inversión internacionales (UCITS) disponibles en Yahoo Finance. Importar desde AdminPanel -> Catalogo -> Importar catalogo. Requiere mercado fondos_ext con is_fund_market=true. ISINs (null) verificar antes de declaracion fiscal. Incluye el Fidelity MSCI World 0P0001CLDK.F.",
+  "exported_at": "2026-06-02",
+  "markets": [
+    {
+      "code": "fondos_ext",
+      "name": "Fondos Internacionales",
+      "index_ticker": null,
+      "currency": "EUR",
+      "fiscal_window_days": 365,
+      "is_fund_market": true
+    }
+  ],
+  "securities": [
+    {
+      "name": "AAF-Amundi European Equities A EUR Cap",
+      "isin": null,
+      "yahoo_ticker": "0P0001CC7V.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AAF-Amundi European Equities C EUR Cap",
+      "isin": null,
+      "yahoo_ticker": "0P0001CC7W.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AAF-Amundi European Equities F EUR Cap",
+      "isin": null,
+      "yahoo_ticker": "0P0001CC7X.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "ABN AMRO Funds - EdenTree European Sustainable Equities",
+      "isin": null,
+      "yahoo_ticker": "0P00019M2C.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "ABN AMRO Funds - EdenTree European Sustainable Equities",
+      "isin": null,
+      "yahoo_ticker": "0P0001CKV7.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AMUNDI European Equity Value Fam L Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001EDR0.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AXA WF ACT Green Bds I Cap EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00016ZO0.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AXA WF ACT Humn Cap F Cap EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000CU5N.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AXA WF Sustainable Eurozone Eq I Cap EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000IECI.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AXA World Funds - Digital Economy",
+      "isin": null,
+      "yahoo_ticker": "0P0001CNCD.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AXA World Funds - Global Emerging Markets Bonds",
+      "isin": null,
+      "yahoo_ticker": "0P0001KXYO.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AXA World Funds - Robotech",
+      "isin": null,
+      "yahoo_ticker": "0P0001HUX0.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "AXAWF People & Planet Eq I Cap USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001IFXN",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Allianz Dyn Asian Hi Yld Bd RT USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001FF96",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Allianz Emerging Mkts Sov Bd AT USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001OZ17",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Allianz European Equity Div AM H2 USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZQ60",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Allianz European Equity Div P EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00011WVQ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Allianz Funds - Allianz AGIC Pacific Rim Fund",
+      "isin": null,
+      "yahoo_ticker": "PPRDX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Allianz Global Investors Choice Fund - Allianz Choice Growth Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00001AWS.HK",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Allianz Global Investors Fund - Allianz Asian Multi Income Plus",
+      "isin": null,
+      "yahoo_ticker": "0P000148G1.BE",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Allianz Global Water RT10 USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001KQBY",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi European Sector Rotation Fd I C/D",
+      "isin": null,
+      "yahoo_ticker": "0P0001F2A7.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi European Sector Rotation Fd P C/D",
+      "isin": null,
+      "yahoo_ticker": "0P0001GRAF.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi Fds Global Equity M USD C",
+      "isin": null,
+      "yahoo_ticker": "0P0001HV4F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi Fds US Eq Fundm Gr Q-D USD C",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZEQO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi Fds Volatil Wld I USD C",
+      "isin": null,
+      "yahoo_ticker": "0P0000ACG8",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi Funds - Emerging Markets Equity Focus",
+      "isin": null,
+      "yahoo_ticker": "0P0001D9F7.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi Funds - Emerging Markets Local Currency Bond",
+      "isin": null,
+      "yahoo_ticker": "0P0001EJZ8.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi Funds - Emerging Markets Local Currency Bond",
+      "isin": null,
+      "yahoo_ticker": "0P0001HRJ0",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi MSCI EMU SRI ClmtPrsAlgd IGGBPAcc",
+      "isin": null,
+      "yahoo_ticker": "0P0001NI0V.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi MSCI World SRI Clmt Prs AlgdIGInc",
+      "isin": null,
+      "yahoo_ticker": "0P0001QAB9.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi World Eq Idx Scr FGR A €",
+      "isin": null,
+      "yahoo_ticker": "0P0001YG5B.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi World Eq Indx Scrd FGR AN Eur",
+      "isin": null,
+      "yahoo_ticker": "0P0001YG5A.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Amundi-Bond Global Aggregate Na",
+      "isin": null,
+      "yahoo_ticker": "GNAW.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Artemis Fds (Lux) US Focus B USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001H1A9",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Artemis Fds(Lux)SmartGARP GlblEM Eq BUSD",
+      "isin": null,
+      "yahoo_ticker": "0P0001H1AB",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Artemis Funds (Lux) Glb HY Opps FIEURAcc",
+      "isin": null,
+      "yahoo_ticker": "0P0001O3FU.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Artemis Funds(Lux) US Smlr Coms B EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001H0C2.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Artemis Funds(Lux) US Smlr Coms I GBPAcc",
+      "isin": null,
+      "yahoo_ticker": "0P0001L99Y.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "ArtemisFds(Lux) SD Glb HY Bd FI USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001I29Q",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "ArtemisFds(Lux) US Extd Alpha I USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001EY3K",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BEA Union Investment Asia Strat Gr R(2)",
+      "isin": null,
+      "yahoo_ticker": "0P000099XW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BEA Union Investment Greater Chn Gr I(3)",
+      "isin": null,
+      "yahoo_ticker": "0P0001PMQB",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF - Emerging Markets A2",
+      "isin": null,
+      "yahoo_ticker": "ERDY.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF - European Fund- A",
+      "isin": null,
+      "yahoo_ticker": "MI9F.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Continental Eurp Flex I2",
+      "isin": null,
+      "yahoo_ticker": "0P0000Y651.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Emerging Markets Bond A3",
+      "isin": null,
+      "yahoo_ticker": "0P00001AVR",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Emerging Markets Corp Bd SR2",
+      "isin": null,
+      "yahoo_ticker": "0P0001M6B4",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Emerging Markets Sust Eq D2",
+      "isin": null,
+      "yahoo_ticker": "0P0001MUNW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Emerging Markets Sust Eq X2",
+      "isin": null,
+      "yahoo_ticker": "0P0001N0KP",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF European D2 USD Hedged",
+      "isin": null,
+      "yahoo_ticker": "0P0000XKPC",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF European Equity Income A2",
+      "isin": null,
+      "yahoo_ticker": "0P0000RWHT.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF European Special Situations A2 CAD H",
+      "isin": null,
+      "yahoo_ticker": "0P000127RE.TO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF European Special Situations A2 HKD H",
+      "isin": null,
+      "yahoo_ticker": "0P00017FLO.HK",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF European Value A2 USD Hedged",
+      "isin": null,
+      "yahoo_ticker": "0P000127RB",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Fixed Income Global Opps I2",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZVJ3",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Fixed Income Global Opps J3",
+      "isin": null,
+      "yahoo_ticker": "0P00011IVO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Fixed Income Global Opps S2 CHF H",
+      "isin": null,
+      "yahoo_ticker": "0P0001HOIQ.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Global Allocation X2 JPY Hedged",
+      "isin": null,
+      "yahoo_ticker": "0P00018MOV.T",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Global Equity Income A2 SGD Hedged",
+      "isin": null,
+      "yahoo_ticker": "0P0000UNY8.SI",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Global Equity Income D2 EUR Hedged",
+      "isin": null,
+      "yahoo_ticker": "0P0000YI7G.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Global Equity Income E5G",
+      "isin": null,
+      "yahoo_ticker": "0P0000SB4A",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF US Dollar High Yield Bd A8 ZAR H",
+      "isin": null,
+      "yahoo_ticker": "0P000125ZC.JO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF US Dollar High Yield Bd SR4 GBP H",
+      "isin": null,
+      "yahoo_ticker": "0P0001M6B6.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF US Dollar High Yield Bd X6",
+      "isin": null,
+      "yahoo_ticker": "0P00017LM0",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF US Dollar Short Duration Bd I5",
+      "isin": null,
+      "yahoo_ticker": "0P0001ER3M",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF US Mid-Cap Value C2",
+      "isin": null,
+      "yahoo_ticker": "0P00000X6U",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF US Mid-Cap Value D2",
+      "isin": null,
+      "yahoo_ticker": "0P0000D1UQ",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF World Bond A3",
+      "isin": null,
+      "yahoo_ticker": "0P00001AZM",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF World Healthscience A2 SGD H",
+      "isin": null,
+      "yahoo_ticker": "0P000130KK.SI",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF World Healthscience X10",
+      "isin": null,
+      "yahoo_ticker": "0P0001P3ZL",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BI Baillie Gifford GlbDiv Growth P",
+      "isin": null,
+      "yahoo_ticker": "0P0001Q0OL.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BMO Investments (Lux) I Fund - BMO Responsible Global Emerging Markets Equity Fund",
+      "isin": null,
+      "yahoo_ticker": "GQCJ.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BMO Investments (Lux) I Fund - BMO Sustainable Opportunities European Equity Fund",
+      "isin": null,
+      "yahoo_ticker": "GQCC.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNP Paribas Brazil Equity N C",
+      "isin": null,
+      "yahoo_ticker": "0P00007ZH9",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNP Paribas China Eq I C",
+      "isin": null,
+      "yahoo_ticker": "0P0000YSZ7",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNP Paribas China Eq Privl Dis",
+      "isin": null,
+      "yahoo_ticker": "0P0000YV2O",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNP Paribas Funds Euro Flxbl Bd Prvl Cap",
+      "isin": null,
+      "yahoo_ticker": "0P0001P064.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNP Paribas Funds Global Bond Opportunities X Capitalisation",
+      "isin": null,
+      "yahoo_ticker": "0P0000YVQR.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNP Paribas Glb HY Bd Cl USD MD Dis",
+      "isin": null,
+      "yahoo_ticker": "0P0000YSR5",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNPP European Flexible Income",
+      "isin": null,
+      "yahoo_ticker": "0P0001D98J.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNPP European Flexible Income",
+      "isin": null,
+      "yahoo_ticker": "0P0001D98I.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNPP European Flexible Income A",
+      "isin": null,
+      "yahoo_ticker": "0P00015TGW.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNPP European Flexible Income B",
+      "isin": null,
+      "yahoo_ticker": "0P00015TGX.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNPP Global Infrastructure Target Vol Eq",
+      "isin": null,
+      "yahoo_ticker": "0P0001IMUF.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNPP Global Multi Factor and Bl",
+      "isin": null,
+      "yahoo_ticker": "0P0001UKL3.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BNPP Rspnb US Mlt-Fac Eq Pr USD Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0001IIQE",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Baillie Gifford GlblAlpParisAlignedB£Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001M5Z0.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Baillie Gifford UK & Balanced Funds ICVC-Baillie Gifford Responsible Global Equity Income Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001JSUJ.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Baillie Gifford WW Pstv Chg B USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001D7PT",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Baillie Gifford Worldwide Discovery Fund C GBP Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001JFYK.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Baillie Gifford Worldwide Emerging Markets Leading Companies Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0000XAGX.T",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Baillie Gifford Worldwide Emerging Markets Leading Companies Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001L1QA.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Beneva PIMCO Bond GIF Basic",
+      "isin": null,
+      "yahoo_ticker": "0P000174N6.TO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Beneva PIMCO Bond GIF Basic CB (426036A5)",
+      "isin": null,
+      "yahoo_ticker": "ZARNOX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Beneva PIMCO Bond GIF Basic DSC (426036A2)",
+      "isin": null,
+      "yahoo_ticker": "ZARNNX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Beneva PIMCO Bond GIF Basic FE (426036A4)",
+      "isin": null,
+      "yahoo_ticker": "ZARNMX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Beneva PIMCO Bond GIF Basic NL (426036A3)",
+      "isin": null,
+      "yahoo_ticker": "ZARNLX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Beneva Universal Life Pimco Bond NL (473221A2)",
+      "isin": null,
+      "yahoo_ticker": "ZARLVX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlackRock Global Funds - ESG Multi-Asset Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001IZOH",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlackRock Global Funds - European Special Situations Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00008XHZ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlackRock Global Funds - Global Government Bond Fund",
+      "isin": null,
+      "yahoo_ticker": "MI91.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlackRock Global Funds SICAV - ",
+      "isin": null,
+      "yahoo_ticker": "LU0093503497.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlueBay EM Local Currency Bd (Can) U$ A",
+      "isin": null,
+      "yahoo_ticker": "0P0001GZ45",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlueBay Emerging Mkt Sel Bd B EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000KD9U.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlueBay High Income Loan S H USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P00017BTS",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "CLI Fidelity Sustainable Global Equity",
+      "isin": null,
+      "yahoo_ticker": "0P00000VWM.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Calvert Conservative Allocation I",
+      "isin": null,
+      "yahoo_ticker": "CFAIX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Calvert Global Energy Solutions A",
+      "isin": null,
+      "yahoo_ticker": "CGAEX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Calvert Growth Allocation I",
+      "isin": null,
+      "yahoo_ticker": "CAGIX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Calvert Small/Mid-Cap A",
+      "isin": null,
+      "yahoo_ticker": "CMPAX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Calvert US Large Cap Value Rspnb Idx R6",
+      "isin": null,
+      "yahoo_ticker": "CLVRX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Candriam Bonds Euro High Yield",
+      "isin": null,
+      "yahoo_ticker": "0P00019J2K.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Candriam Eqs L Australia I EUR Cap",
+      "isin": null,
+      "yahoo_ticker": "0P0000A0N6.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Candriam Eqs L Eurp Innovt R2 EUR Dis",
+      "isin": null,
+      "yahoo_ticker": "0P0001AF4W.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Candriam Sst Eq Em Mkts R $ Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001FDKK",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Candriam Sst MM Euro R2 € Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0001RIBK.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Carmignac Credit 2027 F EUR Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001P1UJ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Carmignac Pf Merger Arb Plus A EUR Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001QUIB.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Comgest Actions Internationales",
+      "isin": null,
+      "yahoo_ticker": "0P0001QJAB.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Comgest Gr America EUR Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001R7IR.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Comgest Gr Europe Opps USD I H Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001K609",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Comgest Gr Global EUR SI Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001HPTA.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS Concept Kaldemorgen AUD SFDMH",
+      "isin": null,
+      "yahoo_ticker": "0P0001J4ES.BE",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS Concept Kaldemorgen EUR SLD",
+      "isin": null,
+      "yahoo_ticker": "0P0001AIQL.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS European Net Zero Transition LD",
+      "isin": null,
+      "yahoo_ticker": "0P00001A2J.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS Global Income Builder S",
+      "isin": null,
+      "yahoo_ticker": "KTRSX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS Global Macro Inst",
+      "isin": null,
+      "yahoo_ticker": "MGINX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS Global Macro R6",
+      "isin": null,
+      "yahoo_ticker": "DBIWX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS Invest - Top Dividend",
+      "isin": null,
+      "yahoo_ticker": "0P0001HCKN.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS Invest CROCI Japan JPY LC",
+      "isin": null,
+      "yahoo_ticker": "0P0001EEFU.T",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS Invest Global Infras PFDQ",
+      "isin": null,
+      "yahoo_ticker": "0P0001OFVR.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "DWS Invest Top Dividend LCH (P)",
+      "isin": null,
+      "yahoo_ticker": "0P0001546X.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Darta Team Columbia Threadneedle",
+      "isin": null,
+      "yahoo_ticker": "0P0001J3I8.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "EdenTree Green Impact Infras B Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0001PL1V.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "EdenTree Sustainable Eurp Eq B Inc",
+      "isin": null,
+      "yahoo_ticker": "0P00000UM6.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "EdenTree Sustainable UK Eq Opps B Inc",
+      "isin": null,
+      "yahoo_ticker": "0P00000UM9.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "EdenTree Sustainable UK Equity A Inc",
+      "isin": null,
+      "yahoo_ticker": "0P00000F1X.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Edentree Global Impact Bond B Gross Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0001O0O8.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "FCH BlueBay Invmt Grd Euro Bd - A EUR C",
+      "isin": null,
+      "yahoo_ticker": "0P0001PVFZ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "FCH JPMorgan US Eq Foc CA Sel F EUR HAcc",
+      "isin": null,
+      "yahoo_ticker": "0P0001NMRY.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "FTF Franklin Global Uncons W Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0001PP1V.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Em Eurp Mdl Est&Afr I USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001R0QS",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity European Div A-Dis-EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000Q7RO.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity European Dynamic Gr A-Dis-SGD",
+      "isin": null,
+      "yahoo_ticker": "0P00015GXW.SI",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity European Growth Y-Dis-EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZP82.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity European R Acc GBP",
+      "isin": null,
+      "yahoo_ticker": "0P0001RM4M.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity European Smlr Coms A-Dis-EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00000D5D.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity European Value A-Dis-EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00000NPS.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Funds - China High Yield Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00017EF1.SI",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Funds - Global Multi Asset Dynamic Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001M4I2",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Funds - Greater China Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0000G6T8.SI",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Funds - Indonesia Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00000D5M",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Global Equity+ Fund - O",
+      "isin": null,
+      "yahoo_ticker": "0P0001RNX6.TO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Global Financial Svcs A-Dis-USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZRBU",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Global Health Care Fund Series A LSC (613A3)",
+      "isin": null,
+      "yahoo_ticker": "FAGRX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Global Income Portfolio Sr B",
+      "isin": null,
+      "yahoo_ticker": "0P00008XLP.TO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Global Intrinsic Value A",
+      "isin": null,
+      "yahoo_ticker": "0P0001MHNW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Index Emerging Markets Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00013O95.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Index Japan",
+      "isin": null,
+      "yahoo_ticker": "0P00013O93.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Index UK Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00013O8Z.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Index UK Gilt S GBP Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001OBI1.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Index US P Acc",
+      "isin": null,
+      "yahoo_ticker": "0P000125KU.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Index US P Inc H",
+      "isin": null,
+      "yahoo_ticker": "0P0001MZUL.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Index World A Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0000XNUY.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity MSCI World Index EUR P Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001CLDK.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity MSCI World Index Fund ",
+      "isin": null,
+      "yahoo_ticker": "IE00BYX5NX33.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Sustainable Multi-Asset",
+      "isin": null,
+      "yahoo_ticker": "FYMRX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Sustainable Target Date 2010 K",
+      "isin": null,
+      "yahoo_ticker": "FSVKX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Sustainable Target Date 2020",
+      "isin": null,
+      "yahoo_ticker": "FSWDX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Sustainable Target Date 2020 K",
+      "isin": null,
+      "yahoo_ticker": "FSWMX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Sustainable Target Date 2035 K6",
+      "isin": null,
+      "yahoo_ticker": "FSXUX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Sustainable Target Date 2065",
+      "isin": null,
+      "yahoo_ticker": "FTGPX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity US High Yield B-MCDIST(G)-USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001Q4PP",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity World Y-Acc-EUR H",
+      "isin": null,
+      "yahoo_ticker": "0P0001C9TK.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity World Y-Dis-EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZOZO.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Worldwide Fund",
+      "isin": null,
+      "yahoo_ticker": "FWIFX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Franklin European Corporate Bond Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0000O30Z.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Franklin Glb Inc & Gr Opps N (acc) USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001K6HC",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Franklin Glbl Mlt-Asst Inc N(Mdis)USD-H1",
+      "isin": null,
+      "yahoo_ticker": "0P00016D21",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Franklin Global Equity IS",
+      "isin": null,
+      "yahoo_ticker": "SMYSX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Franklin Global Growth O",
+      "isin": null,
+      "yahoo_ticker": "0P0000TNYW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Franklin Technology Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00011U7C",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Franklin Technology I Acc USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000TEXM",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Franklin Technology N Acc USD",
+      "isin": null,
+      "yahoo_ticker": "0P00000MKF",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Franklin Templeton Investment Funds SICAV - Franklin Technology Fund",
+      "isin": null,
+      "yahoo_ticker": "TESG.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Generali Investments SICAV - Absolute Return Multi Strategies",
+      "isin": null,
+      "yahoo_ticker": "0P000080PZ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Generali Investments SICAV - Euro Equity",
+      "isin": null,
+      "yahoo_ticker": "0P00011UGF.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Generali Investments SICAV - Euro Equity Controlled Volatility",
+      "isin": null,
+      "yahoo_ticker": "0P00017NFL.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Generali Investments SICAV - Euro Short Term Bond",
+      "isin": null,
+      "yahoo_ticker": "0P00000HYJ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "IG PIMCO Global Bond Fund F",
+      "isin": null,
+      "yahoo_ticker": "0P0001I30F.TO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco ASEAN Equity C USD AD",
+      "isin": null,
+      "yahoo_ticker": "0P0001DJTM",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco Asia Asset Allc R USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0000ST8N",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco China Focus Equity S USD ADist",
+      "isin": null,
+      "yahoo_ticker": "0P0001QVXU",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco Cnttl Eur Sm Cp Eq C USDH Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001DK0V",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco European Equity Class Series I",
+      "isin": null,
+      "yahoo_ticker": "0P0001AH0P.TO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco European Equity Series P",
+      "isin": null,
+      "yahoo_ticker": "0P00011NTW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco European Senior Loan NHX $H Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0000X8OL",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco European Smlr Coms UK M Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001N8WD.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco European Smlr Coms UK M Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0001N8WE.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco Funds - Invesco Nippon Small/Mid Cap Equity Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00000APA.T",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco Global Small Cap Eq A USD AD",
+      "isin": null,
+      "yahoo_ticker": "0P0001DK36",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco Global Small Cap Equity A",
+      "isin": null,
+      "yahoo_ticker": "ESMAX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco Global Small Cap Equity Y",
+      "isin": null,
+      "yahoo_ticker": "ESMYX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco Global Total Ret Bd S EUR Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001IGVY.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Invesco India Equity Z USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001BI4B",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JNL/PIMCO Income Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001AMJM",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM Emerg Mkts Corp Bd C mth USD",
+      "isin": null,
+      "yahoo_ticker": "0P00013NA6",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM Global Corporate Bd A mth USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000PUMK",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM Global Corporate Bd D mth USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000WD46",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM Global Income Cnsrv A (div) EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00018WK5.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM Global Macro D (dist) USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000WD27",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM Global Macro Opportunities C Net Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0000Y1O9.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM Global Natural Resources A acc USD",
+      "isin": null,
+      "yahoo_ticker": "0P00006PVR",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM Global Short Dur Bd A acc EUR Hdg",
+      "isin": null,
+      "yahoo_ticker": "0P0000KVLT.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM Latin America Equity I acc USD",
+      "isin": null,
+      "yahoo_ticker": "0P000063PC",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM US Small Cap Growth C acc USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000USJW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM US Smaller Companies A dist USD",
+      "isin": null,
+      "yahoo_ticker": "0P00000C2P",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM US Technology A acc EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000OQHY.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPM US Value I2 inc EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001ECLX.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "JPMorgan Funds SICAV - Asia Gro",
+      "isin": null,
+      "yahoo_ticker": "LU0169518387.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Janus Henderson Glb Tech and Innovt T",
+      "isin": null,
+      "yahoo_ticker": "JAGTX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Janus Henderson Horizon Euro High Yield Bond Fund A3q EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000XH7R.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Janus Henderson Hrzn Glb SC A2 EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001I1JP.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Janus Henderson Research D",
+      "isin": null,
+      "yahoo_ticker": "JNRFX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "LUX IM Nordea European Covered Bond EX",
+      "isin": null,
+      "yahoo_ticker": "0P0001PBKQ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Global High Yield Bond GBP I Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0000WN3I.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Global Listed Infrastructure Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001H2VJ.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Global Macro Bond GBP PP Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0001HR0I.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Global Strategic Value GBP R Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0000WN3X.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Optimal Income Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001H2WA.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Optimal Income GBP A Acc",
+      "isin": null,
+      "yahoo_ticker": "0P00006TW4.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Optimal Income GBP A Inc",
+      "isin": null,
+      "yahoo_ticker": "0P00006TUI.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Optimal Income GBP I Acc",
+      "isin": null,
+      "yahoo_ticker": "0P00006TW8.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Optimal Income GBP I Inc",
+      "isin": null,
+      "yahoo_ticker": "0P00006TW7.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Optimal Income GBP PP Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0001HR0P.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "M&G Optimal Income GBP R Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0000WN4H.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MFS Meridian Emerging Mkts Eq WH1 GBP",
+      "isin": null,
+      "yahoo_ticker": "0P0000SIML.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MFS Meridian Funds - Global Total Return Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00001B5Q.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MFS Meridian Global Oppc Bd N1 USD",
+      "isin": null,
+      "yahoo_ticker": "0P00018DQM",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MFS Meridian Global Rsrch Focus C1 USD",
+      "isin": null,
+      "yahoo_ticker": "0P00000WWE",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MFS Meridian Japan Equity I1 EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00009QKS.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MFS Meridian Prudent Capital W1 EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001CQ2N.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MFS Meridian Prudent Capital WH1 EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001966G.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MS INVF Asia Opportunity F",
+      "isin": null,
+      "yahoo_ticker": "0P00017OE9",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MS INVF Emerging Leaders Equity A",
+      "isin": null,
+      "yahoo_ticker": "0P0000WUYU",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MS INVF Emerging Markets Lcl Inc JH GBP",
+      "isin": null,
+      "yahoo_ticker": "0P0001R3GQ.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MS INVF Global Brands AX",
+      "isin": null,
+      "yahoo_ticker": "0P0000Q86Z",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MS INVF US Core Equity Fund C",
+      "isin": null,
+      "yahoo_ticker": "0P00018B7R",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MS INVF US Dollar Short Dur HY Bd A",
+      "isin": null,
+      "yahoo_ticker": "0P000151GO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "MS INVF US Growth IH",
+      "isin": null,
+      "yahoo_ticker": "0P00007VU3.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mackenzie Greenchip Global Envr Bal PWR",
+      "isin": null,
+      "yahoo_ticker": "0P0001MG01.TO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Man Global Convertibles IM USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000VOB4",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Man Hi Yld Opps IV USD Acc H",
+      "isin": null,
+      "yahoo_ticker": "0P0001JXCJ",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Manulife GF Global REIT AA Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001J42D",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mediobanca Fidelity World Fund Classe IE",
+      "isin": null,
+      "yahoo_ticker": "0P0001R2H3.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mirova Euro Green&Sust Corp Bd R/A EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000TQBU.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mirova Global Megatrends Y",
+      "isin": null,
+      "yahoo_ticker": "ESGYX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mirova Thematic Meta R/A H-CHF",
+      "isin": null,
+      "yahoo_ticker": "0P0001IMEZ.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mirova Thematic Meta R/A USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001GZ1G",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mirova Thematic Safety N/A EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001JBXF.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mirova Thematic Safety N1/A H-CHF",
+      "isin": null,
+      "yahoo_ticker": "0P0001L8QE.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mirova Women Ldrs & Divst Eq R/A EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001H9ZV.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Morgan Stanley Funds (UK) - US Advantage Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00019943.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Muzinich EmergingMktsShrtDur HEUR Acc H",
+      "isin": null,
+      "yahoo_ticker": "0P00018MFQ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Muzinich Enhancedyield S-T HSGD Inc R",
+      "isin": null,
+      "yahoo_ticker": "0P0001AGWR.SI",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Muzinich Enhancedyield S-T HUSD IRD IncR",
+      "isin": null,
+      "yahoo_ticker": "0P0001JE70",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Muzinich Europeyield HUSD Acc S",
+      "isin": null,
+      "yahoo_ticker": "0P000133H1",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Muzinich Global Short Duration Investment Grade Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001I7IG.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Muzinich LongShortCreditYld HEUR Acc E",
+      "isin": null,
+      "yahoo_ticker": "0P0000WDHU.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nationwide Schroders Global Eq A",
+      "isin": null,
+      "yahoo_ticker": "GGEAX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nationwide Schroders Global Eq Instl Svc",
+      "isin": null,
+      "yahoo_ticker": "GGESX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nationwide Schroders Global Eq R6",
+      "isin": null,
+      "yahoo_ticker": "GGEIX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea 1 - Alpha 10 MA Fd HB USD",
+      "isin": null,
+      "yahoo_ticker": "0P00018TKD",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea 1 - European Covered Bond BC EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00015A90.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea 1 - European High Yld Cd HY DKK",
+      "isin": null,
+      "yahoo_ticker": "0P0001J8UP.CO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea 1 - Global Real Estate BI USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000UO3K",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea 1 - Global impact BQ EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001OSNZ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea 1 - Norwegian Equity E NOK",
+      "isin": null,
+      "yahoo_ticker": "0P000010KR.IR",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea European Index Select B EUR Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0000NBLA.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea European Sust Stars A Acc EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00000NOB.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea European Sust Stars A Acc NOK",
+      "isin": null,
+      "yahoo_ticker": "0P0001CZ8W.IR",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea European Sust Stars A Acc SEK",
+      "isin": null,
+      "yahoo_ticker": "0P0000YK6P.ST",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea European Sust Stars I dist EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001JXIS.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea European Sust Stars I dist SEK",
+      "isin": null,
+      "yahoo_ticker": "0P0001JXIP.ST",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea Global Dividend Fund A Acc NOK",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZKB7.IR",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea Global Dividend Fund A Acc SEK",
+      "isin": null,
+      "yahoo_ticker": "0P0000YYOP.ST",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea Global Dividend Fund B Acc EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000Y41G.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea Global Dividend Fund I distr EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000Y41J.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea Global Enhanced",
+      "isin": null,
+      "yahoo_ticker": "0P0001CKSS.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea Global Enhanced I distr EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001J8KE.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Nordea Global Index Select A Acc NOK",
+      "isin": null,
+      "yahoo_ticker": "0P0000YRK0.IR",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PFS Generali Fidelity World 2 Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001EYD5.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PFS Generali Fidelity World 5 Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001D51N.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PICTET FUNDS LUX-BIOTECH-I$",
+      "isin": null,
+      "yahoo_ticker": "PBF9.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO Funds Ireland plc - Global Inflation Protection Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001839E.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO GIS ESG Income E USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001KL45",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO GIS Euro Bond Instl CHFH Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0000644X.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO GIS GlInGd Crdt E SGDH Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0000WH5I.SI",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO GIS Glb Bd E EUR Hedged Acc",
+      "isin": null,
+      "yahoo_ticker": "0P00005XMT.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO GIS Income Administrative USD Inc",
+      "isin": null,
+      "yahoo_ticker": "0P0000XMS5",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO GIS Income Fund Administrative SGD (Hedged) Income",
+      "isin": null,
+      "yahoo_ticker": "0P0000XMS6.SI",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO GIS US IG Corp Bd E USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001IPYJ",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO Global Advantage Strategy Bond Fund",
+      "isin": null,
+      "yahoo_ticker": "PGSAX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO Global Core Asset Allocation Fund",
+      "isin": null,
+      "yahoo_ticker": "PGMAX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO High Yield Fund",
+      "isin": null,
+      "yahoo_ticker": "PHYAX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO Income Fund",
+      "isin": null,
+      "yahoo_ticker": "PIMIX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO Income Fund",
+      "isin": null,
+      "yahoo_ticker": "PIPNX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO Income Fund",
+      "isin": null,
+      "yahoo_ticker": "PIINX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO Income Fund - E EUR DIS H",
+      "isin": null,
+      "yahoo_ticker": "IE00B8N0MW85.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO Income Strategy Fund",
+      "isin": null,
+      "yahoo_ticker": "XPFLX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "PIMCO Total Return Instl",
+      "isin": null,
+      "yahoo_ticker": "PTTRX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet - Global Envir Opps HP USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001CKEL",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet - Global Sustainable Credit HR EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000P1T1.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet Funds Indian Equities",
+      "isin": null,
+      "yahoo_ticker": "PBFP.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet Global Megatrend Selecti",
+      "isin": null,
+      "yahoo_ticker": "LU0386882277.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet-Digital Z USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000KKBY",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet-EmMktMultiAsset-R USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001LASS",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet-Emerging Local Ccy Dbt Z dy EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000UZIU.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet-Emerging Markets HI EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000KSTI.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet-Global Dynamic Allocation R USD",
+      "isin": null,
+      "yahoo_ticker": "0P00018KO6",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet-Global Emerging Debt HI CHF",
+      "isin": null,
+      "yahoo_ticker": "0P00001VA4.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet-Global Megatrend Sel Z USD",
+      "isin": null,
+      "yahoo_ticker": "0P00012DZJ",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet-Security I dy USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001CB1C",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Pictet-Water",
+      "isin": null,
+      "yahoo_ticker": "0P000111I9.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco European High Yield Bonds",
+      "isin": null,
+      "yahoo_ticker": "0P0001ITG9",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco European High Yield Bonds DH €",
+      "isin": null,
+      "yahoo_ticker": "0P00001P61.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco European High Yield Bonds FH €",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZDHO.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco European Stars Equities G EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001CEET.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco European Stars Equities I EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00001P60.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco European Stars Equities Z EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001C8Q9.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco Global Clmt Transition EqsF € Cap",
+      "isin": null,
+      "yahoo_ticker": "0P0001PCE7.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco Global Consumer Trends Eqs IH $",
+      "isin": null,
+      "yahoo_ticker": "0P000163PQ",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco Global Green Bonds IH NOK Cap",
+      "isin": null,
+      "yahoo_ticker": "0P0001MYJR.IR",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco Global Green Bonds IH USD Cap",
+      "isin": null,
+      "yahoo_ticker": "0P0001P94M",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco Global Multi-Thematic D EUR Cap",
+      "isin": null,
+      "yahoo_ticker": "0P000100YI.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Robeco Global Multi-Thematic F EUR Cap",
+      "isin": null,
+      "yahoo_ticker": "0P000100YJ.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "SEILERN GLOBAL TRUST A",
+      "isin": null,
+      "yahoo_ticker": "AT0000934583.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Schroder ISF Asian Eq Yld U Acc USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001EUHQ",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Schroder ISF China A All Cap A Acc USD",
+      "isin": null,
+      "yahoo_ticker": "0P0001NFW6",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Schroder ISF EURO Equity Z Acc EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001CXDF.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Schroder ISF Emerg Mkt Bd I Acc GBP H",
+      "isin": null,
+      "yahoo_ticker": "0P0001H77I.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Schroder ISF Glb Em Mkt Opps I Acc USD",
+      "isin": null,
+      "yahoo_ticker": "0P00007Y5L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Schroder ISF Indian Equity I Acc USD",
+      "isin": null,
+      "yahoo_ticker": "0P00006TVD",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Schroder International Selection Fund Emerging Markets Multi-Asset",
+      "isin": null,
+      "yahoo_ticker": "0P0001N9TT.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Schroder International Selection Fund Global Energy A Accumulation EUR Hedged",
+      "isin": null,
+      "yahoo_ticker": "0P0000U3Q9.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Seilern Europa EUR U I",
+      "isin": null,
+      "yahoo_ticker": "0P00015461.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Seilern World Growth EUR U C",
+      "isin": null,
+      "yahoo_ticker": "0P0001OCUI.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Seilern World Growth GBP U C",
+      "isin": null,
+      "yahoo_ticker": "0P0001IBYW.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "T. Rowe Price Blue Chip Growth",
+      "isin": null,
+      "yahoo_ticker": "TRBCX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "T. Rowe Price Corporate Income",
+      "isin": null,
+      "yahoo_ticker": "PRPIX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "T. Rowe Price Retirement 2065 I",
+      "isin": null,
+      "yahoo_ticker": "TRMOX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "T. Rowe Price Spectrum Income",
+      "isin": null,
+      "yahoo_ticker": "RPSIX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Emerging Markets A(Ydis)USD",
+      "isin": null,
+      "yahoo_ticker": "0P00000MNZ",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Emerging Markets Bond Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0000N548",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Emerging Markets Bond Fund C(acc)USD",
+      "isin": null,
+      "yahoo_ticker": "0P000019F0",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Emerging Markets Bond Fund W(Qdis)EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZT8W.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Emerging Mkts Bd A(Mdis)USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000KSDG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Global A(acc)SGD",
+      "isin": null,
+      "yahoo_ticker": "0P00009VDM.SI",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Global Bond Enhanced Adv",
+      "isin": null,
+      "yahoo_ticker": "TTRZX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Global Bond N(Mdis)USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000U876",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Global Total Return Fund A(Ydis)EUR-H1",
+      "isin": null,
+      "yahoo_ticker": "0P0000OXBN.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Global Ttl Ret Z(Mdis)GBP-H1",
+      "isin": null,
+      "yahoo_ticker": "0P0000W9XN.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Templeton Global Ttl Ret Z(Ydis)EUR-H1",
+      "isin": null,
+      "yahoo_ticker": "0P0000NQ28.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Threadneedle Dynamic Real Return Fund Institutional Accumulation GBP",
+      "isin": null,
+      "yahoo_ticker": "0P0000Z1V7.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Threadneedle Dynamic Real Return Fund Z Accumulation GBP",
+      "isin": null,
+      "yahoo_ticker": "0P0000Z1V9.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Threadneedle Japan Fund Z Accumulation GBP",
+      "isin": null,
+      "yahoo_ticker": "0P0000X7E6.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "UWS JPM Global Bond Opps S (Acc) GBP S3",
+      "isin": null,
+      "yahoo_ticker": "0P0001MMFV.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "UWS Janus Henderson Active Portfolio S4",
+      "isin": null,
+      "yahoo_ticker": "0P0000KAWN.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Union Investment - UniAsiaPacif",
+      "isin": null,
+      "yahoo_ticker": "UIV7.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Union Investment - UniDynamicFo",
+      "isin": null,
+      "yahoo_ticker": "UI3F.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Union Investment - UniEuroSTOXX",
+      "isin": null,
+      "yahoo_ticker": "UI3D.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Universal Life Beneva Pimco Bond",
+      "isin": null,
+      "yahoo_ticker": "0P0001FAJ0.TO",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Utmost JPMorgan European Equity C GBP",
+      "isin": null,
+      "yahoo_ticker": "0P00001RW2.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Utmost JPMorgan European Equity C USD",
+      "isin": null,
+      "yahoo_ticker": "0P00001RA6",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Utmost JPMorgan European Equity Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00001BBX.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard Emerging Mkts Bd Ins+ CHF H Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001M7M2.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard Emerging Mkts Stock Idx Adm",
+      "isin": null,
+      "yahoo_ticker": "VEMAX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard European Stock Admiral",
+      "isin": null,
+      "yahoo_ticker": "VEUSX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard European Stock Idx Inv EUR Acc",
+      "isin": null,
+      "yahoo_ticker": "0P00000RQ8.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard European Stock Idx USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P00000RQA",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard European Stock Index Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00011OE6",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard European Stock Instl",
+      "isin": null,
+      "yahoo_ticker": "VESIX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard Global Capital Cycles Investor",
+      "isin": null,
+      "yahoo_ticker": "VGPMX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard Global Credit Bond Admiral",
+      "isin": null,
+      "yahoo_ticker": "VGCAX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard Global Credit Bond Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001OF21.SW",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard Global Equity Income",
+      "isin": null,
+      "yahoo_ticker": "0P000185T4.L",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard Global Minimum Volatility Inv",
+      "isin": null,
+      "yahoo_ticker": "VMVFX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard Global Short-Term Bond Index Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00011WU8",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard LifeStrategy 40/60 Inv",
+      "isin": null,
+      "yahoo_ticker": "VSCGX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard LifeStrategy 60/40 Inv Shrs",
+      "isin": null,
+      "yahoo_ticker": "VSMGX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vanguard LifeStrategy 80/20 Inv Shrs",
+      "isin": null,
+      "yahoo_ticker": "VASGX",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Vontobel TwentyFour StratInc AQHG H EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001DGEV.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Xtrackers Global Growth Leaders",
+      "isin": null,
+      "yahoo_ticker": "IE000M8F3JA6.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Xtrackers MSCI Japan Climate Tr",
+      "isin": null,
+      "yahoo_ticker": "IE0006FDYJF8.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "Xtrackers MSCI USA Energy UCITS",
+      "isin": null,
+      "yahoo_ticker": "XUEN.SG",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    },
+    {
+      "name": "onemarkets Fidelity World Equity Income Fund",
+      "isin": null,
+      "yahoo_ticker": "0P0001PU6N.F",
+      "google_ticker": null,
+      "market": "fondos_ext",
+      "currency": "EUR"
+    }
+  ]
+}

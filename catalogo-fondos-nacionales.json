@@ -1,0 +1,1520 @@
+{
+  "_nota": "Fondos de inversión españoles disponibles en Yahoo Finance. Importar desde AdminPanel → Catálogo → Importar catálogo. Requiere tener creado el mercado fondos_es con is_fund_market=true. Los ISINs (null) deben verificarse antes de usarlos en declaraciones fiscales. Los fondos Caja Rural (Gescooperativo) aparecen primero.",
+  "exported_at": "2026-06-02",
+  "markets": [
+    {
+      "code": "fondos_es",
+      "name": "Fondos Nacionales (España)",
+      "index_ticker": null,
+      "currency": "EUR",
+      "fiscal_window_days": 365,
+      "is_fund_market": true
+    }
+  ],
+  "securities": [
+    {
+      "name": "Rural Mixto 15 FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000JTS.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Mixto 25 FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000D1L.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Mixto 50 FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000JTQ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Mixto Internacional 15 FI",
+      "isin": null,
+      "yahoo_ticker": "0P00009UI6.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Mixto Internacional 25 FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000JTO.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Renta Fija 1 Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001FTJE.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Renta Fija 1 Estandar FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000CZY.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Renta Fija 5 Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001H4W3.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Renta Fija 5 Estándar FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000D17.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Renta Fija Internacional FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000JTM.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Renta Variable España FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001H3LG.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Renta Variable Internacional FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001H3LH.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Sostenible Conservador Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001K7XJ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Sostenible Conservador Estandar FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001DFDA.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Sostenible Decidido Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001H4VX.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Sostenible Decidido Estándar FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001DFDB.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Sostenible Moderado Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001KUEJ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Rural Sostenible Moderado Estandar FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001KUEK.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Abante Equity Managers A EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000YG7K.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Abante Equity Managers C EUR",
+      "isin": null,
+      "yahoo_ticker": "0P00015F4R.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Abante GF Abante Life Sciences C USD Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001I3PU",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Abante GF Spanish Opportunities Fund A",
+      "isin": null,
+      "yahoo_ticker": "0P0000YG7J.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Abante GF Spanish Opportunities Fund B",
+      "isin": null,
+      "yahoo_ticker": "0P0000Z5HW.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Abante Índice Bolsa A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001BODI.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Andbank Asset Management Luxembourg -- Three Continents Investments SIL S.A. Fund",
+      "isin": null,
+      "yahoo_ticker": "SL055.MC",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Andbank CFHG FIC FIM",
+      "isin": null,
+      "yahoo_ticker": "0P0001RJJE.SA",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Andbank Chris FIC FIFM C Priv IE RL",
+      "isin": null,
+      "yahoo_ticker": "0P0000U90Q.SA",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Andbank Feedr Acts Fntch I FIM C Priv IE",
+      "isin": null,
+      "yahoo_ticker": "0P0001R0EK.SA",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Andbank Hubble FIM C Priv IE",
+      "isin": null,
+      "yahoo_ticker": "0P00018PUM.SA",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Andbank Jardim Paris FIM C Priv",
+      "isin": null,
+      "yahoo_ticker": "0P0001OMCD.SA",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Arquia Banca Dinámico 100RV FI",
+      "isin": null,
+      "yahoo_ticker": "0P00017SWD.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Arquia Banca Lideres Globales Plus FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001J2P8.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Arquia Banca Pl Profim Discrecional 50",
+      "isin": null,
+      "yahoo_ticker": "0P0001C3ON.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Arquia Banca Plan Inversion PP",
+      "isin": null,
+      "yahoo_ticker": "0P00000W39.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Arquia Banca RF Flexible Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001KDXG.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Arquia Plan Ahorro Corto Plazo PP",
+      "isin": null,
+      "yahoo_ticker": "0P00000W19.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Azvalor Consolidación PP",
+      "isin": null,
+      "yahoo_ticker": "0P00018HST.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Azvalor Global Value PP",
+      "isin": null,
+      "yahoo_ticker": "0P00018HSS.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Azvalor Internacional FI",
+      "isin": null,
+      "yahoo_ticker": "0P00016YQ5.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Azvalor Lux SICAV Azvalor Intl I",
+      "isin": null,
+      "yahoo_ticker": "0P000176QB.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Azvalor Lux SICAV Azvalor Intl R",
+      "isin": null,
+      "yahoo_ticker": "0P000176QE.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Azvalor Lux SICAV Azvalor Managers I",
+      "isin": null,
+      "yahoo_ticker": "0P0001I1U3.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Azvalor Value Selection SICAV S.A.",
+      "isin": null,
+      "yahoo_ticker": "S0799.MC",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "BGF Global Allocation X2 JPY Hedged",
+      "isin": null,
+      "yahoo_ticker": "0P00018MOV.T",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bankia Protegido Renta Premium V PP",
+      "isin": null,
+      "yahoo_ticker": "0P0001871W.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bankia Protegido Renta Premium VI PP",
+      "isin": null,
+      "yahoo_ticker": "0P0001913L.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bankinter IFS Irati A EUR Acc",
+      "isin": null,
+      "yahoo_ticker": "0P00017J7H.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bankinter Ibex Rentas 2027 Gar. FI",
+      "isin": null,
+      "yahoo_ticker": "0P0000V06N.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bankinter International Fund SICAV - Multifunds Conservative",
+      "isin": null,
+      "yahoo_ticker": "0P00019Y81.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Belvoir Global Allocation EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0000HR8X.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bestinver Corto Plazo B FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001E0XQ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bestinver Grandes Compañías FI",
+      "isin": null,
+      "yahoo_ticker": "0P0000UWP8.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bestinver International X EUR Cap",
+      "isin": null,
+      "yahoo_ticker": "0P0000JBG9.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bestinver Mixto FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000P2L.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bestinver Norteamérica FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001PV2K.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bestinver Plan Mixto",
+      "isin": null,
+      "yahoo_ticker": "0P00000W24.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Bestinver Renta FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001RD9I.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlackRock GIS Global Allocation A JPY",
+      "isin": null,
+      "yahoo_ticker": "0P00018PM1.T",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlackRock GIS Global Allocation A USD",
+      "isin": null,
+      "yahoo_ticker": "0P0000PU0N",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "BlackRock Global Funds - Global Allocation Fund",
+      "isin": null,
+      "yahoo_ticker": "0P00001B02.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caixabank Destino 2050 FI",
+      "isin": null,
+      "yahoo_ticker": "0P00017HNT.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caixabank Master RF Deuda Públic 3-10 FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001HR1A.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caixabank Renta Fija Subord. Extra FI",
+      "isin": null,
+      "yahoo_ticker": "0P00017UMT.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caixabank Sel Tendencias Sin Retro FI",
+      "isin": null,
+      "yahoo_ticker": "0P00019X69.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caja Ingenieros Bolsa Euro Plus A FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000JSX.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caja Ingenieros Bolsa Euro Plus I FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001CERI.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caja Ingenieros Environment ISR A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001A1PB.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caja Ingenieros Eurobond RF 100 PP",
+      "isin": null,
+      "yahoo_ticker": "0P00000W3K.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caja Ingenieros Gestión Dinámica A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0000Q7VT.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caja Ingenieros Gl Sustainability ISR PP",
+      "isin": null,
+      "yahoo_ticker": "0P00000W3G.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Caja Ingenieros Iberian Equity FI",
+      "isin": null,
+      "yahoo_ticker": "0P00001B8X.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cajamar Dinero PP",
+      "isin": null,
+      "yahoo_ticker": "0P000018MG.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cajamar Gestión Futuro 2040 PP",
+      "isin": null,
+      "yahoo_ticker": "0P0001EW6P.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cajamar Renta Fija PP",
+      "isin": null,
+      "yahoo_ticker": "0P000018MK.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cajamar Renta Variable PP",
+      "isin": null,
+      "yahoo_ticker": "0P000018ML.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cartesio Equity I",
+      "isin": null,
+      "yahoo_ticker": "0P0001J83Q.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cartesio Equity R",
+      "isin": null,
+      "yahoo_ticker": "0P0001J83R.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cartesio Equity Z",
+      "isin": null,
+      "yahoo_ticker": "0P0001J83S.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cartesio Income I",
+      "isin": null,
+      "yahoo_ticker": "0P0001J83T.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cartesio Income R",
+      "isin": null,
+      "yahoo_ticker": "0P0001J83U.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cartesio Income Z",
+      "isin": null,
+      "yahoo_ticker": "0P0001J83V.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cartesio Y FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000TIV.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cobas Global PP",
+      "isin": null,
+      "yahoo_ticker": "0P0001BICH.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cobas Internacional D FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001LFVO.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cobas Mixto Global PP",
+      "isin": null,
+      "yahoo_ticker": "0P0001BICI.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Cobas Selection P Acc EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001AF4X.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "DFA Global Allocation 60/40 I",
+      "isin": null,
+      "yahoo_ticker": "DGSIX",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fidelity Marché monétaire can A",
+      "isin": null,
+      "yahoo_ticker": "0P000071JH.TO",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fonditel Albatros C FI",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZK2L.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fonditel Bolsa Mundial A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0000Z51G.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fonditel Lince A FI",
+      "isin": null,
+      "yahoo_ticker": "0P00017C7S.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fonditel PP",
+      "isin": null,
+      "yahoo_ticker": "0P000013YT.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fonditel Red Activa PP",
+      "isin": null,
+      "yahoo_ticker": "0P000013YV.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fonditel Renta Fija Corto Plazo FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000ESK.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Fonditel Renta Fija Mixta Internac. B FI",
+      "isin": null,
+      "yahoo_ticker": "0P0000ZGPJ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Gesconsult 30-75 PP",
+      "isin": null,
+      "yahoo_ticker": "0P00016WKJ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Gesconsult Equilibrado Pensiones PP",
+      "isin": null,
+      "yahoo_ticker": "0P000165HO.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Gesconsult Good Governance RV USA A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001L317.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Gesconsult Horizonte 2027 FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001L31A.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Gesconsult Oportunidad Renta Fija FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001I6VE.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Gesconsult Renta Fija Flexible A FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000DWA.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Gesconsult Renta Variable Iberia A FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000DW6.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Horos Internacional PP",
+      "isin": null,
+      "yahoo_ticker": "0P0001DYGJ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Horos Value Iberia FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001DFE7.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Horos Value Internacional FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001DFE8.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Ibercaja 2027 Garantizado 2 FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001H4VY.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Ibercaja Corto Plazo Empresas 2 FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001QM75.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Ibercaja Corto Plazo Empresas FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001Q709.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Ibercaja Deuda Pública A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001RP0R.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Ibercaja Deuda Pública Mayo 2026 A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001PXPS.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Ibercaja España-Italia 2026 FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001P4AD.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Ibercaja RF Horizonte 2030 A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001R1X6.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Inversion Global 2001 Sicav SA",
+      "isin": null,
+      "yahoo_ticker": "S1489.MC",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Janus Henderson Global Allocation Gr I",
+      "isin": null,
+      "yahoo_ticker": "JGCIX",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Kutxabank Bolsa Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001CERX.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Kutxabank Bolsa Emergentes Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001CERR.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Kutxabank Bolsa S&M Caps Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001CERZ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Kutxabank Gestión Activa Patri. Est. FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000P1L.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Kutxabank RF Selección Carteras FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001K7XF.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Kutxabank Renta Global Cartera FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001CES1.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Laboral Kutxa Bolsa FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000CLE.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Laboral Kutxa Bolsas Eurpeas ESTANDAR FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000PGQ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Laboral Kutxa Futur Estandar FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001CX90.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Laboral Kutxa Horizonte 2027 2 FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000PG3.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Laboral Kutxa Konpromiso FI",
+      "isin": null,
+      "yahoo_ticker": "0P00016CJ7.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Laboral Kutxa Mdos Emgentes ESTANDAR FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000PG4.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Laboral Kutxa Selek Balance FI",
+      "isin": null,
+      "yahoo_ticker": "0P00017C7R.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Lierde Equities FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001L314.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Lierde SICAV",
+      "isin": null,
+      "yahoo_ticker": "0P0000GAVJ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Lierde SICAV S.A.",
+      "isin": null,
+      "yahoo_ticker": "S1922.MC",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Lonvia Mid-Cap Euro Clean share",
+      "isin": null,
+      "yahoo_ticker": "0P0001L4RC.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Lonvia Mid-Cap Euro Institutionnal",
+      "isin": null,
+      "yahoo_ticker": "0P0001L4RD.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Lonvia Mid-Cap Euro Retail",
+      "isin": null,
+      "yahoo_ticker": "0P0001L4RB.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Lonvia Mid-Cap Europe Clean share",
+      "isin": null,
+      "yahoo_ticker": "0P0001L4R8.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Lonvia Mid-Cap Europe Institutional",
+      "isin": null,
+      "yahoo_ticker": "0P0001L4R9.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Lonvia Mid-Cap Europe Retail",
+      "isin": null,
+      "yahoo_ticker": "0P0001L4R7.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "MG Lierde Plan de Pensiones Bolsa PP",
+      "isin": null,
+      "yahoo_ticker": "0P00000XGT.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "MPF TRUE VALUE",
+      "isin": null,
+      "yahoo_ticker": "0P0000GBES.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Magallanes European Equity E FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001572W.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Magallanes European Equity M FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001572X.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Magallanes Iberian Equity M FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001572U.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Magallanes V.I. UCITS European Eq I EUR",
+      "isin": null,
+      "yahoo_ticker": "0P000177YD.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mapfre Am - Behavioral",
+      "isin": null,
+      "yahoo_ticker": "0P0001OEDA.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Mapfre Renta PP",
+      "isin": null,
+      "yahoo_ticker": "0P0000147C.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Numantia Pensiones PP",
+      "isin": null,
+      "yahoo_ticker": "0P0001NBRZ.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Ontinyent Magallanes PP",
+      "isin": null,
+      "yahoo_ticker": "0P00019XNP.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Renta 4 Atria Global Opportunities F EUR",
+      "isin": null,
+      "yahoo_ticker": "0P0001L5TP.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Renta 4 Megatendenc Salud, In y BM I FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001LODS.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Renta 4 Multigestión Andrómeda V. Cap FI",
+      "isin": null,
+      "yahoo_ticker": "0P000168OF.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Renta 4 Multigestión Num. Patr. Glb FI",
+      "isin": null,
+      "yahoo_ticker": "0P000168OI.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Renta 4 Renta Fija PP",
+      "isin": null,
+      "yahoo_ticker": "0P000011Z2.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Sabadell Prudente Base FI",
+      "isin": null,
+      "yahoo_ticker": "0P0000TINK.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Sabadell Prudente Plus FI",
+      "isin": null,
+      "yahoo_ticker": "0P00015Q8Q.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Santander Prosperity A",
+      "isin": null,
+      "yahoo_ticker": "0P0001PUHM",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Solventis Aura Iberian Equity R FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001JBX5.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Solventis Cronos RF Internacional GD FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001PDVC.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Solventis Cronos RF Internacional R FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001PDVF.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Solventis EOS Sicav S.A.",
+      "isin": null,
+      "yahoo_ticker": "S3118.MC",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Solventis Eos RV Internacional R FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001AJFG.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "SunWise CI Marché monétaire 100 %",
+      "isin": null,
+      "yahoo_ticker": "0P0000708Y.TO",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Trea Cajamar Ahorro A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001Q9FP.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Trea Cajamar Renta Fija A FI",
+      "isin": null,
+      "yahoo_ticker": "0P000175BM.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Tressis Cartera Eco30 FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001EPLM.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Tressis Cartera Equilibrada Resp PP",
+      "isin": null,
+      "yahoo_ticker": "0P0000859C.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Tressis Caudal Duero I FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001QSXP.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Tressis Caudal Genil FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001QYEH.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Tressis Caudal Narcea I FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001P6OI.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Tressis Caudal Nora R FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001P6OK.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Triodos Global Eqs Imp NOK N Ret Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001QAW3.IR",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Triodos Groenfonds R Dis",
+      "isin": null,
+      "yahoo_ticker": "TRIGF.AS",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Triodos Pioneer Imp EUR Z Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0000Y8A8.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "True Value Compounders A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001NSL3.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "True Value FI",
+      "isin": null,
+      "yahoo_ticker": "0P00011MD7.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "True Value Small Caps A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001JGVI.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "True Value Small Caps FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001M65A.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Unicaja Gestion Crecimiento A FI",
+      "isin": null,
+      "yahoo_ticker": "0P00018ONY.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Unicaja Gestion Crecimiento P FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001CJY9.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Unicaja Gestión Prudente A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001C90R.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Valentum E FI",
+      "isin": null,
+      "yahoo_ticker": "0P000125T9.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Valentum FCP - Flagship A EUR Acc",
+      "isin": null,
+      "yahoo_ticker": "0P0001QF9P.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Valentum Magno FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001K2I4.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Welzia Ahorro 5 FI",
+      "isin": null,
+      "yahoo_ticker": "0P00001BAY.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Welzia Capital Sub-Debt FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001LODW.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Welzia Coyuntura FI",
+      "isin": null,
+      "yahoo_ticker": "0P00000IUW.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Welzia Global Opportunities FI",
+      "isin": null,
+      "yahoo_ticker": "0P00008WJU.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Welzia Selective A FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001QE6Z.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Welzia Selective B FI",
+      "isin": null,
+      "yahoo_ticker": "0P0001QE70.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    },
+    {
+      "name": "Welzia World Equity FI",
+      "isin": null,
+      "yahoo_ticker": "0P00001BAW.F",
+      "google_ticker": null,
+      "market": "fondos_es",
+      "currency": "EUR"
+    }
+  ]
+}

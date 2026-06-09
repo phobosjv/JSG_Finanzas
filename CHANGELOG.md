@@ -5,6 +5,41 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.10.7] — 2026-06-09
+
+### Mejorado — Herramienta de traspasos entre fondos
+
+- **Edición de traspasos**: nuevo endpoint `PATCH /api/portfolio/transfer/{group_id}`
+  que permite corregir un traspaso ya grabado (participaciones del origen,
+  participaciones del destino y fecha) sin tener que deshacerlo y volver a
+  grabarlo. El backend recalcula el coste heredado por FIFO con los nuevos
+  valores y valida que tanto el fondo origen como el destino quedan
+  FIFO-consistentes tras el cambio. En la tabla de traspasos aparece el botón
+  «Editar» junto a «Deshacer»; el modal se abre pre-relleno con los valores
+  actuales y el fondo relacionado queda bloqueado (no se puede cambiar de fondo
+  editando; para eso se deshace y se regrab).
+- **Buscador en el selector de fondo destino**: el `<select>` estático se
+  sustituye por un combobox con campo de texto filtrable por nombre, ticker o
+  ISIN. Al seleccionar un fondo se muestra su nombre con un botón × para limpiar
+  la selección. Mejora especialmente cuando hay muchos fondos cargados desde el
+  catálogo.
+- **Columna «Base de coste (€)»**: renombrada desde «Coste heredado (€)» (ES) /
+  «Cost basis (€)» (EN) para reflejar la terminología fiscal correcta y reducir
+  confusión sobre el sentido del importe.
+- **`transfer_partner_shares` en historial de operaciones**: `GET
+  /portfolio/by-security/{id}/operations` incluye ahora las participaciones del
+  lado opuesto del traspaso en cada fila (`TransactionOut.transfer_partner_shares`).
+  Permite pre-rellenar el modal de edición sin llamada adicional a la API.
+
+### Tests
+
+- 5 tests nuevos en `test_transfers.py`: edición correcta de participaciones y
+  coste, cambio de fecha, bloqueo si el destino ya tiene reembolso posterior,
+  404 para group_id inexistente, y verificación de `transfer_partner_shares` en
+  ambos lados.
+
+---
+
 ## [1.10.6] — 2026-06-09
 
 ### Mejorado — Robustez: Error Boundary global

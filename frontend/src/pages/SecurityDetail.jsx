@@ -221,20 +221,22 @@ function AddTxModal({ positionId, onClose, onAdded, initialType = 'buy', editTx 
   )
 }
 
-function TransferModal({ originPositionId, originSecurityId, currentShares, onClose, onDone }) {
+function TransferModal({ originPositionId, originSecurityId, currentShares, editData = null, onClose, onDone }) {
   const { t } = useAppConfig()
+  const isEdit = Boolean(editData)
   const [funds, setFunds] = useState([])
-  const [form, setForm] = useState({
-    dest_security_id: '',
-    shares: currentShares != null ? String(currentShares) : '',
-    dest_shares: '',
-    date: new Date().toISOString().slice(0, 10),
-  })
+  const [fundSearch, setFundSearch] = useState('')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [form, setForm] = useState(() => isEdit
+    ? { dest_security_id: '', shares: editData.shares, dest_shares: editData.destShares, date: editData.date }
+    : { dest_security_id: '', shares: currentShares != null ? String(currentShares) : '', dest_shares: '', date: new Date().toISOString().slice(0, 10) }
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
-  // Cargar fondos de destino: securities cuyo mercado es de fondos, excluyendo el origen
+  // Cargar fondos de destino solo en modo creación
   useEffect(() => {
+    if (isEdit) return
     Promise.all([
       api.get('/markets/list').catch(() => []),
       api.get('/securities').catch(() => []),
@@ -242,34 +244,68 @@ function TransferModal({ originPositionId, originSecurityId, currentShares, onCl
       const fundCodes = new Set(markets.filter(m => m.is_fund_market).map(m => m.code))
       setFunds(secs.filter(s => fundCodes.has(s.market) && s.id !== originSecurityId))
     })
-  }, [originSecurityId])
+  }, [originSecurityId, isEdit])
 
   function field(name) {
     return { value: form[name], onChange: e => setForm(f => ({ ...f, [name]: e.target.value })) }
   }
 
+  const filteredFunds = fundSearch
+    ? funds.filter(f => {
+        const q = fundSearch.toLowerCase()
+        return f.name.toLowerCase().includes(q) ||
+          (f.yahoo_ticker || '').toLowerCase().includes(q) ||
+          (f.isin || '').toLowerCase().includes(q)
+      })
+    : funds
+
+  function selectFund(fund) {
+    setForm(f => ({ ...f, dest_security_id: String(fund.id) }))
+    setFundSearch('')
+    setDropdownOpen(false)
+  }
+
+  const selectedFundName = form.dest_security_id
+    ? (funds.find(f => String(f.id) === form.dest_security_id)?.name ?? '')
+    : ''
+
   async function submit(e) {
     e.preventDefault()
-    if (!form.dest_security_id) { setError(t('sd.transfer_err_dest')); return }
+    if (!isEdit && !form.dest_security_id) { setError(t('sd.transfer_err_dest')); return }
     if (Number(form.shares) <= 0 || Number(form.dest_shares) <= 0) { setError(t('sd.transfer_err_shares')); return }
     setBusy(true); setError(null)
     try {
-      await api.post('/portfolio/transfer', {
-        origin_position_id: originPositionId,
-        shares: Number(form.shares),
-        dest_security_id: Number(form.dest_security_id),
-        dest_shares: Number(form.dest_shares),
-        date: form.date,
-      })
+      if (isEdit) {
+        await api.patch(`/portfolio/transfer/${editData.groupId}`, {
+          shares: Number(form.shares),
+          dest_shares: Number(form.dest_shares),
+          date: form.date,
+        })
+      } else {
+        await api.post('/portfolio/transfer', {
+          origin_position_id: originPositionId,
+          shares: Number(form.shares),
+          dest_security_id: Number(form.dest_security_id),
+          dest_shares: Number(form.dest_shares),
+          date: form.date,
+        })
+      }
       onDone()
     } catch (err) { setError(err.message) }
     finally { setBusy(false) }
   }
 
+  const dropdownStyle = {
+    position: 'absolute', top: '100%', left: 0, right: 0,
+    background: 'var(--bg-card)', border: '1px solid var(--border)',
+    borderRadius: 6, zIndex: 100, maxHeight: 220, overflowY: 'auto',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2>{t('sd.transfer_modal_title')}</h2>
+        <h2>{isEdit ? t('sd.transfer_edit_modal_title') : t('sd.transfer_modal_title')}</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: -4 }}>
           {t('sd.transfer_help')}
         </p>
@@ -277,10 +313,56 @@ function TransferModal({ originPositionId, originSecurityId, currentShares, onCl
         <form onSubmit={submit}>
           <div className="form-group">
             <label>{t('sd.transfer_dest')}</label>
-            <select {...field('dest_security_id')} required>
-              <option value="">{t('sd.transfer_dest_ph')}</option>
-              {funds.map(s => <option key={s.id} value={s.id}>{s.name} ({s.yahoo_ticker})</option>)}
-            </select>
+            {isEdit ? (
+              <input
+                type="text"
+                value={editData.relatedSecurityName ?? ''}
+                readOnly
+                style={{ opacity: 0.7, cursor: 'not-allowed', background: 'var(--bg-secondary)' }}
+              />
+            ) : form.dest_security_id ? (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <input type="text" value={selectedFundName} readOnly style={{ flex: 1 }} />
+                <button
+                  type="button" className="btn-ghost btn-sm"
+                  onClick={() => setForm(f => ({ ...f, dest_security_id: '' }))}
+                  title="Limpiar"
+                >×</button>
+              </div>
+            ) : (
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder={t('sd.transfer_search_ph')}
+                  value={fundSearch}
+                  onChange={e => { setFundSearch(e.target.value); setDropdownOpen(true) }}
+                  onFocus={() => setDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
+                  autoComplete="off"
+                />
+                {dropdownOpen && (
+                  <div style={dropdownStyle}>
+                    {filteredFunds.length > 0
+                      ? filteredFunds.map(f => (
+                          <div
+                            key={f.id}
+                            onMouseDown={() => selectFund(f)}
+                            style={{ padding: '7px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                            onMouseLeave={e => e.currentTarget.style.background = ''}
+                          >
+                            <span style={{ fontWeight: 500 }}>{f.name}</span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: 8 }}>
+                              {f.yahoo_ticker}{f.isin ? ` · ${f.isin}` : ''}
+                            </span>
+                          </div>
+                        ))
+                      : <div style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{t('sd.transfer_no_results')}</div>
+                    }
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="card-row">
             <div className="form-group" style={{ flex: 1 }}>
@@ -299,7 +381,7 @@ function TransferModal({ originPositionId, originSecurityId, currentShares, onCl
           <div className="modal-actions">
             <button type="button" className="btn-ghost" onClick={onClose}>{t('common.cancel')}</button>
             <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? t('sd.saving') : t('sd.transfer_submit')}
+              {busy ? t('sd.saving') : (isEdit ? t('sd.transfer_edit_submit') : t('sd.transfer_submit'))}
             </button>
           </div>
         </form>
@@ -745,6 +827,7 @@ export default function SecurityDetail() {
   const [showDivModal, setDivModal]   = useState(false)
   const [editingDiv, setEditingDiv]   = useState(null)
   const [showTransfer, setShowTransfer] = useState(false)
+  const [editingTransfer, setEditingTransfer] = useState(null)
   const [showRecurring, setShowRecurring] = useState(false)
   const [plans, setPlans] = useState([])
   const [isFundMarket, setIsFundMarket] = useState(false)
@@ -846,6 +929,17 @@ export default function SecurityDetail() {
       await api.delete(`/portfolio/transfer/${groupId}`)
       loadAll()  // afecta a dos posiciones: recargar el estado completo
     } catch (err) { setOpError(err.message) }
+  }
+
+  function openEditTransfer(tx) {
+    setEditingTransfer({
+      groupId: tx.transfer_group_id,
+      // shares = participaciones del origen (transfer_out); dest_shares = del destino (transfer_in)
+      shares: tx.type === 'transfer_out' ? String(tx.shares) : String(tx.transfer_partner_shares),
+      destShares: tx.type === 'transfer_out' ? String(tx.transfer_partner_shares) : String(tx.shares),
+      date: tx.date,
+      relatedSecurityName: tx.related_security_name,
+    })
   }
 
   async function cancelPlan(planId) {
@@ -1407,15 +1501,25 @@ export default function SecurityDetail() {
                       </td>
                       <td className="num">{fmtShares(tx.shares)}</td>
                       <td className="num">{fmt(Number(tx.shares) * Number(tx.price))} €</td>
-                      <td className="num">
+                      <td style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                         {tx.transfer_group_id && (
-                          <button
-                            className="btn-ghost btn-sm"
-                            title={t('sd.transfer_undo')}
-                            onClick={() => deleteTransfer(tx.transfer_group_id)}
-                          >
-                            {t('sd.transfer_undo')}
-                          </button>
+                          <>
+                            <button
+                              className="btn-ghost btn-sm"
+                              title={t('sd.transfer_edit')}
+                              onClick={() => openEditTransfer(tx)}
+                              disabled={!tx.transfer_partner_shares}
+                            >
+                              {t('sd.transfer_edit')}
+                            </button>
+                            <button
+                              className="btn-ghost btn-sm"
+                              title={t('sd.transfer_undo')}
+                              onClick={() => deleteTransfer(tx.transfer_group_id)}
+                            >
+                              {t('sd.transfer_undo')}
+                            </button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -1487,6 +1591,13 @@ export default function SecurityDetail() {
           currentShares={posResult?.shares ?? null}
           onClose={() => setShowTransfer(false)}
           onDone={() => { setShowTransfer(false); loadAll() }}
+        />
+      )}
+      {editingTransfer && (
+        <TransferModal
+          editData={editingTransfer}
+          onClose={() => setEditingTransfer(null)}
+          onDone={() => { setEditingTransfer(null); loadAll() }}
         />
       )}
       {showRecurring && (

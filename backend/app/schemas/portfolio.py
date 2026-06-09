@@ -130,6 +130,7 @@ class TransactionOut(BaseModel):
     transfer_group_id: str | None = None
     related_security_id: int | None = None
     related_security_name: str | None = None
+    transfer_partner_shares: Decimal | None = None  # participaciones del otro lado del traspaso
 
     model_config = {"from_attributes": True}
 
@@ -145,6 +146,26 @@ class TransferCreate(BaseModel):
     dest_security_id: int      # fondo de destino
     dest_shares: Decimal       # participaciones recibidas en el destino
     date: str                  # YYYY-MM-DD
+
+    @field_validator("date")
+    @classmethod
+    def valid_date(cls, v: str) -> str:
+        return _valid_date(v)
+
+    @field_validator("shares", "dest_shares")
+    @classmethod
+    def positive(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("Debe ser mayor que 0")
+        return v
+
+
+class TransferUpdate(BaseModel):
+    """Edición de un traspaso existente: nuevos valores de participaciones y fecha.
+    El backend recalcula el coste heredado por FIFO. No se puede cambiar el fondo."""
+    shares: Decimal
+    dest_shares: Decimal
+    date: str
 
     @field_validator("date")
     @classmethod

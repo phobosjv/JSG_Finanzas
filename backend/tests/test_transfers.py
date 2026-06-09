@@ -492,6 +492,114 @@ def test_borrar_transaccion_traspaso_bloqueada(admin_client):
 
 
 # ---------------------------------------------------------------------------
+#  Editar traspaso (PATCH /portfolio/transfer/{group_id})
+# ---------------------------------------------------------------------------
+
+def test_editar_traspaso_actualiza_participaciones_y_coste(admin_client):
+    """
+    Editar shares y dest_shares recalcula el coste heredado por FIFO.
+    A: compra 100 @ 10 = 1000. Traspaso: 100 → 120 (coste 1000).
+    Editar: 50 → 80. Coste heredado = 50 × 10 = 500. Destino queda con 80 part @ 500/80.
+    """
+    sec_a, sec_b, pos_a, resp = _traspaso_simple(admin_client)
+    group_id = resp.json()["transfer_group_id"]
+    dest_pos_id = resp.json()["dest_position_id"]
+
+    r = admin_client.patch(f"/api/portfolio/transfer/{group_id}", json={
+        "shares": "50",
+        "dest_shares": "80",
+        "date": "2023-06-01",
+    })
+    assert r.status_code == 200, r.text
+    data = r.json()
+    # Coste heredado: 50 × 10 = 500
+    assert abs(float(data["inherited_cost_eur"]) - 500.0) < 0.01
+    assert data["transfer_group_id"] == group_id
+
+    # El origen ahora tiene 100 - 50 = 50 participaciones vivas.
+    open_pos = admin_client.get("/api/portfolio").json()
+    a_open = [p for p in open_pos if p.get("security_id") == sec_a]
+    assert len(a_open) == 1
+    assert abs(float(a_open[0]["shares"]) - 50.0) < 0.01
+
+    # El destino tiene 80 participaciones con coste heredado ~500.
+    b_open = [p for p in open_pos if p.get("security_id") == sec_b]
+    assert len(b_open) == 1
+    assert abs(float(b_open[0]["shares"]) - 80.0) < 0.01
+    assert abs(float(b_open[0]["cost_eur"]) - 500.0) < 0.01
+
+
+def test_editar_traspaso_cambia_fecha(admin_client):
+    """Editar la fecha del traspaso actualiza ambas filas. El coste se recalcula."""
+    sec_a, sec_b, pos_a, resp = _traspaso_simple(admin_client)
+    group_id = resp.json()["transfer_group_id"]
+
+    r = admin_client.patch(f"/api/portfolio/transfer/{group_id}", json={
+        "shares": "100",
+        "dest_shares": "120",
+        "date": "2023-07-15",
+    })
+    assert r.status_code == 200, r.text
+
+    # Verificar que las filas tienen la nueva fecha.
+    ops_a = admin_client.get(f"/api/portfolio/by-security/{sec_a}/operations").json()
+    out_tx = next(t for t in ops_a["transactions"] if t["type"] == "transfer_out")
+    assert out_tx["date"] == "2023-07-15"
+
+
+def test_editar_traspaso_con_reembolso_posterior_falla(admin_client):
+    """
+    Si el destino ya reembolsó las participaciones heredadas, editar a menos
+    participaciones dejaría el reembolso sin respaldo → 422.
+    """
+    sec_a, sec_b, pos_a, resp = _traspaso_simple(admin_client)
+    group_id = resp.json()["transfer_group_id"]
+    dest_pos_id = resp.json()["dest_position_id"]
+
+    # Reembolso completo de las 120 participaciones.
+    admin_client.post(f"/api/portfolio/{dest_pos_id}/transactions", json={
+        "type": "sell", "date": "2024-03-01", "shares": "120", "price": "15",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+
+    # Intentar editar a 50 participaciones destino (120 reembolsadas → sin respaldo).
+    r = admin_client.patch(f"/api/portfolio/transfer/{group_id}", json={
+        "shares": "100",
+        "dest_shares": "50",
+        "date": "2023-06-01",
+    })
+    assert r.status_code == 422
+
+
+def test_editar_traspaso_inexistente_404(admin_client):
+    """PATCH a un group_id inexistente → 404."""
+    r = admin_client.patch("/api/portfolio/transfer/noexiste123", json={
+        "shares": "10", "dest_shares": "10", "date": "2023-06-01",
+    })
+    assert r.status_code == 404
+
+
+def test_transfer_partner_shares_en_operations(admin_client):
+    """
+    GET /portfolio/by-security/{id}/operations incluye transfer_partner_shares:
+    el transfer_out del origen debe incluir las participaciones del transfer_in.
+    """
+    sec_a, sec_b, pos_a, resp = _traspaso_simple(admin_client)
+    # Traspaso: 100 part de A → 120 part de B.
+    ops_a = admin_client.get(f"/api/portfolio/by-security/{sec_a}/operations").json()
+    out_tx = next(t for t in ops_a["transactions"] if t["type"] == "transfer_out")
+    # El campo transfer_partner_shares debe ser 120 (las participaciones del in).
+    assert out_tx["transfer_partner_shares"] is not None
+    assert abs(float(out_tx["transfer_partner_shares"]) - 120.0) < 0.01
+
+    # Desde el destino, el transfer_in debe apuntar a 100 (las del out).
+    ops_b = admin_client.get(f"/api/portfolio/by-security/{sec_b}/operations").json()
+    in_tx = next(t for t in ops_b["transactions"] if t["type"] == "transfer_in")
+    assert in_tx["transfer_partner_shares"] is not None
+    assert abs(float(in_tx["transfer_partner_shares"]) - 100.0) < 0.01
+
+
+# ---------------------------------------------------------------------------
 #  Fondo relacionado en tabla de operaciones (v1.9.11)
 # ---------------------------------------------------------------------------
 
