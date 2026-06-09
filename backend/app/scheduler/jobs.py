@@ -659,7 +659,7 @@ def check_push_alerts(db: Session) -> None:
             # Hay alertas nuevas → enviar push
             payload = _build_push_payload(db, new_keys)
             try:
-                from pywebpush import webpush, WebPushException
+                from pywebpush import webpush
                 webpush(
                     subscription_info={
                         "endpoint": sub.endpoint,

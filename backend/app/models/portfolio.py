@@ -72,6 +72,10 @@ class Position(Base):
     security_id: Mapped[int] = mapped_column(
         ForeignKey("securities.id", ondelete="RESTRICT"), nullable=False
     )
+    # DEPRECADO (v1.10.6): el objetivo de COMPRA se gestiona en favorites
+    # (catálogo/mercados), no por posición. La columna se conserva para no
+    # forzar una migración de drop sobre la BD en producción, pero ya no se
+    # lee ni se escribe desde la aplicación. No usar.
     target_buy_price: Mapped["object | None"] = mapped_column(Money, nullable=True)
     target_sell_price: Mapped["object | None"] = mapped_column(Money, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

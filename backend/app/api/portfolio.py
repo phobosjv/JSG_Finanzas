@@ -39,7 +39,7 @@ from app.schemas.portfolio import (
     ClosedPositionAnalytics,
     ClosedPositionSummary,
     DividendCreate, DividendOut,
-    NotesUpdate, TargetBuyUpdate, TargetSellUpdate,
+    NotesUpdate, TargetSellUpdate,
     PositionCreate, PositionOut,
     PositionSummary,
     RecurringBuyCreate, RecurringBuyResult, RecurringPlanOut, SkippedContribution,
@@ -152,7 +152,6 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         realized_pnl_eur=realized_pnl_eur,
         total_profit_eur=total_profit_eur,
         fees_eur=fees_eur,
-        target_buy_price=pos.target_buy_price,
         target_sell_price=pos.target_sell_price,
         max_1y=max_1y,
         notes=pos.notes,
@@ -1118,20 +1117,6 @@ def update_notes(
 ):
     pos = _require_position(db, position_id, user.id)
     pos.notes = body.notes or None
-    db.commit()
-    db.refresh(pos)
-    return pos
-
-
-@router.patch("/{position_id}/target-buy", response_model=PositionOut)
-def update_target_buy(
-    position_id: int,
-    body: TargetBuyUpdate,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    pos = _require_position(db, position_id, user.id)
-    pos.target_buy_price = body.target_buy_price
     db.commit()
     db.refresh(pos)
     return pos

@@ -5,6 +5,33 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.10.6] — 2026-06-09
+
+### Mejorado — Robustez: Error Boundary global
+
+- Nuevo `ErrorBoundary` que envuelve el contenido de la aplicación. Si un
+  componente lanza un error de runtime, ahora se muestra un mensaje
+  recuperable («Algo ha fallado» + botón Recargar) en lugar de dejar la
+  pantalla en negro, y el menú lateral sigue operativo. (El incidente de
+  v1.10.5 habría sido un mensaje claro en vez de una pantalla negra total.)
+
+### Limpieza — Código muerto (sin cambios funcionales)
+
+- Eliminado el objetivo de compra duplicado en `positions` (zombie desde
+  v1.9.14, cuando la fuente única pasó a ser `favorites`): endpoint
+  `PATCH /portfolio/{id}/target-buy`, schema `TargetBuyUpdate`, y el campo
+  `target_buy_price` de `PositionSummary`/`PositionOut`. La columna
+  `positions.target_buy_price` se conserva en la BD (marcada como deprecada)
+  para no forzar una migración de drop en producción; ya no se lee ni escribe.
+- Retirados dos imports muertos: el default `PortfolioChartsPanel` en
+  `Portfolio.jsx` (solo se usaban los named exports) y `WebPushException` en
+  el scheduler.
+- Tests: sustituidos los 3 tests del endpoint zombie por 3 tests de regresión
+  que fijan `favorites` como fuente única del objetivo de compra y verifican
+  que el endpoint y el campo en posiciones ya no existen.
+
+---
+
 ## [1.10.5] — 2026-06-06
 
 ### Corregido — Pantalla en negro al cargar Mi Cartera o el detalle de un valor

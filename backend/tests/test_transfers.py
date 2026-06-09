@@ -541,39 +541,28 @@ def test_operations_sin_traspaso_sin_related(admin_client, seed_markets):
 
 
 # ---------------------------------------------------------------------------
-#  Precio objetivo de compra (PATCH /target-buy) — v1.9.11
+#  Fuente ÚNICA del objetivo de compra: favorites (no la posición) — v1.10.6
+#
+#  Regresión: en v1.9.11 se añadió un target_buy_price duplicado en positions
+#  (endpoint PATCH /portfolio/{id}/target-buy). En v1.9.14 la fuente real pasó
+#  a ser favorites y aquel quedó muerto; se eliminó en v1.10.6. Estos tests
+#  evitan reintroducir el campo/endpoint dual y fijan favorites como fuente.
 # ---------------------------------------------------------------------------
 
-def test_target_buy_set_and_clear(admin_client, seed_markets):
-    """PATCH /portfolio/{pos}/target-buy guarda y limpia el precio objetivo de compra."""
+def test_no_existe_endpoint_target_buy_en_posicion(admin_client, seed_markets):
+    """El endpoint zombie PATCH /portfolio/{id}/target-buy ya no debe existir."""
     sec = admin_client.post("/api/securities", json={
         "name": "TargetCo", "yahoo_ticker": "TGT.MC", "market": "ibex35", "currency": "EUR",
     }).json()["id"]
     pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
-
-    # Fijar precio objetivo de compra
     r = admin_client.patch(f"/api/portfolio/{pos}/target-buy", json={"target_buy_price": "12.50"})
-    assert r.status_code == 200
-    assert float(r.json()["target_buy_price"]) == 12.50
-
-    # Limpiar precio objetivo de compra
-    r = admin_client.patch(f"/api/portfolio/{pos}/target-buy", json={"target_buy_price": None})
-    assert r.status_code == 200
-    assert r.json()["target_buy_price"] is None
+    assert r.status_code in (404, 405), (
+        "El objetivo de compra se gestiona en favorites; este endpoint debe estar eliminado."
+    )
 
 
-def test_target_buy_negativo_rechazado(admin_client, seed_markets):
-    """PATCH /portfolio/{pos}/target-buy rechaza precios negativos (422)."""
-    sec = admin_client.post("/api/securities", json={
-        "name": "NegTarget", "yahoo_ticker": "NEGT.MC", "market": "ibex35", "currency": "EUR",
-    }).json()["id"]
-    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
-    r = admin_client.patch(f"/api/portfolio/{pos}/target-buy", json={"target_buy_price": "-1"})
-    assert r.status_code == 422
-
-
-def test_target_buy_incluido_en_portfolio(admin_client, seed_markets):
-    """GET /portfolio incluye target_buy_price en cada posición."""
+def test_position_summary_no_expone_target_buy(admin_client, seed_markets):
+    """GET /portfolio NO debe exponer target_buy_price (vive en favorites)."""
     sec = admin_client.post("/api/securities", json={
         "name": "PortTgt", "yahoo_ticker": "PRT.MC", "market": "ibex35", "currency": "EUR",
     }).json()["id"]
@@ -582,10 +571,19 @@ def test_target_buy_incluido_en_portfolio(admin_client, seed_markets):
         "type": "buy", "date": "2024-01-02", "shares": "5", "price": "10",
         "fee": "0", "currency": "EUR", "exchange_rate": "1",
     })
-    admin_client.patch(f"/api/portfolio/{pos}/target-buy", json={"target_buy_price": "8.00"})
-    portfolio = admin_client.get("/api/portfolio").json()
-    pos_data = next(p for p in portfolio if p["security_id"] == sec)
-    assert float(pos_data["target_buy_price"]) == 8.00
+    pos_data = next(p for p in admin_client.get("/api/portfolio").json() if p["security_id"] == sec)
+    assert "target_buy_price" not in pos_data
+
+
+def test_objetivo_compra_se_guarda_en_favorites(admin_client, seed_markets):
+    """La fuente única del objetivo de compra es favorites (PATCH /favorites/{id})."""
+    sec = admin_client.post("/api/securities", json={
+        "name": "FavTgt", "yahoo_ticker": "FTG.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    admin_client.post(f"/api/favorites/{sec}")
+    r = admin_client.patch(f"/api/favorites/{sec}", json={"target_buy_price": "9.50"})
+    assert r.status_code == 200
+    assert float(r.json()["target_buy_price"]) == 9.50
 
 
 # ---------------------------------------------------------------------------
