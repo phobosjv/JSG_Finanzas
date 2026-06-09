@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.9.9** · **Tests: 400 en verde** · Aplicación web personal
+> **Versión actual: 1.10.6** · **Tests: 433 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -136,10 +136,10 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 
 ## Modelo de datos (SQLite)
 
-**Tablas (15)**: `users`, `user_status_log`, `securities`, `security_splits`,
+**Tablas (16)**: `users`, `user_status_log`, `securities`, `security_splits`,
 `markets`, `price_history`, `price_snapshots`, `ecb_rates`, `favorites`,
 `positions`, `transactions`, `dividends`, `recurring_plans`, `app_config`,
-`tax_brackets`.
+`tax_brackets`, `push_subscriptions`.
 
 - **Multidivisa** (v1.8.0): `transactions`/`dividends` llevan `currency` y
   `exchange_rate` (tipo del BCE en la fecha; 1 para EUR). El BCE publica el tipo
@@ -178,6 +178,9 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 14. `a1b2c3d4e5f7` — v1.7.4 `recurring_plans`
 15. `b2c3d4e5f7a8` — v1.7.6 `markets.market_type`
 16. `c3d4e5f6a1b9` — v1.8.0 multidivisa (divisas configurables, `ecb_rates` PK `(date, currency)`)
+17. `d5e6f7a8b9c1` — v1.9.11 `positions.target_buy_price` (**deprecada en v1.10.6**: el
+    objetivo de compra vive en `favorites`; la columna se conserva pero no se usa)
+18. `f7a8b9c0d1e2` — v1.10.0 `push_subscriptions` (notificaciones Web Push)
 
 ---
 
@@ -302,7 +305,7 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 - Por cada dividendo, calcula el capital en esa fecha con
   `compute_position(txs_until_div_date)` → `avg_cost × shares_at_date`.
 
-### Capacidades añadidas v1.7–v1.9 (resumen + punteros)
+### Capacidades añadidas v1.7–v1.10 (resumen + punteros)
 
 > Las anteriores siguen vigentes. Estas son las grandes piezas posteriores; el
 > detalle versión a versión está en [CHANGELOG.md](CHANGELOG.md).
@@ -345,6 +348,39 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 - **Scatter de operaciones cerradas** incluye round-trips parciales de posiciones
   aún abiertas (`still_open`). **Donut de distribución**: top 8 por volumen +
   «Otros».
+- **Precios objetivo y alertas** (v1.9.11–1.9.16, 1.10.1): objetivo de **compra**
+  (fuente única: `favorites.target_buy_price`, editable en lista de mercados y en
+  el detalle) y objetivo de **venta** (`positions.target_sell_price`). El detalle
+  muestra «% hasta obj.» junto a cada precio. Indicador parpadeante
+  «Comprar»/«Vender» en la ficha. **Campana** de alertas en el menú (todas las
+  secciones): badge con nº de alertas activas y popup clicable; se recalcula al
+  navegar entre secciones. (El `target_buy_price` de `positions` quedó **muerto**
+  y se eliminó del código en v1.10.6; la columna permanece en BD, deprecada.)
+- **Notificaciones push (Web Push)** (v1.10.0): claves VAPID auto-generadas y
+  guardadas en `app_config`; tabla `push_subscriptions`; router `api/push.py`
+  (`/vapid-key` público, `/subscribe`, `/unsubscribe`). El job de snapshots llama
+  `check_push_alerts`, que envía **solo las alertas nuevas** por dispositivo
+  (dedup con `last_notified_keys`) y borra suscripciones muertas (HTTP 410).
+  Service worker propio (`src/sw.js`, estrategia `injectManifest`) maneja `push` y
+  `notificationclick`. UI de alta/baja en Utilidades. Requiere HTTPS (lo da Caddy)
+  y, en iOS, PWA instalada.
+- **Borrar datos de cartera** (v1.10.0/1.9.13): Utilidades → zona de peligro;
+  exporta backup JSON y luego `DELETE /api/portfolio/reset` (borra posiciones,
+  transacciones, dividendos y planes; conserva cuenta, favoritos y preferencias).
+- **Umbral de «polvo»** (v1.10.2/1.10.4): `PositionResult.is_closed` cierra una
+  posición si no quedan acciones vivas **o** si el coste de los lotes vivos cae por
+  debajo de un umbral (descarta residuos de redondeo). El umbral es **configurable
+  por admin** (`app_config.dust_threshold`, por defecto 0,10); se inyecta en
+  `compute_position(dust_threshold=…)` desde la API vía `get_dust_threshold(db)`,
+  manteniendo la **capa de cálculo pura**.
+- **Ordenación de tablas + buscador** (v1.10.3): hook `useSortableData` +
+  `SortableHead` (orden en cliente, 3 estados asc/desc/defecto, nulos al final, no
+  persistente) en cartera abierta/cerrada, mercados/favoritos y tablas del detalle.
+  Buscador por ticker/nombre en cartera abierta y cerrada. **Cuidado con las reglas
+  de hooks**: estos hooks deben ir ANTES de cualquier `return` de carga/error (ver
+  [Notas operativas](#notas-operativas-lecciones-aprendidas)).
+- **Error Boundary global** (v1.10.6): envuelve el contenido; un error de runtime
+  muestra un mensaje recuperable en vez de pantalla en negro, con el menú operativo.
 
 ---
 
@@ -369,15 +405,19 @@ Qué puede hacer la app hoy (visión de producto):
 - **Importar/Exportar**: CSV, Ghostfolio y backup completo (admin).
 - **Administración**: usuarios y suscripciones, mercados (incl. sincronizar
   divisa y rellenar ISINs), splits, tramos IRPF, configuración (nombre de app,
-  logo, divisas, intervalo de snapshots), forzar histórico.
-- **PWA** instalable, responsive, ES/EN, tema claro/oscuro.
+  logo, divisas, intervalo de snapshots, **umbral de cierre por «polvo»**),
+  forzar histórico.
+- **Precios objetivo y alertas**: objetivo de compra/venta por valor, campana de
+  alertas en el menú y **notificaciones push** al dispositivo (PWA).
+- **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
+  global (un fallo de UI no deja la pantalla en negro).
 
 ---
 
 ## Estado actual
 
-**v1.9.9 · 400 tests en verde** (pytest, SQLite en memoria). 16 migraciones
-Alembic, 15 tablas. Desplegado en VPS Debian con Caddy + HTTPS
+**v1.10.6 · 433 tests en verde** (pytest, SQLite en memoria). 18 migraciones
+Alembic, 16 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
 ### Tests (ficheros)
@@ -391,10 +431,11 @@ Cálculo puro: `test_calculations.py`, `test_splits.py`, `test_tax_report.py`,
 `test_isin_pipeline.py`, `test_csv_import.py`, `test_ghostfolio_import.py`,
 `test_import_export_v178.py`, `test_v179.py`, `test_active_updates.py`,
 `test_yahoo_explorer.py`, `test_catalog_import.py`, `test_user_subscriptions.py`,
-`test_app_logo.py`, `test_indicators.py`, `test_backup_service.py`.
+`test_app_logo.py`, `test_indicators.py`, `test_backup_service.py`,
+`test_push.py` (VAPID, suscripciones, alertas push, dedup).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
-`test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, `entrypoint.sh`
-sin BOM).
+`test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
+`pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
 
 ### Routers y prefijos API
 
@@ -413,6 +454,7 @@ sin BOM).
 | backup            | /api/backup     | user          |
 | csv_import        | /api/import     | user          |
 | ghostfolio_import | /api/import     | user          |
+| push              | /api/push       | ninguna(`/vapid-key`)/user |
 
 ### Endpoints especiales a recordar
 
@@ -423,6 +465,13 @@ sin BOM).
   `/dividends-by-security` · `/xirr` · `/period-returns` · `/by-security/{id}` y
   `/by-security/{id}/operations` (historial aunque esté cerrada).
 - `POST /api/portfolio/transfer` y `DELETE /api/portfolio/transfer/{group_id}`.
+- `DELETE /api/portfolio/reset` (borra la cartera del usuario; el frontend exporta
+  backup antes). `PATCH /api/portfolio/{id}/target-sell`.
+- `PATCH /api/favorites/{id}` `{target_buy_price}` (**fuente única** del objetivo de
+  compra; NO existe `/portfolio/{id}/target-buy`, se eliminó en v1.10.6).
+- `GET /api/push/vapid-key` (público) · `POST/DELETE /api/push/subscribe` (user).
+- `GET /api/admin/config` (incluye `dust_threshold`) · `PATCH
+  /api/admin/config/dust-threshold` (admin) · `PATCH /api/admin/config/snapshot-interval`.
 - `POST /api/markets/refresh-all` (admin) · `POST /api/admin/force-history-update`
   (+ `/status`) · `POST /api/admin/markets/{code}/sync-currency` (admin) ·
   `POST /api/admin/securities/fill-isins` (+ `/status`, job en segundo plano).
@@ -436,6 +485,11 @@ sin BOM).
 - **Informe fiscal**: la cuota es una estimación; no modela la compensación
   cruzada del 25 % ni el arrastre de pérdidas de 4 años (requeriría histórico
   fiable de ejercicios anteriores). Se avisa en el propio informe.
+- **`positions.target_buy_price`**: columna deprecada (v1.10.6), conservada en BD
+  pero sin uso. El objetivo de compra vive en `favorites`.
+- **Sin tests de frontend**: no hay vitest/jest. Los errores de runtime de React
+  (p. ej. orden de hooks) no se detectan con la suite; el **Error Boundary** es la
+  mitigación. Verificar en navegador los cambios de UI con estado de carga.
 
 ---
 
@@ -662,10 +716,12 @@ Cada bug arreglado se documenta en `test_bugs.py` con:
 ```
 frontend/src/
 ├── pages/        — Dashboard, Markets, Portfolio, SecurityDetail, TaxReport, Utilities, AdminPanel, Login
-├── components/   — PortfolioChartsPanel, SecurityTable, SecurityCard, Navigation
+├── components/   — PortfolioChartsPanel, SecurityTable, SecurityCard, Navigation, ErrorBoundary
+├── hooks/        — useSortableData (orden de tablas), useMediaQuery
 ├── context/      — AuthContext (user, login, logout), AppContext (t, appName, theme, locale)
 ├── i18n/         — translations.js (ES+EN obligatorio)
 ├── api/          — client.js (fetch wrapper, dispara auth:logout en 401)
+├── sw.js         — service worker propio (PWA injectManifest): push + notificationclick
 └── styles/       — global.css (variables CSS, dark/light theme)
 ```
 
@@ -676,6 +732,10 @@ frontend/src/
 - `fmtYearsMonths(months)` (en `Portfolio.jsx`): "X año(s) y Y mes(es)".
 - `pnlColor(pct, days)` (en `PortfolioChartsPanel.jsx`): color del scatter
   combinando rentabilidad y tiempo.
+- `useSortableData(items)` + `SortableHead` (en `hooks/useSortableData.jsx`):
+  ordenación de tablas en cliente. **Las llamadas a este hook (y a cualquier otro)
+  deben ir ANTES de los `return` de carga/error del componente** (ver Notas
+  operativas: el bug de la pantalla negra v1.10.5).
 - Cabeceras de tabla **sticky** por defecto (CSS `th { position: sticky }`).
 
 ### PortfolioChartsPanel.jsx
@@ -748,3 +808,61 @@ docker compose up --build
 - **El test `test_distribution.py` verifica el zip más reciente**: ejecutar
   los tests *después* de generar el zip detecta problemas como iconos PWA
   faltantes o `entrypoint.sh` con BOM.
+
+### Lecciones críticas (incidentes reales, NO repetir)
+
+- **BOM rompe el despliegue.** `Set-Content -Encoding utf8` de PowerShell 5.1
+  añade BOM (`0xEF BB BF`). Con BOM: `pyproject.toml` → `tomllib` falla → `pip
+  install` aborta el build Docker; `package.json` → Vite falla; `entrypoint.sh` →
+  el kernel no reconoce el shebang → crash-loop. **Para bump de versión y ficheros
+  que lee otra herramienta, escribir SIN BOM**: con Python (`open(...,
+  encoding='utf-8')`) o `[System.IO.File]::WriteAllText(path, text, (New-Object
+  System.Text.UTF8Encoding $false))`. `entrypoint.sh` siempre con `printf` desde
+  Bash. `test_distribution.py` ya verifica BOM en los tres; correrlo tras el zip.
+- **`entrypoint.sh` hace `cd /app`, NO `/app/backend`.** El Dockerfile tiene
+  `WORKDIR /app` y copia ahí. Una ruta incorrecta → crash-loop → Caddy 502.
+  `test_distribution.py` verifica que el `cd` coincide con el `WORKDIR`.
+- **Reglas de hooks de React (pantalla en negro).** Un hook (`useState`,
+  `useEffect`, `useSortableData`, …) DESPUÉS de un `return` condicional de
+  carga/error rompe la app: en el primer render no se ejecuta y al llegar los
+  datos React lanza «Rendered more hooks than during the previous render» y
+  desmonta TODO → pantalla negra. **Todos los hooks van ANTES de cualquier
+  `return`**; usar arrays seguros (`positions || []`). El **Error Boundary** (v1.10.6)
+  mitiga el síntoma, pero el orden correcto es la prevención. El build (`npm run
+  build`) NO detecta esto: es runtime. **Verificar en navegador** los cambios de UI
+  con estado de carga.
+- **Capa de cálculo pura.** Para inyectar configuración (p. ej. `dust_threshold`)
+  NO leer la BD dentro de `services/`: pasar el valor como parámetro desde la API
+  (helper en repositorio). Ver `get_dust_threshold(db)` + `compute_position(...)`.
+
+---
+
+## Protocolo de cierre de chat (OBLIGATORIO)
+
+Cuando el usuario cierre un chat (o lo pida explícitamente), antes de terminar
+**realizar siempre estas acciones** para que el próximo chat retome sin pérdida
+de contexto y se mantenga la trayectoria del proyecto:
+
+1. **CHANGELOG.md** — comprobar que está completo hasta la última versión
+   generada (debería estarlo si se siguió la metodología de release).
+2. **CLAUDE.md** — actualizar lo que haya cambiado de visión global:
+   - Cabecera (versión actual, nº de tests) y sección [Estado actual](#estado-actual)
+     (versión, nº de migraciones y de tablas).
+   - [Migraciones Alembic](#migraciones-alembic-cronológico) y lista de **tablas**
+     si se añadieron.
+   - [Routers](#routers-y-prefijos-api) y [Endpoints especiales](#endpoints-especiales-a-recordar)
+     si hay nuevos/eliminados.
+   - [Capacidades v1.7–v1.10](#capacidades-añadidas-v17v110-resumen--punteros),
+     [Funcionalidad actual](#funcionalidad-actual) y [Tests (ficheros)](#tests-ficheros).
+   - **Limitaciones conocidas** y **Lecciones críticas** si surgió algo nuevo.
+3. **Memoria persistente** (`~/.claude/.../memory/`): actualizar `MEMORY.md`,
+   `project_state.md` (versión, capacidades, decisiones load-bearing) y
+   `project_backlog.md` (marcar lo hecho, dejar lo pendiente). Registrar nuevas
+   lecciones como `feedback_*` si aplican.
+4. **Verificar** que la metodología de release se respetó en la última versión
+   (bump en 4 ficheros, build, PDF, zip sin BOM, tests verdes, commit) y dejar el
+   árbol git limpio (todo commiteado).
+
+> El objetivo: que la información importante sobre requisitos, propiedades, flujos
+> y trayectoria quede **patente en los registros** y no dependa de la memoria de
+> un chat concreto.
