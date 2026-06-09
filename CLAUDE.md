@@ -402,10 +402,11 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 - **Búsqueda por ISIN** (v1.11.3): todos los buscadores de productos de inversión
   (catálogo de Mercados, cartera abierta/cerrada, editor de subcarteras) admiten
   el código ISIN además de ticker y nombre. `PositionSummary` incluye `isin`.
-- **Top ganancias/pérdidas en Dashboard** (v1.11.3): sección configurable
-  `topperformers` habilitada por defecto. Dos columnas: mejores ganancias y
-  peores pérdidas latentes (`unrealized_pnl_eur`). N por columna configurable
-  (3 ó 5; defecto 5). Sin llamada extra al backend; respeta el filtro de tipo.
+- **Variación diaria — Top en Dashboard** (v1.11.3): sección configurable
+  `topperformers` habilitada por defecto. Dos columnas: mayores subidas y
+  mayores bajadas del día (`daily_change_eur`). N por columna configurable
+  (3 ó 5; defecto 5). Solo posiciones con snapshot del día. Sin llamada extra
+  al backend; respeta el filtro de tipo.
 
 ---
 
@@ -437,6 +438,10 @@ Qué puede hacer la app hoy (visión de producto):
 - **Subcarteras**: agrupaciones personalizadas de posiciones, alternativa al
   filtro por tipo. Editor de dos columnas para asignar/quitar posiciones.
   Toggle «Por tipo / Por subcartera» en Mi Cartera (oculto si no hay subcarteras).
+- **Búsqueda por ISIN**: todos los buscadores de productos (Mercados, cartera,
+  subcarteras) admiten ticker, nombre o ISIN.
+- **Dashboard — Variación diaria Top**: sección configurable con las mayores
+  subidas y bajadas del día de las posiciones abiertas (`daily_change_eur`).
 - **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
   global (un fallo de UI no deja la pantalla en negro).
 
