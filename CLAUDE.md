@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.10.6** · **Tests: 433 en verde** · Aplicación web personal
+> **Versión actual: 1.10.7** · **Tests: 438 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -381,6 +381,15 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   [Notas operativas](#notas-operativas-lecciones-aprendidas)).
 - **Error Boundary global** (v1.10.6): envuelve el contenido; un error de runtime
   muestra un mensaje recuperable en vez de pantalla en negro, con el menú operativo.
+- **Mejoras en la herramienta de traspasos** (v1.10.7): (1) **Edición** de un
+  traspaso ya grabado (`PATCH /api/portfolio/transfer/{group_id}`): corrige
+  shares, dest_shares y fecha sin deshacer; recalcula el coste heredado por FIFO
+  y valida consistencia FIFO en origen y destino. El modal se abre pre-relleno;
+  el fondo queda bloqueado. (2) **Buscador** en el selector de fondo destino:
+  combobox filtrable por nombre, ticker o ISIN. (3) Columna renombrada «Base de
+  coste (€)» / «Cost basis (€)» (antes «Coste heredado»). (4)
+  `TransactionOut.transfer_partner_shares`: historial incluye las participaciones
+  del lado opuesto del traspaso.
 
 ---
 
@@ -416,7 +425,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.10.6 · 433 tests en verde** (pytest, SQLite en memoria). 18 migraciones
+**v1.10.7 · 438 tests en verde** (pytest, SQLite en memoria). 18 migraciones
 Alembic, 16 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
@@ -464,7 +473,7 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 - `GET /api/portfolio/history` · `/closed-analytics` (scatter, con `still_open`) ·
   `/dividends-by-security` · `/xirr` · `/period-returns` · `/by-security/{id}` y
   `/by-security/{id}/operations` (historial aunque esté cerrada).
-- `POST /api/portfolio/transfer` y `DELETE /api/portfolio/transfer/{group_id}`.
+- `POST /api/portfolio/transfer`, `PATCH /api/portfolio/transfer/{group_id}` (editar) y `DELETE /api/portfolio/transfer/{group_id}`.
 - `DELETE /api/portfolio/reset` (borra la cartera del usuario; el frontend exporta
   backup antes). `PATCH /api/portfolio/{id}/target-sell`.
 - `PATCH /api/favorites/{id}` `{target_buy_price}` (**fuente única** del objetivo de
