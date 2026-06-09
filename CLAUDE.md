@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.11.0** · **Tests: 457 en verde** · Aplicación web personal
+> **Versión actual: 1.11.2** · **Tests: 457 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -437,7 +437,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.11.0 · 457 tests en verde** (pytest, SQLite en memoria). 19 migraciones
+**v1.11.2 · 457 tests en verde** (pytest, SQLite en memoria). 19 migraciones
 Alembic, 18 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
@@ -859,6 +859,13 @@ docker compose up --build
 - **Capa de cálculo pura.** Para inyectar configuración (p. ej. `dust_threshold`)
   NO leer la BD dentro de `services/`: pasar el valor como parámetro desde la API
   (helper en repositorio). Ver `get_dust_threshold(db)` + `compute_position(...)`.
+- **`p.id` no existe en las posiciones del API.** Los objetos devueltos por
+  `/portfolio` (abierta y cerrada) usan `position_id`, NO `id`. Usar `p.id` en
+  componentes React produce `undefined` silenciosamente: el `Set` colapsa toda la
+  lista (el primer `undefined` queda marcado como visto y excluye el resto). La
+  causa es difícil de depurar porque no hay error visible. Regla: **en componentes
+  que reciben posiciones del API, usar siempre `p.position_id`** como clave,
+  filtro y argumento de llamadas al backend.
 
 ---
 
