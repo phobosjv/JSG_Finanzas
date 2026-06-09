@@ -51,10 +51,82 @@ function computeSellAlerts(portfolio) {
   return result
 }
 
-// Componente campana con popup de alertas.
+// Mini-modal inline para notificaciones de solicitud (aprobada/rechazada/pendiente).
+// Se muestra dentro del popup de la campana.
+function NotificationDetail({ notif, t, onDismiss, onReply }) {
+  const [showReply, setShowReply] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [sending, setSending]     = useState(false)
+
+  async function handleSendReply() {
+    if (!replyText.trim()) return
+    setSending(true)
+    try {
+      await api.post(`/notifications/${notif.id}/reply`, { message: replyText.trim() })
+      onReply()
+    } catch { /* ignorar */ } finally { setSending(false) }
+  }
+
+  return (
+    <div style={{
+      padding: '10px 14px',
+      borderBottom: '1px solid var(--border)',
+      fontSize: '0.82rem',
+    }}>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>{notif.title}</div>
+      <div style={{ color: 'var(--text-muted)', marginBottom: 8 }}>{notif.body}</div>
+
+      {showReply ? (
+        <div>
+          <textarea
+            rows={3}
+            value={replyText}
+            onChange={e => setReplyText(e.target.value)}
+            placeholder={t('nav.notif_reply_placeholder')}
+            style={{
+              width: '100%', boxSizing: 'border-box', resize: 'vertical',
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 4, padding: '6px 8px', color: 'var(--text)', fontSize: '0.8rem',
+              marginBottom: 6,
+            }}
+          />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn-ghost btn-sm" onClick={() => setShowReply(false)} disabled={sending}>
+              {t('requests.cancel')}
+            </button>
+            <button
+              className="btn-primary btn-sm"
+              onClick={handleSendReply}
+              disabled={sending || !replyText.trim()}
+            >
+              {t('nav.notif_send_reply')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button className="btn-ghost btn-sm" onClick={onDismiss} style={{ fontSize: '0.75rem' }}>
+            {t('nav.notif_dismiss')}
+          </button>
+          {notif.type !== 'request_pending' && (
+            <button
+              className="btn-secondary btn-sm"
+              onClick={() => setShowReply(true)}
+              style={{ fontSize: '0.75rem' }}
+            >
+              {t('nav.notif_reply')}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Componente campana con popup de alertas y notificaciones de servidor.
 // placement='up': el popup abre hacia arriba (sidebar-footer).
 // placement='down': el popup abre hacia abajo (mobile-header).
-function AlertBell({ alerts, t, placement }) {
+function AlertBell({ alerts, serverNotifs, t, placement, onNotifsChanged }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -68,7 +140,27 @@ function AlertBell({ alerts, t, placement }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const hasAlerts = alerts.length > 0
+  const totalCount = alerts.length + serverNotifs.length
+  const hasAlerts  = totalCount > 0
+
+  async function handleDismiss(notifId) {
+    try {
+      await api.delete(`/notifications/${notifId}`)
+      onNotifsChanged()
+    } catch { /* ignorar */ }
+  }
+
+  function handleReply() {
+    onNotifsChanged()
+  }
+
+  // Icono de badge según tipo de notificación de solicitud
+  function notifBadge(type) {
+    if (type === 'request_pending')  return { label: t('nav.notif_request_pending'),  color: '#d97706' }
+    if (type === 'request_approved') return { label: t('nav.notif_request_approved'), color: 'var(--green)' }
+    if (type === 'request_rejected') return { label: t('nav.notif_request_rejected'), color: 'var(--red)' }
+    return { label: type, color: 'var(--text-muted)' }
+  }
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -87,7 +179,7 @@ function AlertBell({ alerts, t, placement }) {
             fontSize: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontWeight: 700, lineHeight: 1, pointerEvents: 'none',
           }}>
-            {alerts.length > 9 ? '9+' : alerts.length}
+            {totalCount > 9 ? '9+' : totalCount}
           </span>
         )}
       </button>
@@ -102,26 +194,41 @@ function AlertBell({ alerts, t, placement }) {
               onClick={() => setOpen(false)}
             >✕</button>
           </div>
-          {alerts.length === 0 ? (
+
+          {totalCount === 0 ? (
             <div style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
               {t('nav.alerts_empty')}
             </div>
           ) : (
-            alerts.map(a => (
-              <div
-                key={a.security_id}
-                className="alert-popup-item"
-                onClick={() => { navigate(`/securities/${a.security_id}`); setOpen(false) }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-                  <span className="alert-popup-name">{a.name}</span>
-                  <span className="alert-popup-ticker">{a.yahoo_ticker}</span>
+            <>
+              {/* Notificaciones de servidor (solicitudes) */}
+              {serverNotifs.map(n => (
+                <NotificationDetail
+                  key={`notif-${n.id}`}
+                  notif={n}
+                  t={t}
+                  onDismiss={() => { handleDismiss(n.id); setOpen(false) }}
+                  onReply={() => { handleReply(); setOpen(false) }}
+                />
+              ))}
+
+              {/* Alertas de precio (existentes) */}
+              {alerts.map(a => (
+                <div
+                  key={a.security_id}
+                  className="alert-popup-item"
+                  onClick={() => { navigate(`/securities/${a.security_id}`); setOpen(false) }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                    <span className="alert-popup-name">{a.name}</span>
+                    <span className="alert-popup-ticker">{a.yahoo_ticker}</span>
+                  </div>
+                  <span className="alert-popup-badge">
+                    {a.alertType === 'sell' ? t('sd.alert_sell') : t('sd.alert_buy')}
+                  </span>
                 </div>
-                <span className="alert-popup-badge">
-                  {a.alertType === 'sell' ? t('sd.alert_sell') : t('sd.alert_buy')}
-                </span>
-              </div>
-            ))
+              ))}
+            </>
           )}
         </div>
       )}
@@ -132,35 +239,42 @@ function AlertBell({ alerts, t, placement }) {
 export default function Navigation() {
   const { user, logout } = useAuth()
   const { appName, logoUrl, theme, toggleTheme, t } = useAppConfig()
-  const [alerts, setAlerts] = useState([])
+  const [alerts, setAlerts]           = useState([])
+  const [serverNotifs, setServerNotifs] = useState([])
   const location = useLocation()
+
+  async function loadAlerts() {
+    try {
+      const [portfolio, favorites, notifs] = await Promise.all([
+        api.get('/portfolio'),
+        api.get('/favorites'),
+        api.get('/notifications'),
+      ])
+      const buyAlerts  = computeBuyAlerts(favorites)
+      const sellAlerts = computeSellAlerts(portfolio)
+      // Combinar alertas de precio: venta tiene prioridad sobre compra para el mismo valor
+      const seen = new Set()
+      const combined = []
+      for (const a of [...sellAlerts, ...buyAlerts]) {
+        if (!seen.has(a.security_id)) {
+          combined.push(a)
+          seen.add(a.security_id)
+        }
+      }
+      setAlerts(combined)
+      setServerNotifs(Array.isArray(notifs) ? notifs : [])
+    } catch { /* silencioso */ }
+  }
 
   useEffect(() => {
     if (!user) return
     let cancelled = false
-    async function loadAlerts() {
-      try {
-        const [portfolio, favorites] = await Promise.all([
-          api.get('/portfolio'),
-          api.get('/favorites'),
-        ])
-        if (cancelled) return
-        const buyAlerts = computeBuyAlerts(favorites)
-        const sellAlerts = computeSellAlerts(portfolio)
-        // Combinar: si un valor tiene alerta de venta Y de compra, mostrar venta.
-        const seen = new Set()
-        const combined = []
-        for (const a of [...sellAlerts, ...buyAlerts]) {
-          if (!seen.has(a.security_id)) {
-            combined.push(a)
-            seen.add(a.security_id)
-          }
-        }
-        setAlerts(combined)
-      } catch { /* silencioso */ }
+    async function load() {
+      if (cancelled) return
+      await loadAlerts()
     }
-    loadAlerts()
-    const id = setInterval(loadAlerts, 5 * 60 * 1000)
+    load()
+    const id = setInterval(load, 5 * 60 * 1000)
     return () => { cancelled = true; clearInterval(id) }
   }, [user, location.pathname])
 
@@ -174,7 +288,13 @@ export default function Navigation() {
           <span className="mobile-header-version">v{version}</span>
         </span>
         <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <AlertBell alerts={alerts} t={t} placement="down" />
+          <AlertBell
+            alerts={alerts}
+            serverNotifs={serverNotifs}
+            t={t}
+            placement="down"
+            onNotifsChanged={loadAlerts}
+          />
           <button className="btn-ghost btn-sm" onClick={logout} style={{ fontSize: '0.8rem' }}>
             {t('nav.logout')}
           </button>
@@ -200,7 +320,13 @@ export default function Navigation() {
           <div className="sidebar-footer">
             <span className="text-muted">{user.username}</span>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              <AlertBell alerts={alerts} t={t} placement="up" />
+              <AlertBell
+                alerts={alerts}
+                serverNotifs={serverNotifs}
+                t={t}
+                placement="up"
+                onNotifsChanged={loadAlerts}
+              />
               <button
                 className="btn-ghost btn-sm"
                 onClick={toggleTheme}

@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 import SecurityTable from '../components/SecurityTable'
 import SecurityCard from '../components/SecurityCard'
 import { ASSET_TYPE_ORDER } from '../components/AssetTypeFilter'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import AddProductModal from '../components/AddProductModal'
+import CatalogMessageModal from '../components/CatalogMessageModal'
 
 function fmtDateTime(dt) {
   if (!dt) return null
@@ -84,6 +87,7 @@ function IndexHeader({ market }) {
 
 export default function Markets() {
   const { t } = useAppConfig()
+  const { user } = useAuth()
   const [marketsList, setMarketsList] = useState([])
   const [activeType, setActiveType]     = useState(null)  // tipo de producto | 'favoritos'
   const [activeMarket, setActiveMarket] = useState(null)  // código de mercado (null en favoritos)
@@ -91,6 +95,8 @@ export default function Markets() {
   const [search, setSearch]         = useState('')
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
+  const [showAddModal, setShowAddModal]         = useState(false)
+  const [showMessageModal, setShowMessageModal] = useState(false)
   const isMobile = useMediaQuery('(max-width: 767px)')
 
   const typeOf = m => m.market_type || 'stock'
@@ -315,6 +321,49 @@ export default function Markets() {
             onTargetUpdate={handleTargetUpdate}
           />
         </div>
+      )}
+
+      {/* Hint para agregar producto — solo usuarios no-admin */}
+      {user && !user.is_admin && (
+        <div style={{
+          marginTop: 16,
+          padding: '10px 14px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          fontSize: '0.82rem',
+          color: 'var(--text-muted)',
+        }}>
+          {t('markets.not_found_hint')}{' '}
+          <button
+            className="btn-link"
+            style={{ fontSize: '0.82rem', textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', color: 'var(--accent)', padding: 0 }}
+            onClick={() => setShowAddModal(true)}
+          >
+            {t('markets.not_found_add')}
+          </button>
+          {', '}
+          {t('markets.not_found_or')}{' '}
+          <button
+            className="btn-link"
+            style={{ fontSize: '0.82rem', textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', color: 'var(--accent)', padding: 0 }}
+            onClick={() => setShowMessageModal(true)}
+          >
+            {t('markets.not_found_contact')}
+          </button>.
+        </div>
+      )}
+
+      {showAddModal && (
+        <AddProductModal
+          defaultMarket={activeMarket}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
+      {showMessageModal && (
+        <CatalogMessageModal
+          onClose={() => setShowMessageModal(false)}
+        />
       )}
     </div>
   )

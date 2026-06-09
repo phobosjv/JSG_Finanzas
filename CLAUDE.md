@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.11.3** · **Tests: 458 en verde** · Aplicación web personal
+> **Versión actual: 1.12.0** · **Tests: 483 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -136,10 +136,11 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 
 ## Modelo de datos (SQLite)
 
-**Tablas (18)**: `users`, `user_status_log`, `securities`, `security_splits`,
+**Tablas (21)**: `users`, `user_status_log`, `securities`, `security_splits`,
 `markets`, `price_history`, `price_snapshots`, `ecb_rates`, `favorites`,
 `positions`, `transactions`, `dividends`, `recurring_plans`, `app_config`,
-`tax_brackets`, `push_subscriptions`, `subcarteras`, `subcartera_positions`.
+`tax_brackets`, `push_subscriptions`, `subcarteras`, `subcartera_positions`,
+`security_requests`, `user_notifications`, `catalog_messages`.
 
 - **Multidivisa** (v1.8.0): `transactions`/`dividends` llevan `currency` y
   `exchange_rate` (tipo del BCE en la fecha; 1 para EUR). El BCE publica el tipo
@@ -182,6 +183,7 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
     objetivo de compra vive en `favorites`; la columna se conserva pero no se usa)
 18. `f7a8b9c0d1e2` — v1.10.0 `push_subscriptions` (notificaciones Web Push)
 19. `b9c0d1e2f3a4` — v1.11.0 `subcarteras` + `subcartera_positions`
+20. `c0d1e2f3a4b5` — v1.12.0 `security_requests` + `user_notifications` + `catalog_messages`
 
 ---
 
@@ -449,8 +451,8 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.11.3 · 458 tests en verde** (pytest, SQLite en memoria). 19 migraciones
-Alembic, 18 tablas. Desplegado en VPS Debian con Caddy + HTTPS
+**v1.12.0 · 483 tests en verde** (pytest, SQLite en memoria). 20 migraciones
+Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
 ### Tests (ficheros)
@@ -490,6 +492,9 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 | ghostfolio_import | /api/import     | user          |
 | push              | /api/push       | ninguna(`/vapid-key`)/user |
 | subcarteras       | /api/subcarteras | user          |
+| catalog_requests  | /api/catalog    | user          |
+| admin_catalog_requests | /api/admin/catalog | require_admin |
+| notifications     | /api/notifications | user        |
 
 ### Endpoints especiales a recordar
 
@@ -506,6 +511,14 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
   compra; NO existe `/portfolio/{id}/target-buy`, se eliminó en v1.10.6).
 - `GET /api/push/vapid-key` (público) · `POST/DELETE /api/push/subscribe` (user).
 - `GET /api/subcarteras` · `POST /api/subcarteras` · `PATCH /api/subcarteras/{id}` · `DELETE /api/subcarteras/{id}` · `POST/DELETE /api/subcarteras/{id}/positions/{pos_id}` (user).
+- `GET /api/catalog/validate-ticker?ticker=XXX` — preview de Yahoo Finance (nombre, precio, divisa, in_catalog). Sin persistencia. User.
+- `POST /api/catalog/requests` — crea solicitud de producto (user) → notificación request_pending.
+- `POST /api/catalog/messages` — mensaje libre al admin (user).
+- `GET /api/notifications` · `PATCH /api/notifications/{id}/read` · `DELETE /api/notifications/{id}` · `POST /api/notifications/{id}/reply` (user).
+- `GET /api/admin/catalog/requests?req_status=pending|approved|rejected|all` · `GET /api/admin/catalog/requests/pending-count` (admin).
+- `PATCH /api/admin/catalog/requests/{id}/approve` body `{market_id, notes?}` — aprueba y crea el Security.
+- `PATCH /api/admin/catalog/requests/{id}/reject` body `{notes?}` — rechaza.
+- `GET /api/admin/catalog/messages` · `PATCH /api/admin/catalog/messages/{id}/resolve` (admin).
 - `GET /api/portfolio/history`, `/xirr`, `/period-returns` aceptan `?position_ids=id1,id2,…` como alternativa a `?types=…` para filtrar por subcartera.
 - `GET /api/admin/config` (incluye `dust_threshold`) · `PATCH
   /api/admin/config/dust-threshold` (admin) · `PATCH /api/admin/config/snapshot-interval`.

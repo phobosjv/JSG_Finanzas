@@ -18,6 +18,9 @@ from app.models.portfolio import (
 from app.models.tax_bracket import TaxBracketRow
 from app.models.push import PushSubscription
 from app.models.subcarteras import SubcarteraRow, SubcarteraPositionRow
+from app.models.catalog_requests import (
+    SecurityRequestRow, UserNotificationRow, CatalogMessageRow,
+)
 
 __all__ = [
     "Base",
@@ -40,4 +43,7 @@ __all__ = [
     "PushSubscription",
     "SubcarteraRow",
     "SubcarteraPositionRow",
+    "SecurityRequestRow",
+    "UserNotificationRow",
+    "CatalogMessageRow",
 ]

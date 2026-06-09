@@ -1883,6 +1883,267 @@ function SecuritiesSection() {
 
 
 // ---------------------------------------------------------------------------
+//  Sección: Solicitudes de usuarios para agregar productos (v1.12.0)
+// ---------------------------------------------------------------------------
+
+function RequestsSection({ onCountChanged }) {
+  const { t } = useAppConfig()
+  const [requests, setRequests]       = useState([])
+  const [markets, setMarkets]         = useState([])
+  const [reviewing, setReviewing]     = useState(null)  // SecurityRequestRow seleccionada
+  const [approveMarket, setApproveMarket] = useState('')
+  const [notes, setNotes]             = useState('')
+  const [busy, setBusy]               = useState(false)
+  const [err, setErr]                 = useState(null)
+  const [filter, setFilter]           = useState('pending')
+
+  async function load() {
+    try {
+      const [reqs, mks] = await Promise.all([
+        api.get(`/admin/catalog/requests?req_status=${filter}`),
+        api.get('/admin/markets'),
+      ])
+      setRequests(reqs || [])
+      setMarkets(mks || [])
+    } catch (e) { setErr(e.message) }
+  }
+
+  useEffect(() => { load() }, [filter])
+
+  function openReview(req) {
+    setReviewing(req)
+    setApproveMarket(req.market_id || '')
+    setNotes('')
+    setErr(null)
+  }
+
+  async function doApprove() {
+    if (!approveMarket) { setErr(t('admin.approve_market_label') + ' requerido'); return }
+    setBusy(true); setErr(null)
+    try {
+      await api.patch(`/admin/catalog/requests/${reviewing.id}/approve`, {
+        market_id: approveMarket,
+        notes: notes.trim() || null,
+      })
+      setReviewing(null)
+      await load()
+      onCountChanged?.()
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+
+  async function doReject() {
+    setBusy(true); setErr(null)
+    try {
+      await api.patch(`/admin/catalog/requests/${reviewing.id}/reject`, {
+        notes: notes.trim() || null,
+      })
+      setReviewing(null)
+      await load()
+      onCountChanged?.()
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+
+  function statusChip(status) {
+    const colors = { pending: '#d97706', approved: 'var(--green)', rejected: 'var(--red)' }
+    const labels = {
+      pending: t('admin.status_pending'),
+      approved: t('admin.status_approved'),
+      rejected: t('admin.status_rejected'),
+    }
+    return (
+      <span style={{
+        background: colors[status] || 'var(--text-muted)',
+        color: '#fff', borderRadius: 4, padding: '1px 7px', fontSize: '0.75rem',
+      }}>
+        {labels[status] || status}
+      </span>
+    )
+  }
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{t('admin.requests_section')}</h2>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {['pending', 'approved', 'rejected', 'all'].map(f => (
+            <button key={f} className={filter === f ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+              onClick={() => setFilter(f)}>
+              {f === 'all' ? 'Todas' : t(`admin.status_${f}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {err && <div className="state-error" style={{ marginBottom: 10 }}>{err}</div>}
+
+      {requests.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('admin.requests_empty')}</div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t('admin.col_user')}</th>
+                <th>{t('admin.col_ticker')}</th>
+                <th>{t('admin.col_name')}</th>
+                <th>{t('admin.col_market')}</th>
+                <th>{t('admin.col_status')}</th>
+                <th>{t('admin.col_date')}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map(req => (
+                <tr key={req.id}>
+                  <td>{req.username || req.user_id}</td>
+                  <td><strong>{req.ticker}</strong></td>
+                  <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.name}</td>
+                  <td>{req.market_id || '—'}</td>
+                  <td>{statusChip(req.status)}</td>
+                  <td style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                    {req.created_at ? new Date(req.created_at).toLocaleDateString('es-ES') : '—'}
+                  </td>
+                  <td>
+                    {req.status === 'pending' && (
+                      <button className="btn-ghost btn-sm" onClick={() => openReview(req)}>
+                        {t('admin.review_title')}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal de revisión */}
+      {reviewing && (
+        <div className="modal-backdrop" onClick={() => !busy && setReviewing(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <h2 style={{ marginBottom: 14 }}>{t('admin.review_title')}</h2>
+            <div style={{ marginBottom: 14, fontSize: '0.88rem', display: 'grid', gridTemplateColumns: '100px 1fr', gap: '4px 8px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{t('admin.col_user')}:</span><span>{reviewing.username}</span>
+              <span style={{ color: 'var(--text-muted)' }}>Ticker:</span><span><strong>{reviewing.ticker}</strong></span>
+              <span style={{ color: 'var(--text-muted)' }}>{t('admin.col_name')}:</span><span>{reviewing.name}</span>
+              {reviewing.isin && <><span style={{ color: 'var(--text-muted)' }}>ISIN:</span><span>{reviewing.isin}</span></>}
+              {reviewing.currency && <><span style={{ color: 'var(--text-muted)' }}>Divisa:</span><span>{reviewing.currency}</span></>}
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', marginBottom: 4, fontSize: '0.85rem' }}>{t('admin.approve_market_label')} *</label>
+              <select className="input" value={approveMarket} onChange={e => setApproveMarket(e.target.value)}
+                disabled={busy} style={{ width: '100%' }}>
+                <option value="">— seleccionar —</option>
+                {markets.map(m => <option key={m.code} value={m.code}>{m.name} ({m.code})</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', marginBottom: 4, fontSize: '0.85rem' }}>{t('admin.notes_label')}</label>
+              <textarea className="input" rows={3} value={notes} onChange={e => setNotes(e.target.value)}
+                placeholder={t('admin.notes_placeholder')} disabled={busy} style={{ width: '100%', resize: 'vertical' }} />
+            </div>
+
+            {err && <div className="state-error" style={{ marginBottom: 10 }}>{err}</div>}
+
+            <div className="modal-actions">
+              <button className="btn-ghost" onClick={() => setReviewing(null)} disabled={busy}>
+                {t('requests.cancel')}
+              </button>
+              <button className="btn-danger" onClick={doReject} disabled={busy}>
+                {t('admin.reject_btn')}
+              </button>
+              <button className="btn-primary" onClick={doApprove} disabled={busy || !approveMarket}>
+                {t('admin.approve_btn')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
+//  Sección: Mensajes de usuarios al admin (v1.12.0)
+// ---------------------------------------------------------------------------
+
+function CatalogMessagesSection() {
+  const { t } = useAppConfig()
+  const [messages, setMessages] = useState([])
+  const [err, setErr]           = useState(null)
+  const [showResolved, setShowResolved] = useState(false)
+
+  async function load() {
+    try {
+      setMessages(await api.get('/admin/catalog/messages'))
+    } catch (e) { setErr(e.message) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function resolve(id) {
+    try {
+      await api.patch(`/admin/catalog/messages/${id}/resolve`)
+      setMessages(ms => ms.map(m => m.id === id ? { ...m, is_resolved: true } : m))
+    } catch (e) { setErr(e.message) }
+  }
+
+  const visible = showResolved ? messages : messages.filter(m => !m.is_resolved)
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{t('admin.messages_section')}</h2>
+        <label style={{ fontSize: '0.82rem', display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+          <input type="checkbox" checked={showResolved} onChange={e => setShowResolved(e.target.checked)} />
+          Mostrar resueltos
+        </label>
+      </div>
+
+      {err && <div className="state-error" style={{ marginBottom: 10 }}>{err}</div>}
+
+      {visible.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('admin.messages_empty')}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {visible.map(msg => (
+            <div key={msg.id} style={{
+              border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px',
+              opacity: msg.is_resolved ? 0.6 : 1,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  <strong>{msg.username || `user#${msg.user_id}`}</strong>
+                  {' · '}
+                  {msg.created_at ? new Date(msg.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                  {msg.security_request_id && (
+                    <span style={{
+                      marginLeft: 8, background: 'var(--accent-soft, #e0e7ff)', color: 'var(--accent)',
+                      borderRadius: 4, padding: '0 6px', fontSize: '0.75rem',
+                    }}>
+                      {t('admin.reply_badge')}
+                    </span>
+                  )}
+                </div>
+                {!msg.is_resolved && (
+                  <button className="btn-ghost btn-sm" style={{ fontSize: '0.75rem' }} onClick={() => resolve(msg.id)}>
+                    {t('admin.resolve_btn')}
+                  </button>
+                )}
+              </div>
+              <div style={{ fontSize: '0.88rem', whiteSpace: 'pre-wrap' }}>{msg.message}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
 //  Panel principal
 // ---------------------------------------------------------------------------
 
@@ -1915,6 +2176,7 @@ export default function AdminPanel() {
   const [catalogMsg, setCatalogMsg]             = useState(null)
   const [catalogErr, setCatalogErr]             = useState(null)
   const [pwBusy, setPwBusy] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
   const [pwError, setPwError] = useState(null)
   const [pwOk, setPwOk] = useState(false)
 
@@ -2021,7 +2283,14 @@ export default function AdminPanel() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { loadUsers() }, [])
+  async function loadPendingCount() {
+    try {
+      const data = await api.get('/admin/catalog/requests/pending-count')
+      setPendingCount(data?.count ?? 0)
+    } catch { /* ignorar */ }
+  }
+
+  useEffect(() => { loadUsers(); loadPendingCount() }, [])
 
   async function deleteUser(u) {
     if (!confirm(`¿Eliminar al usuario "${u.username}"? Esta acción no se puede deshacer.`)) return
@@ -2071,8 +2340,20 @@ export default function AdminPanel() {
             key={key}
             className={tab === key ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
             onClick={() => setTab(key)}
+            style={{ position: 'relative' }}
           >
             {label}
+            {key === 'catalogo' && pendingCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -4,
+                background: 'var(--red, #dc2626)', color: '#fff',
+                borderRadius: '50%', width: 16, height: 16,
+                fontSize: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, animation: 'pulse 1.5s infinite',
+              }}>
+                {pendingCount > 9 ? '9+' : pendingCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -2321,6 +2602,8 @@ export default function AdminPanel() {
       {/* ── Pestaña: Catálogo ─────────────────────────────────────────── */}
       {tab === 'catalogo' && <MarketsSection />}
       {tab === 'catalogo' && <SecuritiesSection />}
+      {tab === 'catalogo' && <RequestsSection onCountChanged={loadPendingCount} />}
+      {tab === 'catalogo' && <CatalogMessagesSection />}
 
       {/* ── Pestaña: Configuración ────────────────────────────────────── */}
       {tab === 'configuracion' && <ConfigSection />}

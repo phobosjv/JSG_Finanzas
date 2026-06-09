@@ -5,6 +5,66 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.12.0] — 2026-06-10
+
+### Añadido — Solicitudes de usuario para agregar productos al catálogo
+
+Los usuarios normales ahora pueden proponer la incorporación de nuevos valores
+al catálogo de inversión, sin necesidad de contactar directamente con el admin.
+
+#### Flujo "Agregar usando ticker"
+- En la sección **Mercados**, al pie de cada catálogo, aparece el mensaje
+  *«¿No encuentra el producto de inversión deseado? Agréguelo aquí usando el
+  ticker, o contacte con el administrador»* (solo para usuarios no-admin).
+- Al pulsar **"Agréguelo aquí"** se abre un modal con campos ticker, ISIN
+  (opcional) y nombre, más un botón **Validar ticker** que consulta Yahoo Finance
+  y muestra una vista previa (último precio, divisa, exchange).
+- El usuario selecciona el catálogo de destino (pre-seleccionado con el activo)
+  y envía la solicitud → se crea con estado `pending`.
+- La **campana** del usuario muestra de inmediato una notificación *«Solicitud
+  pendiente: TICKER»* (tipo `request_pending`).
+
+#### Flujo "Contactar con el administrador"
+- Al pulsar **"contacte con el administrador"** se abre un modal de texto libre.
+- El mensaje queda registrado en la BD y el admin lo ve en *Mensajes de usuarios*.
+
+#### Panel de administrador — nuevas secciones en "Catálogo"
+- **Badge parpadeante** en el tab Catálogo mientras haya solicitudes pendientes.
+- **Solicitudes de usuarios**: tabla con todas las solicitudes (filtrable por
+  estado: pendiente/aprobada/rechazada/todas). Al pulsar una solicitud pendiente
+  se abre un modal de revisión donde el admin puede:
+  - Cambiar el mercado destino (no limitado al propuesto por el usuario).
+  - Añadir notas opcionales.
+  - Pulsar **Aprobar** (crea el `Security` en el catálogo, estado → `approved`) o
+    **Rechazar** (estado → `rejected`).
+- Ambas acciones reemplazan la notificación `request_pending` del usuario por
+  `request_approved` o `request_rejected` en la campana.
+- **Mensajes de usuarios**: lista de mensajes libres (contacto directo o respuestas
+  post-resolución). El admin puede marcar cada mensaje como *Resuelto*.
+
+#### Flujo de notificación al usuario (campana)
+- La campana ahora también muestra notificaciones de servidor (solicitudes),
+  diferenciadas visualmente de las alertas de precio.
+- El usuario puede pulsar una notificación de solicitud para ver el detalle
+  y elegir:
+  - **Entendido** — elimina la notificación.
+  - **Entendido + Dejar mensaje** — elimina la notificación y abre un área de
+    texto para enviar un mensaje al admin (queda vinculado a la solicitud).
+
+#### Backend
+- 3 tablas nuevas: `security_requests`, `user_notifications`, `catalog_messages`.
+- Migración `c0d1e2f3a4b5` (20ª migración Alembic).
+- 3 nuevos routers: `/api/catalog` (user), `/api/admin/catalog` (admin),
+  `/api/notifications` (user).
+- Endpoint `GET /api/catalog/validate-ticker?ticker=XXX`: preview de Yahoo
+  Finance sin persistencia (nombre, precio, divisa, exchange, in_catalog).
+
+#### Tests
+- `test_security_requests.py` y `test_user_notifications.py` (25 tests nuevos).
+- Suite total: **483 tests**.
+
+---
+
 ## [1.11.3] — 2026-06-10
 
 ### Añadido — Búsqueda por ISIN en catálogo y cartera
