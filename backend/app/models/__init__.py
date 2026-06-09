@@ -17,6 +17,7 @@ from app.models.portfolio import (
 )
 from app.models.tax_bracket import TaxBracketRow
 from app.models.push import PushSubscription
+from app.models.subcarteras import SubcarteraRow, SubcarteraPositionRow
 
 __all__ = [
     "Base",
@@ -37,4 +38,6 @@ __all__ = [
     "TransactionRow",
     "TaxBracketRow",
     "PushSubscription",
+    "SubcarteraRow",
+    "SubcarteraPositionRow",
 ]

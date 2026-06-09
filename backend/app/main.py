@@ -31,7 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import os
 
-from app.api import admin, admin_markets, admin_splits, app_config, auth, backup, csv_import, favorites, ghostfolio_import, markets, portfolio, push, reports, securities
+from app.api import admin, admin_markets, admin_splits, app_config, auth, backup, csv_import, favorites, ghostfolio_import, markets, portfolio, push, reports, securities, subcarteras
 from app.api.deps import get_db
 from app.auth.security import hash_password
 from app.config import get_settings
@@ -135,7 +135,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Finanzas",
         description="Seguimiento de cartera de inversion",
-        version="1.10.7",
+        version="1.11.0",
         lifespan=lifespan,
     )
 
@@ -162,6 +162,7 @@ def create_app() -> FastAPI:
     app.include_router(csv_import.router, prefix=prefix)
     app.include_router(ghostfolio_import.router, prefix=prefix)
     app.include_router(push.router, prefix=prefix)
+    app.include_router(subcarteras.router, prefix=prefix)
 
     # Manifest PWA dinÃ¡mico. Debe registrarse ANTES del catch-all serve_spa
     # para que gane al fichero estÃ¡tico que genera VitePWA. Refleja el nombre

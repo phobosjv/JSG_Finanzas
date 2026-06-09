@@ -5,6 +5,55 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.11.0] — 2026-06-09
+
+### Añadido — Subcarteras: segmentación personalizada de la cartera
+
+Nueva dimensión de segmentación en la sección «Mi Cartera» que permite al
+usuario agrupar sus posiciones (abiertas y cerradas) en **subcarteras**
+definidas por él mismo. Es una alternativa al filtro por tipo de activo
+(Acciones / Fondos / ETFs / Crypto), no acumulativa con él.
+
+**Funcionalidad:**
+
+- **Crear subcarteras** con nombre y descripción desde el botón «Subcarteras»
+  (siempre visible en la cabecera de Mi Cartera, escritorio y móvil).
+- **Asignar posiciones** mediante un editor de dos columnas: izquierda con
+  todas las posiciones del usuario (abiertas y cerradas, con buscador),
+  derecha con las ya incluidas en la subcartera. Los cambios se aplican
+  inmediatamente (agregar → `→`, quitar → `←`).
+- **Editar y eliminar** subcarteras desde el mismo modal de gestión. Eliminar
+  una subcartera no borra las posiciones del portfolio.
+- **Segmentación toggle** («Por tipo» / «Por subcartera»): aparece únicamente
+  cuando el usuario tiene al menos una subcartera definida.
+- En modo subcartera, los chips muestran «Todo» + una entrada por subcartera.
+  Al seleccionar una, la **tabla de posiciones abiertas, posiciones cerradas,
+  scatter y dividendos se filtran client-side**; el **historial de cartera,
+  TIR (XIRR) y retornos por periodo se recalculan en el backend** pasando los
+  `position_ids` activos.
+- Una posición puede pertenecer a **varias subcarteras** simultáneamente
+  (relación muchos-a-muchos).
+
+**Backend:**
+
+- Dos nuevas tablas: `subcarteras` (id, user_id, name, description,
+  created_at) y `subcartera_positions` (subcartera_id, position_id).
+  Migración Alembic `b9c0d1e2f3a4`.
+- Nuevo router `/api/subcarteras` con 6 endpoints:
+  `GET`, `POST`, `PATCH /{id}`, `DELETE /{id}`,
+  `POST /{id}/positions/{pos_id}`, `DELETE /{id}/positions/{pos_id}`.
+- Endpoints `/portfolio/history`, `/portfolio/xirr` y
+  `/portfolio/period-returns` aceptan ahora `?position_ids=id1,id2,…` como
+  alternativa a `?types=…` para filtrar por subcartera.
+
+### Tests
+
+- 19 tests nuevos en `test_subcarteras.py`: CRUD completo, scoping por
+  usuario, muchos-a-muchos, 404 y 403, filtrado por `position_ids` en
+  los tres endpoints de analytics. **Total: 457 tests en verde**.
+
+---
+
 ## [1.10.7] — 2026-06-09
 
 ### Mejorado — Herramienta de traspasos entre fondos

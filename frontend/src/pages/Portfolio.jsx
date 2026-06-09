@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
@@ -13,6 +13,7 @@ import {
 } from '../components/PortfolioChartsPanel'
 import AssetTypeFilter, { matchesTypes, presentTypes } from '../components/AssetTypeFilter'
 import { useSortableData, SortableHead } from '../hooks/useSortableData'
+import SubcarterasManager from '../components/SubcarterasManager'
 
 // Persistencia de la selección de tipos por pantalla.
 function loadSegTypes(key) {
@@ -137,6 +138,10 @@ export default function Portfolio() {
   const [periods, setPeriods]             = useState(null)
   const [searchOpen, setSearchOpen]       = useState('')
   const [searchClosed, setSearchClosed]   = useState('')
+  const [subcarteras, setSubcarteras]     = useState([])
+  const [segMode, setSegMode]             = useState('type')       // 'type' | 'subcartera'
+  const [activeSubcartera, setActiveSubc] = useState(null)         // null = Todo
+  const [showScManager, setShowScManager] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -145,12 +150,14 @@ export default function Portfolio() {
       api.get('/portfolio/closed'),
       api.get('/portfolio/closed-analytics').catch(() => []),
       api.get('/portfolio/dividends-by-security').catch(() => []),
+      api.get('/subcarteras').catch(() => []),
     ])
-      .then(([open, cls, analytics, divsBySec]) => {
+      .then(([open, cls, analytics, divsBySec, scs]) => {
         setPositions(open)
         setClosed(cls)
         setClosedAn(analytics || [])
         setDivsBySec(divsBySec || [])
+        setSubcarteras(scs || [])
         // Sanear selección persistida: descartar tipos que ya no existen en la
         // cartera (evita una vista vacía sin chip resaltado al haber vendido todo
         // de un tipo previamente seleccionado).
@@ -163,11 +170,17 @@ export default function Portfolio() {
 
   // El histórico y la TIR se agregan en el backend; se re-piden al segmentar.
   useEffect(() => {
-    const qs = segTypes.length ? `?types=${segTypes.join(',')}` : ''
+    let qs = ''
+    if (segMode === 'subcartera' && activeSubcartera !== null) {
+      const sc = subcarteras.find(s => s.id === activeSubcartera)
+      if (sc && sc.position_ids.length) qs = `?position_ids=${sc.position_ids.join(',')}`
+    } else if (segMode === 'type' && segTypes.length) {
+      qs = `?types=${segTypes.join(',')}`
+    }
     api.get(`/portfolio/history${qs}`).then(setHistory).catch(() => setHistory([]))
     api.get(`/portfolio/xirr${qs}`).then(setXirr).catch(() => setXirr(null))
     api.get(`/portfolio/period-returns${qs}`).then(setPeriods).catch(() => setPeriods(null))
-  }, [segTypes])
+  }, [segTypes, segMode, activeSubcartera, subcarteras])
 
   function changeSeg(next) {
     setSegTypes(next)
@@ -193,20 +206,49 @@ export default function Portfolio() {
     }
   }
 
-  // IMPORTANTE: ningún hook (useSortableData) puede ir después de un return
-  // condicional. Por eso los datasets y los hooks de ordenación se calculan
-  // ANTES de los guards de error/carga, usando arrays seguros (positions puede
-  // ser null en el primer render). Mover los guards arriba rompería las reglas
-  // de hooks ("rendered more hooks than during the previous render" → pantalla
-  // en negro al cargar los datos).
+  // IMPORTANTE: ningún hook (useSortableData, useMemo) puede ir después de un
+  // return condicional. Todos los hooks van ANTES de los guards de error/carga.
   const safePositions = positions || []
+
+  // Set de position_ids de la subcartera activa (para filtrado client-side).
+  const activeSubcPosIds = useMemo(() => {
+    if (segMode !== 'subcartera' || activeSubcartera === null) return null
+    const sc = subcarteras.find(s => s.id === activeSubcartera)
+    return sc ? new Set(sc.position_ids) : new Set()
+  }, [segMode, activeSubcartera, subcarteras])
+
+  // Set de security_ids derivado de los position_ids activos (para filtrar dividendos).
+  const activeSubcSecIds = useMemo(() => {
+    if (activeSubcPosIds === null) return null
+    const secIds = new Set()
+    for (const p of [...safePositions, ...closed]) {
+      if (activeSubcPosIds.has(p.position_id)) secIds.add(p.security_id)
+    }
+    return secIds
+  }, [activeSubcPosIds, safePositions, closed])
 
   // Tipos presentes (abiertas + cerradas) y datasets filtrados por la segmentación.
   const available  = presentTypes([...safePositions, ...closed])
-  const fPositions = safePositions.filter(p => matchesTypes(p, segTypes))
-  const fClosed    = closed.filter(p => matchesTypes(p, segTypes))
-  const fClosedAn  = closedAnalytics.filter(p => matchesTypes(p, segTypes))
-  const fDivsBySec = dividendsBySec.filter(d => matchesTypes(d, segTypes))
+  const fPositions = safePositions.filter(p =>
+    segMode === 'type'
+      ? matchesTypes(p, segTypes)
+      : activeSubcPosIds === null || activeSubcPosIds.has(p.position_id)
+  )
+  const fClosed    = closed.filter(p =>
+    segMode === 'type'
+      ? matchesTypes(p, segTypes)
+      : activeSubcPosIds === null || activeSubcPosIds.has(p.position_id)
+  )
+  const fClosedAn  = closedAnalytics.filter(p =>
+    segMode === 'type'
+      ? matchesTypes(p, segTypes)
+      : activeSubcPosIds === null || activeSubcPosIds.has(p.position_id)
+  )
+  const fDivsBySec = dividendsBySec.filter(d =>
+    segMode === 'type'
+      ? matchesTypes(d, segTypes)
+      : activeSubcSecIds === null || activeSubcSecIds.has(d.security_id)
+  )
 
   // Buscador (por ticker o nombre) sobre cartera abierta y cerrada.
   const matchSearch = (p, q) => {
@@ -273,9 +315,55 @@ export default function Portfolio() {
 
   return (
     <div>
-      <h1>{t('portfolio.title')}</h1>
+      {/* Cabecera: título + botón de subcarteras */}
+      <div className="portfolio-header-row">
+        <h1 style={{ margin: 0 }}>{t('portfolio.title')}</h1>
+        <button className="btn-ghost btn-sm" onClick={() => setShowScManager(true)}>
+          {t('subcarteras.manage')}
+        </button>
+      </div>
 
-      <AssetTypeFilter value={segTypes} available={available} onChange={changeSeg} />
+      {/* Toggle de modo (solo si hay subcarteras) */}
+      {subcarteras.length > 0 && (
+        <div className="seg-mode-toggle">
+          <button
+            className={segMode === 'type' ? 'active' : ''}
+            onClick={() => { setSegMode('type'); setActiveSubc(null) }}
+          >
+            {t('portfolio.seg_type')}
+          </button>
+          <button
+            className={segMode === 'subcartera' ? 'active' : ''}
+            onClick={() => { setSegMode('subcartera'); changeSeg([]) }}
+          >
+            {t('portfolio.seg_subcartera')}
+          </button>
+        </div>
+      )}
+
+      {/* Chips de segmentación */}
+      {segMode === 'type'
+        ? <AssetTypeFilter value={segTypes} available={available} onChange={changeSeg} />
+        : (
+          <div className="seg-filter">
+            <button
+              className={`seg-chip${activeSubcartera === null ? ' active' : ''}`}
+              onClick={() => setActiveSubc(null)}
+            >
+              {t('subcarteras.todo')}
+            </button>
+            {subcarteras.map(sc => (
+              <button
+                key={sc.id}
+                className={`seg-chip${activeSubcartera === sc.id ? ' active' : ''}`}
+                onClick={() => setActiveSubc(sc.id)}
+              >
+                {sc.name}
+              </button>
+            ))}
+          </div>
+        )
+      }
 
       {/* 1. Tarjetas resumen */}
       <div className="card-row">
@@ -511,6 +599,18 @@ export default function Portfolio() {
           <DividendBarChart data={fDivsBySec} t={t} navigate={navigate} />
           <DividendScatterChart data={fDivsBySec} t={t} />
         </div>
+      )}
+
+      {/* Modal de gestión de subcarteras */}
+      {showScManager && (
+        <SubcarterasManager
+          subcarteras={subcarteras}
+          onSubcarterasChange={setSubcarteras}
+          positions={safePositions}
+          closed={closed}
+          onClose={() => setShowScManager(false)}
+          t={t}
+        />
       )}
     </div>
   )

@@ -528,12 +528,16 @@ def get_portfolio(
 # ---------------------------------------------------------------------------
 
 def _history_series(
-    db: Session, user_id: int, selected_types: set[str] | None,
+    db: Session,
+    user_id: int,
+    selected_types: set[str] | None,
+    selected_position_ids: set[int] | None = None,
 ) -> list[dict]:
     """
     Serie diaria de valor de cartera en EUR (reconstruida transacción a
     transacción). Reutilizada por el gráfico de historial y por los retornos
     por periodo. 'selected_types' filtra por tipo de producto (None = todo).
+    'selected_position_ids' filtra por posiciones concretas (alternativo a types).
     """
     positions = db.scalars(
         select(Position).where(Position.user_id == user_id)
@@ -557,7 +561,10 @@ def _history_series(
 
     for pos in positions:
         sec: Security = pos.security
-        if selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
+        if selected_position_ids is not None:
+            if pos.id not in selected_position_ids:
+                continue
+        elif selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
             continue
 
         tx_rows = db.scalars(
@@ -661,30 +668,44 @@ def _history_series(
 @router.get("/history")
 def get_portfolio_history(
     types: str | None = Query(None),
+    position_ids: str | None = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """
     Valor histórico de la cartera reconstruido transacción a transacción.
 
-    'types' (opcional): lista separada por comas de tipos de producto
-    (stock,fund,etf,crypto) para segmentar el histórico por tipo.
+    'types' (opcional): lista separada por comas de tipos de producto.
+    'position_ids' (opcional): lista de position.id separados por comas
+    (alternativo a types, para filtrar por subcartera).
     """
+    if position_ids is not None:
+        sel_pos = {int(p) for p in position_ids.split(",") if p.strip()}
+        return _history_series(db, user.id, None, sel_pos)
     selected = {t.strip() for t in types.split(",") if t.strip()} if types else None
     return _history_series(db, user.id, selected)
 
 
-def _portfolio_flows(db: Session, user_id: int, selected_types: set[str] | None) -> list[tuple[date_type, float]]:
+def _portfolio_flows(
+    db: Session,
+    user_id: int,
+    selected_types: set[str] | None,
+    selected_position_ids: set[int] | None = None,
+) -> list[tuple[date_type, float]]:
     """
     Flujos de caja reales de la cartera (para retornos por periodo): compras
     (+ aportación), ventas (− retirada) y dividendos (− retirada), en EUR. Los
     traspasos no son flujos. Filtra por tipo de producto si se indica.
+    'selected_position_ids' alternativo a types (para subcarteras).
     """
     market_types = {m.code: m.market_type for m in db.scalars(select(MarketRow)).all()}
     flows: list[tuple[date_type, float]] = []
     for pos in db.scalars(select(Position).where(Position.user_id == user_id)).all():
         sec: Security = pos.security
-        if selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
+        if selected_position_ids is not None:
+            if pos.id not in selected_position_ids:
+                continue
+        elif selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
             continue
         for tx in db.scalars(select(TransactionRow).where(TransactionRow.position_id == pos.id)).all():
             d = date_type.fromisoformat(tx.date)
@@ -701,21 +722,26 @@ def _portfolio_flows(db: Session, user_id: int, selected_types: set[str] | None)
 @router.get("/period-returns")
 def get_period_returns(
     types: str | None = Query(None),
+    position_ids: str | None = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """
-    Rentabilidad por periodo (YTD, 1 año, 3 años, total) mediante Modified Dietz:
-    rentabilidad acumulada del periodo ajustada por el momento de las
-    aportaciones/retiradas. Cada valor es un % o null si no es calculable.
-    Respeta el segmentador por tipo ('types').
+    Rentabilidad por periodo (YTD, 1 año, 3 años, total) mediante Modified Dietz.
+    Respeta el segmentador por tipo ('types') o por subcartera ('position_ids').
     """
-    selected = {t.strip() for t in types.split(",") if t.strip()} if types else None
-    series = _history_series(db, user.id, selected)
-    if not series:
-        return {"ytd": None, "y1": None, "y3": None, "total": None}
-
-    flows = _portfolio_flows(db, user.id, selected)
+    if position_ids is not None:
+        sel_pos: set[int] | None = {int(p) for p in position_ids.split(",") if p.strip()}
+        series = _history_series(db, user.id, None, sel_pos)
+        if not series:
+            return {"ytd": None, "y1": None, "y3": None, "total": None}
+        flows = _portfolio_flows(db, user.id, None, sel_pos)
+    else:
+        selected = {t.strip() for t in types.split(",") if t.strip()} if types else None
+        series = _history_series(db, user.id, selected)
+        if not series:
+            return {"ytd": None, "y1": None, "y3": None, "total": None}
+        flows = _portfolio_flows(db, user.id, selected)
     today = date_type.today()
     v_end = series[-1]["value"]
     end_date = date_type.fromisoformat(series[-1]["date"])
@@ -766,20 +792,20 @@ def get_period_returns(
 @router.get("/xirr")
 def get_portfolio_xirr(
     types: str | None = Query(None),
+    position_ids: str | None = Query(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """
-    TIR (XIRR) de la cartera: rentabilidad anual ponderada por dinero, sobre
-    TODOS los flujos reales (compras = salida, ventas y dividendos = entrada) más
-    el valor de mercado actual como flujo final. Los traspasos no son flujos.
-
-    'types' (opcional): segmenta por tipo de producto (igual que /history).
-    Devuelve {xirr_pct, cashflows, market_value_eur} (xirr_pct null si no es
-    resoluble: sin operaciones, todo del mismo signo o un solo día).
+    TIR (XIRR) de la cartera: rentabilidad anual ponderada por dinero.
+    'types' (opcional): segmenta por tipo de producto.
+    'position_ids' (opcional): filtra por posiciones concretas (subcarteras).
     """
+    selected_position_ids: set[int] | None = None
     selected_types: set[str] | None = None
-    if types:
+    if position_ids is not None:
+        selected_position_ids = {int(p) for p in position_ids.split(",") if p.strip()}
+    elif types:
         selected_types = {t.strip() for t in types.split(",") if t.strip()}
     market_types: dict[str, str] = {
         m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
@@ -795,7 +821,10 @@ def get_portfolio_xirr(
 
     for pos in positions:
         sec: Security = pos.security
-        if selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
+        if selected_position_ids is not None:
+            if pos.id not in selected_position_ids:
+                continue
+        elif selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
             continue
 
         # Flujos reales (importes en EUR con el tipo de cada operación).

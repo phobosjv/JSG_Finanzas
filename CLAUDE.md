@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.10.7** · **Tests: 438 en verde** · Aplicación web personal
+> **Versión actual: 1.11.0** · **Tests: 457 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -136,10 +136,10 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 
 ## Modelo de datos (SQLite)
 
-**Tablas (16)**: `users`, `user_status_log`, `securities`, `security_splits`,
+**Tablas (18)**: `users`, `user_status_log`, `securities`, `security_splits`,
 `markets`, `price_history`, `price_snapshots`, `ecb_rates`, `favorites`,
 `positions`, `transactions`, `dividends`, `recurring_plans`, `app_config`,
-`tax_brackets`, `push_subscriptions`.
+`tax_brackets`, `push_subscriptions`, `subcarteras`, `subcartera_positions`.
 
 - **Multidivisa** (v1.8.0): `transactions`/`dividends` llevan `currency` y
   `exchange_rate` (tipo del BCE en la fecha; 1 para EUR). El BCE publica el tipo
@@ -181,6 +181,7 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 17. `d5e6f7a8b9c1` — v1.9.11 `positions.target_buy_price` (**deprecada en v1.10.6**: el
     objetivo de compra vive en `favorites`; la columna se conserva pero no se usa)
 18. `f7a8b9c0d1e2` — v1.10.0 `push_subscriptions` (notificaciones Web Push)
+19. `b9c0d1e2f3a4` — v1.11.0 `subcarteras` + `subcartera_positions`
 
 ---
 
@@ -390,6 +391,14 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   coste (€)» / «Cost basis (€)» (antes «Coste heredado»). (4)
   `TransactionOut.transfer_partner_shares`: historial incluye las participaciones
   del lado opuesto del traspaso.
+- **Subcarteras** (v1.11.0): agrupaciones personalizadas de posiciones (abiertas
+  y cerradas) definidas por el usuario. Alternativa no acumulativa al filtro por
+  tipo de activo. Tablas `subcarteras` + `subcartera_positions` (muchos-a-muchos).
+  Router `/api/subcarteras` con CRUD + gestión de posiciones. Frontend: toggle
+  «Por tipo / Por subcartera» (solo visible si hay subcarteras), chips de
+  subcartera, filtrado client-side de tablas y server-side de gráficos
+  (`?position_ids=…` en history/xirr/period-returns). Modal de gestión con
+  editor de dos columnas (todas las posiciones / en la subcartera).
 
 ---
 
@@ -418,6 +427,9 @@ Qué puede hacer la app hoy (visión de producto):
   forzar histórico.
 - **Precios objetivo y alertas**: objetivo de compra/venta por valor, campana de
   alertas en el menú y **notificaciones push** al dispositivo (PWA).
+- **Subcarteras**: agrupaciones personalizadas de posiciones, alternativa al
+  filtro por tipo. Editor de dos columnas para asignar/quitar posiciones.
+  Toggle «Por tipo / Por subcartera» en Mi Cartera (oculto si no hay subcarteras).
 - **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
   global (un fallo de UI no deja la pantalla en negro).
 
@@ -425,8 +437,8 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.10.7 · 438 tests en verde** (pytest, SQLite en memoria). 18 migraciones
-Alembic, 16 tablas. Desplegado en VPS Debian con Caddy + HTTPS
+**v1.11.0 · 457 tests en verde** (pytest, SQLite en memoria). 19 migraciones
+Alembic, 18 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
 ### Tests (ficheros)
@@ -442,6 +454,7 @@ Cálculo puro: `test_calculations.py`, `test_splits.py`, `test_tax_report.py`,
 `test_yahoo_explorer.py`, `test_catalog_import.py`, `test_user_subscriptions.py`,
 `test_app_logo.py`, `test_indicators.py`, `test_backup_service.py`,
 `test_push.py` (VAPID, suscripciones, alertas push, dedup).
+`test_subcarteras.py` (CRUD, scoping, muchos-a-muchos, 404/403, filtrado position_ids).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
@@ -464,6 +477,7 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 | csv_import        | /api/import     | user          |
 | ghostfolio_import | /api/import     | user          |
 | push              | /api/push       | ninguna(`/vapid-key`)/user |
+| subcarteras       | /api/subcarteras | user          |
 
 ### Endpoints especiales a recordar
 
@@ -479,6 +493,8 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 - `PATCH /api/favorites/{id}` `{target_buy_price}` (**fuente única** del objetivo de
   compra; NO existe `/portfolio/{id}/target-buy`, se eliminó en v1.10.6).
 - `GET /api/push/vapid-key` (público) · `POST/DELETE /api/push/subscribe` (user).
+- `GET /api/subcarteras` · `POST /api/subcarteras` · `PATCH /api/subcarteras/{id}` · `DELETE /api/subcarteras/{id}` · `POST/DELETE /api/subcarteras/{id}/positions/{pos_id}` (user).
+- `GET /api/portfolio/history`, `/xirr`, `/period-returns` aceptan `?position_ids=id1,id2,…` como alternativa a `?types=…` para filtrar por subcartera.
 - `GET /api/admin/config` (incluye `dust_threshold`) · `PATCH
   /api/admin/config/dust-threshold` (admin) · `PATCH /api/admin/config/snapshot-interval`.
 - `POST /api/markets/refresh-all` (admin) · `POST /api/admin/force-history-update`

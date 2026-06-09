@@ -433,6 +433,78 @@ input:focus, select:focus { border-color: var(--accent); }
   color: #fff;
 }
 
+/* =========================================================
+   Subcarteras — toggle de modo y editor de dos columnas
+   ========================================================= */
+.portfolio-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.seg-mode-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  width: fit-content;
+}
+.seg-mode-toggle button {
+  padding: 4px 14px;
+  font-size: 0.82rem;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+}
+.seg-mode-toggle button:last-child { border-right: none; }
+.seg-mode-toggle button.active {
+  background: var(--accent, #2563eb);
+  color: #fff;
+}
+
+.sc-editor-cols {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-height: 300px;
+}
+.sc-editor-col {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-y: auto;
+  max-height: 380px;
+  min-width: 0;
+}
+.sc-editor-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 40px;
+  flex-shrink: 0;
+}
+.sc-pos-row {
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.sc-pos-row:last-child { border-bottom: none; }
+.sc-pos-row:hover { background: var(--bg-hover, rgba(255,255,255,0.04)); }
+.sc-pos-row.selected { background: rgba(37,99,235,0.12); }
+
 /* Rentabilidad por periodo (chips junto al gráfico de evolución) */
 .period-returns { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
 .period-chip {
