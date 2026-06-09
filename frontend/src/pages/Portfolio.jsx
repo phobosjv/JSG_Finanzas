@@ -250,12 +250,13 @@ export default function Portfolio() {
       : activeSubcSecIds === null || activeSubcSecIds.has(d.security_id)
   )
 
-  // Buscador (por ticker o nombre) sobre cartera abierta y cerrada.
+  // Buscador (por ticker, nombre o ISIN) sobre cartera abierta y cerrada.
   const matchSearch = (p, q) => {
     if (!q.trim()) return true
     const s = q.trim().toLowerCase()
     return (p.yahoo_ticker || '').toLowerCase().includes(s)
       || (p.name || '').toLowerCase().includes(s)
+      || (p.isin || '').toLowerCase().includes(s)
   }
   const searchedOpen   = fPositions.filter(p => matchSearch(p, searchOpen))
   const searchedClosed = fClosed.filter(p => matchSearch(p, searchClosed))

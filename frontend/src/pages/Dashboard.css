@@ -1,3 +1,75 @@
+/* ─── Top ganancias / pérdidas ───────────────────────────────────────────── */
+
+.top-performers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.tp-col-title {
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  gap: 8px;
+  cursor: pointer;
+}
+
+.tp-row:last-child { border-bottom: none; }
+.tp-row:hover { background: var(--hover-bg, rgba(0,0,0,0.03)); border-radius: 4px; }
+
+.tp-ticker-block {
+  min-width: 0;
+  flex: 1;
+}
+
+.tp-ticker {
+  font-weight: 600;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.tp-name {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.tp-values {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.tp-eur {
+  display: block;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.tp-pct {
+  display: block;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 540px) {
+  .top-performers-grid { grid-template-columns: 1fr; }
+}
+
 /* ─── Top movers ─────────────────────────────────────────────────────────── */
 
 .movers-grid {

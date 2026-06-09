@@ -5,6 +5,36 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.11.3] — 2026-06-10
+
+### Añadido — Búsqueda por ISIN en catálogo y cartera
+
+- **Catálogo de mercados** (`Markets`): el buscador ahora admite el código ISIN
+  además de ticker y nombre. El campo `isin` ya estaba en la respuesta de
+  `GET /markets/overview`; solo faltaba incluirlo en el filtro de cliente.
+- **Mi Cartera** (posiciones abiertas y cerradas): el buscador acepta ISIN.
+  Para ello se añadió `isin: str | None` a `PositionSummary` (backend schema +
+  `_build_position_summary`), de forma que el campo viaje en `GET /portfolio`.
+- **Editor de subcarteras** (`SubcarterasManager`): el buscador de la columna
+  izquierda ("posiciones disponibles") también incluye ISIN.
+- El combobox de fondos destino en traspasos ya buscaba por ISIN desde v1.10.7;
+  el resto de buscadores ahora son consistentes con él.
+
+### Añadido — Sección «Top ganancias/pérdidas» en el Dashboard
+
+- Nueva sección configurable `topperformers` en el Dashboard, habilitada por
+  defecto (posición 4 en el orden, antes de Gráficos).
+- Muestra dos columnas: **Ganancias** (top N posiciones por `unrealized_pnl_eur`
+  descendente) y **Pérdidas** (top N por `unrealized_pnl_eur` ascendente).
+- Solo incluye posiciones con precio actual conocido (`current_price != null`).
+- Respeta el filtro de segmentación por tipo de activo del Dashboard.
+- Configurable desde el modal (⚙): número de posiciones por columna (3 ó 5;
+  por defecto 5). El selector aparece solo si la sección está habilitada.
+- Cada fila es clicable y navega al detalle del valor.
+- Sin llamadas extra al backend: usa los datos de `GET /portfolio` ya cargados.
+
+---
+
 ## [1.11.2] — 2026-06-09
 
 ### Corregido — Layout del editor de subcarteras (escritorio y móvil)

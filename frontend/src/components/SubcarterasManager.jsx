@@ -97,7 +97,8 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
       if (!searchLeft.trim()) return true
       const q = searchLeft.toLowerCase()
       return (p.yahoo_ticker || '').toLowerCase().includes(q) ||
-             (p.name || '').toLowerCase().includes(q)
+             (p.name || '').toLowerCase().includes(q) ||
+             (p.isin || '').toLowerCase().includes(q)
     }),
     [sortedAll, positionIds, searchLeft]
   )

@@ -20,17 +20,19 @@ function cls(val)  { return Number(val) > 0 ? 'pos' : Number(val) < 0 ? 'neg' : 
 // ─── Configuración del dashboard ─────────────────────────────────────────────
 
 const DEFAULT_SECTIONS = [
-  { id: 'kpis',      enabled: true,  order: 0 },
-  { id: 'positions', enabled: true,  order: 1 },
-  { id: 'favorites', enabled: true,  order: 2 },
-  { id: 'movers',    enabled: true,  order: 3 },
-  { id: 'charts',    enabled: false, order: 4 },
+  { id: 'kpis',           enabled: true,  order: 0 },
+  { id: 'positions',      enabled: true,  order: 1 },
+  { id: 'favorites',      enabled: true,  order: 2 },
+  { id: 'movers',         enabled: true,  order: 3 },
+  { id: 'topperformers',  enabled: true,  order: 4 },
+  { id: 'charts',         enabled: false, order: 5 },
 ]
 
 const DEFAULT_CONFIG = {
-  sections:       DEFAULT_SECTIONS,
-  moversMarkets:  null,          // null = todos los mercados disponibles
-  chartsVisible:  ['distribution', 'pnl_pct', 'history'],
+  sections:          DEFAULT_SECTIONS,
+  moversMarkets:     null,          // null = todos los mercados disponibles
+  chartsVisible:     ['distribution', 'pnl_pct', 'history'],
+  topPerformersN:    5,
 }
 
 function loadConfig() {
@@ -288,6 +290,53 @@ function MoversSection({ allMarkets, moversMarkets, t, navigate }) {
   )
 }
 
+// ─── Sección top ganancias / pérdidas ────────────────────────────────────────
+
+function TopPerformerRow({ p, navigate }) {
+  const pnl = Number(p.unrealized_pnl_eur)
+  const pct = Number(p.unrealized_pnl_pct)
+  return (
+    <div className="tp-row" onClick={() => navigate(`/securities/${p.security_id}`)}>
+      <div className="tp-ticker-block">
+        <div className="tp-ticker">{p.yahoo_ticker}</div>
+        <div className="tp-name">{p.name}</div>
+      </div>
+      <div className={`tp-values ${cls(pnl)}`}>
+        <span className="tp-eur">{sign(pnl)}{fmt(Math.abs(pnl))} €</span>
+        <span className="tp-pct">{sign(pct)}{fmt(Math.abs(pct))}%</span>
+      </div>
+    </div>
+  )
+}
+
+function TopPerformersSection({ positions, n = 5, t, navigate }) {
+  const valued = positions.filter(p => p.current_price != null)
+  if (valued.length === 0) return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <h2>{t('dashboard.section_topperformers')}</h2>
+      <div style={{ color: 'var(--text-muted)', padding: '8px 0' }}>{t('dashboard.topperformers_empty')}</div>
+    </div>
+  )
+  const sorted    = [...valued].sort((a, b) => Number(b.unrealized_pnl_eur) - Number(a.unrealized_pnl_eur))
+  const topGains  = sorted.slice(0, n)
+  const topLosses = [...sorted].reverse().slice(0, n)
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <h2>{t('dashboard.section_topperformers')}</h2>
+      <div className="top-performers-grid">
+        <div>
+          <div className={`tp-col-title pos`}>{t('dashboard.topperformers_gains')}</div>
+          {topGains.map(p => <TopPerformerRow key={p.position_id} p={p} navigate={navigate} />)}
+        </div>
+        <div>
+          <div className={`tp-col-title neg`}>{t('dashboard.topperformers_losses')}</div>
+          {topLosses.map(p => <TopPerformerRow key={p.position_id} p={p} navigate={navigate} />)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Sección gráficos ─────────────────────────────────────────────────────────
 
 function ChartsSection({ positions, history, chartsVisible, t, navigate }) {
@@ -308,11 +357,12 @@ function ChartsSection({ positions, history, chartsVisible, t, navigate }) {
 // ─── Modal de configuración ───────────────────────────────────────────────────
 
 const SECTION_LABEL_KEYS = {
-  kpis:      'dashboard.section_kpis',
-  positions: 'dashboard.section_positions',
-  favorites: 'dashboard.section_favorites',
-  movers:    'dashboard.section_movers',
-  charts:    'dashboard.section_charts',
+  kpis:          'dashboard.section_kpis',
+  positions:     'dashboard.section_positions',
+  favorites:     'dashboard.section_favorites',
+  movers:        'dashboard.section_movers',
+  topperformers: 'dashboard.section_topperformers',
+  charts:        'dashboard.section_charts',
 }
 
 const CHART_OPTIONS = [
@@ -326,6 +376,7 @@ function DashboardConfigModal({ config, onSave, onClose, allMarkets, t }) {
   const [sections, setSections]             = useState(() => [...config.sections].sort((a, b) => a.order - b.order))
   const [moversMarkets, setMoversMarkets]   = useState(config.moversMarkets)
   const [chartsVisible, setChartsVisible]   = useState(config.chartsVisible)
+  const [topPerformersN, setTopPerformersN] = useState(config.topPerformersN ?? 5)
 
   const safeMarkets = Array.isArray(allMarkets) ? allMarkets : []
 
@@ -369,6 +420,7 @@ function DashboardConfigModal({ config, onSave, onClose, allMarkets, t }) {
       sections: sections.map((s, i) => ({ ...s, order: i })),
       moversMarkets,
       chartsVisible,
+      topPerformersN,
     })
     onClose()
   }
@@ -433,6 +485,24 @@ function DashboardConfigModal({ config, onSave, onClose, allMarkets, t }) {
             </label>
           ))}
         </div>
+
+        {/* Nº de posiciones en Top ganancias/pérdidas (solo si la sección está activa) */}
+        {sections.find(s => s.id === 'topperformers')?.enabled && (
+          <div className="db-modal-section">
+            <div className="db-modal-label">{t('dashboard.config_topperformers_n')}</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              {[3, 5].map(n => (
+                <button
+                  key={n}
+                  className={topPerformersN === n ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+                  onClick={() => setTopPerformersN(n)}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="db-modal-footer">
           <button className="btn-primary" onClick={handleSave}>{t('dashboard.config_save')}</button>
@@ -522,6 +592,16 @@ export default function Dashboard() {
             key="movers"
             allMarkets={allMarkets}
             moversMarkets={config.moversMarkets}
+            t={t}
+            navigate={navigate}
+          />
+        )
+      case 'topperformers':
+        return (
+          <TopPerformersSection
+            key="topperformers"
+            positions={fPositions}
+            n={config.topPerformersN ?? 5}
             t={t}
             navigate={navigate}
           />

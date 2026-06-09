@@ -403,6 +403,21 @@ def test_portfolio_abierto_no_incluye_cerradas(admin_client, seed_markets):
     assert not any(p["position_id"] == pos_id for p in cerradas)
 
 
+def test_portfolio_incluye_isin(admin_client, seed_markets):
+    """GET /portfolio devuelve el campo 'isin' en cada posición abierta."""
+    # Crear valor con ISIN explícito
+    sec_id = admin_client.post("/api/securities", json={
+        "name": "ISIN test", "yahoo_ticker": "ISIN.MC",
+        "market": "ibex35", "currency": "EUR", "isin": "ES0000000001",
+    }).json()["id"]
+    pos_id = admin_client.post("/api/portfolio/positions", json={"security_id": sec_id}).json()["id"]
+    _buy(admin_client, pos_id, 5, "10.00")
+
+    posiciones = admin_client.get("/api/portfolio").json()
+    p = next(x for x in posiciones if x["position_id"] == pos_id)
+    assert p["isin"] == "ES0000000001"
+
+
 def test_target_sell_patch(admin_client, seed_markets):
     # Compra para que la posición aparezca en /portfolio
     sec_id = _crear_security(admin_client, ticker="TGT.MC")

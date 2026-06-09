@@ -147,7 +147,8 @@ export default function Markets() {
   const filtered = q
     ? securities.filter(s =>
         s.yahoo_ticker.toLowerCase().includes(q) ||
-        s.name.toLowerCase().includes(q)
+        s.name.toLowerCase().includes(q) ||
+        (s.isin || '').toLowerCase().includes(q)
       )
     : securities
 

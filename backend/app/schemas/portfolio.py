@@ -322,6 +322,7 @@ class PositionSummary(BaseModel):
     security_id: int
     yahoo_ticker: str
     name: str
+    isin: str | None = None
     currency: str                # divisa nativa del valor ('EUR' o 'USD')
     market_code: str             # código de mercado (para badge ETF/Crypto/Acción)
     market_type: str = "stock"   # tipo de producto: stock|fund|etf|crypto (segmentación)

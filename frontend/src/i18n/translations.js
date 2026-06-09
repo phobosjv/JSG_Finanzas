@@ -43,6 +43,11 @@ export const translations = {
     'dashboard.section_favorites':     'Favoritos',
     'dashboard.section_movers':        'Mayores movimientos',
     'dashboard.section_charts':        'Gráficos de cartera',
+    'dashboard.section_topperformers': 'Top ganancias/pérdidas',
+    'dashboard.topperformers_gains':   'Ganancias',
+    'dashboard.topperformers_losses':  'Pérdidas',
+    'dashboard.topperformers_empty':   'Sin posiciones valoradas',
+    'dashboard.config_topperformers_n': 'Posiciones a mostrar por columna',
 
     // ── Mercados ─────────────────────────────────────────────────────────
     'markets.title':            'Mercados',
@@ -549,6 +554,11 @@ export const translations = {
     'dashboard.section_favorites':     'Favourites',
     'dashboard.section_movers':        'Top movers',
     'dashboard.section_charts':        'Portfolio charts',
+    'dashboard.section_topperformers': 'Top gains/losses',
+    'dashboard.topperformers_gains':   'Gains',
+    'dashboard.topperformers_losses':  'Losses',
+    'dashboard.topperformers_empty':   'No valued positions',
+    'dashboard.config_topperformers_n': 'Positions to show per column',
 
     // ── Markets ───────────────────────────────────────────────────────────
     'markets.title':            'Markets',

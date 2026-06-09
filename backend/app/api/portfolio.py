@@ -134,6 +134,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         security_id=sec.id,
         yahoo_ticker=sec.yahoo_ticker,
         name=sec.name,
+        isin=sec.isin,
         currency=sec.currency,
         market_code=sec.market,
         market_type=market_row.market_type if market_row else "stock",
