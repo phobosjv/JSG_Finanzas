@@ -43,10 +43,10 @@ export const translations = {
     'dashboard.section_favorites':     'Favoritos',
     'dashboard.section_movers':        'Mayores movimientos',
     'dashboard.section_charts':        'Gráficos de cartera',
-    'dashboard.section_topperformers': 'Top ganancias/pérdidas',
-    'dashboard.topperformers_gains':   'Ganancias',
-    'dashboard.topperformers_losses':  'Pérdidas',
-    'dashboard.topperformers_empty':   'Sin posiciones valoradas',
+    'dashboard.section_topperformers': 'Variación diaria — Top',
+    'dashboard.topperformers_gains':   'Mayores subidas',
+    'dashboard.topperformers_losses':  'Mayores bajadas',
+    'dashboard.topperformers_empty':   'Sin variación diaria disponible',
     'dashboard.config_topperformers_n': 'Posiciones a mostrar por columna',
 
     // ── Mercados ─────────────────────────────────────────────────────────
@@ -554,10 +554,10 @@ export const translations = {
     'dashboard.section_favorites':     'Favourites',
     'dashboard.section_movers':        'Top movers',
     'dashboard.section_charts':        'Portfolio charts',
-    'dashboard.section_topperformers': 'Top gains/losses',
-    'dashboard.topperformers_gains':   'Gains',
-    'dashboard.topperformers_losses':  'Losses',
-    'dashboard.topperformers_empty':   'No valued positions',
+    'dashboard.section_topperformers': 'Daily change — Top',
+    'dashboard.topperformers_gains':   'Top gainers',
+    'dashboard.topperformers_losses':  'Top losers',
+    'dashboard.topperformers_empty':   'No daily change available',
     'dashboard.config_topperformers_n': 'Positions to show per column',
 
     // ── Markets ───────────────────────────────────────────────────────────

@@ -24,9 +24,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 - Nueva sección configurable `topperformers` en el Dashboard, habilitada por
   defecto (posición 4 en el orden, antes de Gráficos).
-- Muestra dos columnas: **Ganancias** (top N posiciones por `unrealized_pnl_eur`
-  descendente) y **Pérdidas** (top N por `unrealized_pnl_eur` ascendente).
-- Solo incluye posiciones con precio actual conocido (`current_price != null`).
+- Muestra dos columnas: **Mayores subidas** (top N posiciones por `daily_change_eur`
+  descendente) y **Mayores bajadas** (top N por `daily_change_eur` ascendente).
+- Solo incluye posiciones con variación diaria disponible (`daily_change_eur != null`).
 - Respeta el filtro de segmentación por tipo de activo del Dashboard.
 - Configurable desde el modal (⚙): número de posiciones por columna (3 ó 5;
   por defecto 5). El selector aparece solo si la sección está habilitada.

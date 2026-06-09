@@ -293,16 +293,16 @@ function MoversSection({ allMarkets, moversMarkets, t, navigate }) {
 // ─── Sección top ganancias / pérdidas ────────────────────────────────────────
 
 function TopPerformerRow({ p, navigate }) {
-  const pnl = Number(p.unrealized_pnl_eur)
-  const pct = Number(p.unrealized_pnl_pct)
+  const eur = Number(p.daily_change_eur)
+  const pct = Number(p.daily_change_pct)
   return (
     <div className="tp-row" onClick={() => navigate(`/securities/${p.security_id}`)}>
       <div className="tp-ticker-block">
         <div className="tp-ticker">{p.yahoo_ticker}</div>
         <div className="tp-name">{p.name}</div>
       </div>
-      <div className={`tp-values ${cls(pnl)}`}>
-        <span className="tp-eur">{sign(pnl)}{fmt(Math.abs(pnl))} €</span>
+      <div className={`tp-values ${cls(eur)}`}>
+        <span className="tp-eur">{sign(eur)}{fmt(Math.abs(eur))} €</span>
         <span className="tp-pct">{sign(pct)}{fmt(Math.abs(pct))}%</span>
       </div>
     </div>
@@ -310,14 +310,14 @@ function TopPerformerRow({ p, navigate }) {
 }
 
 function TopPerformersSection({ positions, n = 5, t, navigate }) {
-  const valued = positions.filter(p => p.current_price != null)
+  const valued = positions.filter(p => p.daily_change_eur != null)
   if (valued.length === 0) return (
     <div className="card" style={{ marginTop: 16 }}>
       <h2>{t('dashboard.section_topperformers')}</h2>
       <div style={{ color: 'var(--text-muted)', padding: '8px 0' }}>{t('dashboard.topperformers_empty')}</div>
     </div>
   )
-  const sorted    = [...valued].sort((a, b) => Number(b.unrealized_pnl_eur) - Number(a.unrealized_pnl_eur))
+  const sorted    = [...valued].sort((a, b) => Number(b.daily_change_eur) - Number(a.daily_change_eur))
   const topGains  = sorted.slice(0, n)
   const topLosses = [...sorted].reverse().slice(0, n)
   return (
