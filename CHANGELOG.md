@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.11.1] — 2026-06-09
+
+### Corregido — Editor de subcarteras
+
+- **Bug:** el editor de dos columnas solo mostraba una posición en la lista
+  izquierda (en vez de todas las posiciones abiertas y cerradas del usuario) y
+  el botón «→» no funcionaba.
+- **Causa:** `SubcarterasManager.jsx` usaba `p.id` para identificar posiciones,
+  pero el API devuelve el campo `position_id`. El dedup del memo colapsaba todas
+  las posiciones en una sola (la primera, porque `undefined` quedaba marcado como
+  ya visto tras la primera iteración), y el `POST` al API enviaba `undefined`
+  como `position_id`.
+- **Corrección:** sustituidos todos los `p.id` por `p.position_id` en
+  `SubcarterasManager.jsx` (dedup de `allPositions`, filtros de columna,
+  keys React, lógica de selección y llamadas al API).
+
+---
+
 ## [1.11.0] — 2026-06-09
 
 ### Añadido — Subcarteras: segmentación personalizada de la cartera

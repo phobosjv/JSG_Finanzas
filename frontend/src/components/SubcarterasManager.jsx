@@ -93,7 +93,7 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
 
   const available = useMemo(() =>
     sortedAll.filter(p => {
-      if (positionIds.has(p.id)) return false
+      if (positionIds.has(p.position_id)) return false
       if (!searchLeft.trim()) return true
       const q = searchLeft.toLowerCase()
       return (p.yahoo_ticker || '').toLowerCase().includes(q) ||
@@ -103,7 +103,7 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
   )
 
   const inSubcartera = useMemo(() =>
-    sortedAll.filter(p => positionIds.has(p.id)),
+    sortedAll.filter(p => positionIds.has(p.position_id)),
     [sortedAll, positionIds]
   )
 
@@ -126,6 +126,8 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
     setSelectedRight(null)
     onUpdated({ ...subcartera, position_ids: [...next] })
   }, [selectedRight, positionIds, subcartera, onUpdated])
+
+  // selectedLeft y selectedRight almacenan position_id (número entero)
 
   return (
     <div>
@@ -159,9 +161,9 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
                 </div>
               : available.map(p => (
                   <div
-                    key={p.id}
-                    className={`sc-pos-row${selectedLeft === p.id ? ' selected' : ''}`}
-                    onClick={() => setSelectedLeft(prev => prev === p.id ? null : p.id)}
+                    key={p.position_id}
+                    className={`sc-pos-row${selectedLeft === p.position_id ? ' selected' : ''}`}
+                    onClick={() => setSelectedLeft(prev => prev === p.position_id ? null : p.position_id)}
                   >
                     <TypeBadge marketType={p.market_type} t={t} />
                     <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.yahoo_ticker}</span>
@@ -206,9 +208,9 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
                 </div>
               : inSubcartera.map(p => (
                   <div
-                    key={p.id}
-                    className={`sc-pos-row${selectedRight === p.id ? ' selected' : ''}`}
-                    onClick={() => setSelectedRight(prev => prev === p.id ? null : p.id)}
+                    key={p.position_id}
+                    className={`sc-pos-row${selectedRight === p.position_id ? ' selected' : ''}`}
+                    onClick={() => setSelectedRight(prev => prev === p.position_id ? null : p.position_id)}
                   >
                     <TypeBadge marketType={p.market_type} t={t} />
                     <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.yahoo_ticker}</span>
@@ -323,8 +325,8 @@ export default function SubcarterasManager({
     const seen = new Set()
     const result = []
     for (const p of [...(positions || []), ...(closed || [])]) {
-      if (!seen.has(p.id)) {
-        seen.add(p.id)
+      if (!seen.has(p.position_id)) {
+        seen.add(p.position_id)
         result.push(p)
       }
     }
