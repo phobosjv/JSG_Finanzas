@@ -5,6 +5,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.11.2] — 2026-06-09
+
+### Corregido — Layout del editor de subcarteras (escritorio y móvil)
+
+- **Escritorio:** eliminada la barra de desplazamiento horizontal del modal.
+  Causa: los contenedores de columna no tenían `min-width: 0`, lo que impedía
+  que `flex: 1` los comprimiera correctamente al crecer el contenido interno.
+  Corrección: nuevas clases CSS `sc-editor-col-wrap` (con `min-width: 0;
+  overflow: hidden`) y `sc-col-search` / `sc-col-search-spacer` para alinear
+  las listas sin forzar anchura fija.
+
+- **Móvil (≤ 600 px):** el layout de dos columnas en paralelo era inutilizable
+  en pantalla pequeña. Ahora las columnas se apilan verticalmente (lista
+  izquierda arriba, botones en fila horizontal centrada, lista derecha abajo)
+  mediante media query `@media (max-width: 600px)`. Las listas reducen su
+  altura máxima a 200 px para dejar espacio al contenido.
+
+---
+
 ## [1.11.1] — 2026-06-09
 
 ### Corregido — Editor de subcarteras

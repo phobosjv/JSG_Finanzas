@@ -143,8 +143,8 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
 
       <div className="sc-editor-cols">
         {/* Columna izquierda: posiciones disponibles */}
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 6, color: 'var(--text-muted)' }}>
+        <div className="sc-editor-col-wrap">
+          <div className="sc-col-header">
             {t('subcarteras.all_positions')}
           </div>
           <input
@@ -152,7 +152,7 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
             value={searchLeft}
             onChange={e => setSearchLeft(e.target.value)}
             placeholder={t('markets.search_placeholder')}
-            style={{ width: '100%', marginBottom: 6, boxSizing: 'border-box' }}
+            className="sc-col-search"
           />
           <div className="sc-editor-col">
             {available.length === 0
@@ -167,9 +167,7 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
                   >
                     <TypeBadge marketType={p.market_type} t={t} />
                     <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.yahoo_ticker}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.name}
-                    </span>
+                    <span className="sc-pos-name">{p.name}</span>
                   </div>
                 ))
             }
@@ -197,11 +195,13 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
         </div>
 
         {/* Columna derecha: posiciones en la subcartera */}
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 6, color: 'var(--text-muted)' }}>
+        <div className="sc-editor-col-wrap">
+          <div className="sc-col-header">
             {t('subcarteras.in_portfolio')}
           </div>
-          <div className="sc-editor-col" style={{ marginTop: 36 }}>
+          {/* Espaciador para alinear la lista con la columna izquierda en escritorio */}
+          <div className="sc-col-search-spacer" />
+          <div className="sc-editor-col">
             {inSubcartera.length === 0
               ? <div style={{ padding: '10px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                   —
@@ -214,9 +214,7 @@ function PositionEditor({ subcartera, allPositions, onUpdated, onBack, t }) {
                   >
                     <TypeBadge marketType={p.market_type} t={t} />
                     <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.yahoo_ticker}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.name}
-                    </span>
+                    <span className="sc-pos-name">{p.name}</span>
                   </div>
                 ))
             }
@@ -357,7 +355,7 @@ export default function SubcarterasManager({
     <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div
         className="modal"
-        style={{ maxWidth: view === 'edit' ? 700 : 500, width: '100%', maxHeight: '90vh', overflow: 'auto' }}
+        style={{ maxWidth: view === 'edit' ? 700 : 500, width: '100%', maxHeight: '90vh', overflowY: 'auto', overflowX: 'hidden' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ margin: 0 }}>{t('subcarteras.manage')}</h2>

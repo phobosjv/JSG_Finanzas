@@ -470,40 +470,106 @@ input:focus, select:focus { border-color: var(--accent); }
   color: #fff;
 }
 
+/* Editor de dos columnas */
 .sc-editor-cols {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
-  min-height: 300px;
 }
-.sc-editor-col {
+
+/* Columna: ocupa espacio disponible sin desbordar */
+.sc-editor-col-wrap {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Cabecera de columna */
+.sc-col-header {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Buscador columna izquierda */
+.sc-col-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+  padding: 5px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+/* Espaciador columna derecha (alinea la lista con la izquierda) */
+.sc-col-search-spacer {
+  height: 34px;
+  margin-bottom: 6px;
+}
+
+/* Lista con scroll vertical */
+.sc-editor-col {
   border: 1px solid var(--border);
   border-radius: 6px;
   overflow-y: auto;
-  max-height: 380px;
-  min-width: 0;
+  max-height: 340px;
 }
+
+/* Botones → / ← */
 .sc-editor-actions {
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 8px;
-  padding-top: 40px;
+  padding-top: 54px;
   flex-shrink: 0;
 }
+
+/* Fila de posición */
 .sc-pos-row {
   padding: 6px 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
+  gap: 6px;
+  font-size: 0.83rem;
   border-bottom: 1px solid var(--border);
 }
 .sc-pos-row:last-child { border-bottom: none; }
 .sc-pos-row:hover { background: var(--bg-hover, rgba(255,255,255,0.04)); }
 .sc-pos-row.selected { background: rgba(37,99,235,0.12); }
+
+/* Nombre del producto (truncado) */
+.sc-pos-name {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* ── Móvil: columnas apiladas ─────────────────────── */
+@media (max-width: 600px) {
+  .sc-editor-cols     { flex-direction: column; gap: 12px; }
+  .sc-editor-col-wrap { width: 100%; }
+  .sc-editor-col      { max-height: 200px; }
+  .sc-editor-actions  {
+    flex-direction: row;
+    justify-content: center;
+    padding-top: 0;
+    width: 100%;
+    gap: 16px;
+  }
+  .sc-col-search-spacer { display: none; }
+}
 
 /* Rentabilidad por periodo (chips junto al gráfico de evolución) */
 .period-returns { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
