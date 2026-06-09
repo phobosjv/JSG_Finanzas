@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.11.2** · **Tests: 457 en verde** · Aplicación web personal
+> **Versión actual: 1.11.3** · **Tests: 458 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -399,6 +399,13 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   subcartera, filtrado client-side de tablas y server-side de gráficos
   (`?position_ids=…` en history/xirr/period-returns). Modal de gestión con
   editor de dos columnas (todas las posiciones / en la subcartera).
+- **Búsqueda por ISIN** (v1.11.3): todos los buscadores de productos de inversión
+  (catálogo de Mercados, cartera abierta/cerrada, editor de subcarteras) admiten
+  el código ISIN además de ticker y nombre. `PositionSummary` incluye `isin`.
+- **Top ganancias/pérdidas en Dashboard** (v1.11.3): sección configurable
+  `topperformers` habilitada por defecto. Dos columnas: mejores ganancias y
+  peores pérdidas latentes (`unrealized_pnl_eur`). N por columna configurable
+  (3 ó 5; defecto 5). Sin llamada extra al backend; respeta el filtro de tipo.
 
 ---
 
@@ -437,7 +444,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.11.2 · 457 tests en verde** (pytest, SQLite en memoria). 19 migraciones
+**v1.11.3 · 458 tests en verde** (pytest, SQLite en memoria). 19 migraciones
 Alembic, 18 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
