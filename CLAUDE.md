@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.13.1** · **Tests: 512 en verde** · Aplicación web personal
+> **Versión actual: 1.13.2** · **Tests: 512 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -499,7 +499,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.13.1 · 512 tests en verde** (pytest, SQLite en memoria). 21 migraciones
+**v1.13.2 · 512 tests en verde** (pytest, SQLite en memoria). 21 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
