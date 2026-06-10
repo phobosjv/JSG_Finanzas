@@ -446,6 +446,10 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   Crea `UserNotificationRow(type="admin_message")`. Componente `SendNotificationModal`.
   Tab Usuarios del AdminPanel: botón por fila + sección broadcast. Tabla de usuarios
   compactada a 3 columnas (Usuario, Actividad, Acciones).
+- **Contexto en respuestas de usuario** (v1.13.2): `POST /notifications/{id}/reply`
+  incluye el bloque de contexto de la notificación original en el `CatalogMessageRow`
+  (título + cuerpo, separados visualmente). El campo `subject` se rellena con el título
+  de la notificación automáticamente. Título campana: «Alertas de precio y notificaciones».
 
 ---
 
@@ -520,7 +524,7 @@ Cálculo puro: `test_calculations.py`, `test_splits.py`, `test_tax_report.py`,
 `test_security_requests.py` (solicitudes de catálogo: crear, aprobar, rechazar,
 notificaciones, mensajes, protección auth/admin).
 `test_user_notifications.py` (GET, PATCH read, DELETE, POST reply, aislamiento entre usuarios).
-`test_v1130.py` (v1.13.0–v1.13.1: mensajes subject/pending-count/reply/notif message_reply,
+`test_v1130.py` (v1.13.0–v1.13.2: mensajes subject/pending-count/reply/notif message_reply,
 campos nativos USD en PositionSummary, notificaciones personalizadas del admin).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
