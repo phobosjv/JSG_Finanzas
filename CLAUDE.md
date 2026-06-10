@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.12.2** · **Tests: 483 en verde** · Aplicación web personal
+> **Versión actual: 1.13.0** · **Tests: 502 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -184,6 +184,7 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 18. `f7a8b9c0d1e2` — v1.10.0 `push_subscriptions` (notificaciones Web Push)
 19. `b9c0d1e2f3a4` — v1.11.0 `subcarteras` + `subcartera_positions`
 20. `c0d1e2f3a4b5` — v1.12.0 `security_requests` + `user_notifications` + `catalog_messages`
+21. `d1e2f3a4b5c6` — v1.13.0 `catalog_messages`: añade `subject`, `admin_reply`, `admin_reply_at`
 
 ---
 
@@ -430,6 +431,16 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   - 3 tablas nuevas: `security_requests`, `user_notifications`, `catalog_messages`.
   - 3 routers nuevos: `/api/catalog` (user), `/api/admin/catalog` (admin),
     `/api/notifications` (user).
+- **Mensajes con asunto + respuesta del admin** (v1.13.0): campo `subject` en
+  `catalog_messages` (auto-determinado por el origen: "Mercados", etc.); admin puede
+  responder una vez (`POST /admin/catalog/messages/{id}/reply`) → notificación
+  `message_reply` al usuario en la campana. `GET /admin/catalog/messages/pending-count`
+  para badge en tab Usuarios. Sección de mensajes movida de tab Catálogo → tab Usuarios.
+  Migración `d1e2f3a4b5c6`.
+- **Valores en moneda nativa** (v1.13.0): `PositionSummary` y `ClosedPositionSummary`
+  incluyen `*_native` (cost, market_value, unrealized_pnl, dividends, realized_pnl,
+  total_profit, fees, avg_cost) y `currency`. SecurityDetail y filas de cartera usan
+  moneda nativa del valor (USD, GBP…); totales del portfolio y fiscal en EUR.
 
 ---
 
@@ -465,9 +476,13 @@ Qué puede hacer la app hoy (visión de producto):
   subcarteras) admiten ticker, nombre o ISIN.
 - **Dashboard — «Posiciones Abiertas - Movimientos del día»**: sección configurable con las mayores
   subidas y bajadas del día de las posiciones abiertas (`daily_change_eur`).
-- **Solicitudes de catálogo**: usuarios normales proponen nuevos valores (validación
-  Yahoo Finance, flujo de aprobación/rechazo por el admin, notificaciones in-app
-  en la campana, mensajes bidireccionales usuario↔admin).
+- **Solicitudes de catálogo y mensajes**: usuarios normales proponen nuevos valores
+  (validación Yahoo Finance, flujo aprobación/rechazo por el admin) y pueden enviar
+  mensajes con **asunto** al admin; el admin puede responder → notificación en la
+  campana. Tab Usuarios del AdminPanel incluye badge y sección de mensajes.
+- **Valores en moneda nativa**: SecurityDetail y filas de cartera abierta/cerrada
+  muestran los importes en la moneda propia del valor (USD, GBP…); totales y fiscal
+  en EUR.
 - **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
   global (un fallo de UI no deja la pantalla en negro).
 
@@ -475,7 +490,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.12.2 · 483 tests en verde** (pytest, SQLite en memoria). 20 migraciones
+**v1.13.0 · 502 tests en verde** (pytest, SQLite en memoria). 21 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
@@ -496,6 +511,8 @@ Cálculo puro: `test_calculations.py`, `test_splits.py`, `test_tax_report.py`,
 `test_security_requests.py` (solicitudes de catálogo: crear, aprobar, rechazar,
 notificaciones, mensajes, protección auth/admin).
 `test_user_notifications.py` (GET, PATCH read, DELETE, POST reply, aislamiento entre usuarios).
+`test_v1130.py` (v1.13.0: mensajes subject/pending-count/reply/notif message_reply,
+campos nativos USD en PositionSummary).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
@@ -546,6 +563,8 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 - `PATCH /api/admin/catalog/requests/{id}/approve` body `{market_id, notes?}` — aprueba y crea el Security.
 - `PATCH /api/admin/catalog/requests/{id}/reject` body `{notes?}` — rechaza.
 - `GET /api/admin/catalog/messages` · `PATCH /api/admin/catalog/messages/{id}/resolve` (admin).
+- `GET /api/admin/catalog/messages/pending-count` → `{"count": N}` (admin). **Registrar ANTES de las rutas `{message_id}`** para evitar conflictos de ruta.
+- `POST /api/admin/catalog/messages/{id}/reply` body `{reply: str}` — respuesta única del admin (409 si ya respondió), crea notificación `message_reply` al usuario (admin).
 - `GET /api/portfolio/history`, `/xirr`, `/period-returns` aceptan `?position_ids=id1,id2,…` como alternativa a `?types=…` para filtrar por subcartera.
 - `GET /api/admin/config` (incluye `dust_threshold`) · `PATCH
   /api/admin/config/dust-threshold` (admin) · `PATCH /api/admin/config/snapshot-interval`.
