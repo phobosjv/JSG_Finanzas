@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.13.2] — 2026-06-10
+
+### Cambiado
+
+- **Contexto en respuestas de usuario**: cuando un usuario responde a una
+  notificación via «Entendido + Dejar mensaje», el mensaje que llega al admin
+  incluye ahora el contenido original de la notificación (título y cuerpo)
+  como bloque de contexto, separado visualmente. El admin ve a qué notificación
+  estaba respondiendo el usuario sin tener que buscar el historial.
+  El asunto del mensaje (`subject`) se rellena automáticamente con el título
+  de la notificación.
+
+- **Campana**: título del popup cambiado de «Alertas de precio» a
+  «Alertas de precio y notificaciones» (ES) / «Price alerts and notifications» (EN).
+
+---
+
 ## [1.13.1] — 2026-06-10
 
 ### Añadido — Notificaciones personalizadas del administrador

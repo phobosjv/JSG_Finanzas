@@ -104,9 +104,14 @@ def reply_and_dismiss(
     if notif.related_type == "security_request" and notif.related_id:
         security_request_id = notif.related_id
 
+    # Incluir el contenido de la notificación original como contexto para el admin.
+    context_block = f"\n\n──────────────────\nNotificación: «{notif.title}»\n{notif.body}"
+    full_message = body.message + context_block
+
     msg = CatalogMessageRow(
         user_id=user.id,
-        message=body.message,
+        subject=notif.title,
+        message=full_message,
         security_request_id=security_request_id,
         is_resolved=False,
     )

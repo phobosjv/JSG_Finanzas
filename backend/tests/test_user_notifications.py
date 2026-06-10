@@ -151,7 +151,9 @@ class TestReplyNotification:
                 )
             ).first()
         assert msg is not None
-        assert msg.message == "Gracias por la revisión."
+        # El mensaje incluye el texto del usuario + bloque de contexto de la notificación.
+        assert "Gracias por la revisión." in msg.message
+        assert msg.subject  # subject debe rellenarse con el título de la notificación
 
     def test_reply_empty_message_rejected(self, client, market_ntf, two_users):
         _login(client, "notif_user", "pass1")
