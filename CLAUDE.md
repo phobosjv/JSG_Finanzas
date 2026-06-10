@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.13.2** · **Tests: 512 en verde** · Aplicación web personal
+> **Versión actual: 1.14.0** · **Tests: 534 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -185,6 +185,7 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 19. `b9c0d1e2f3a4` — v1.11.0 `subcarteras` + `subcartera_positions`
 20. `c0d1e2f3a4b5` — v1.12.0 `security_requests` + `user_notifications` + `catalog_messages`
 21. `d1e2f3a4b5c6` — v1.13.0 `catalog_messages`: añade `subject`, `admin_reply`, `admin_reply_at`
+22. `e2f3a4b5c6d7` — v1.14.0 `users.email` (TEXT nullable, solo admins)
 
 ---
 
@@ -450,6 +451,14 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   incluye el bloque de contexto de la notificación original en el `CatalogMessageRow`
   (título + cuerpo, separados visualmente). El campo `subject` se rellena con el título
   de la notificación automáticamente. Título campana: «Alertas de precio y notificaciones».
+- **Notificaciones por email para administradores** (v1.14.0): campo `email` en usuarios
+  (`users.email TEXT` nullable, migración 22ª). Los admins con email reciben una copia por
+  correo de nuevas solicitudes de catálogo, mensajes de usuarios y respuestas. Proveedores:
+  Gmail (SMTP + contraseña de app), Outlook, SMTP genérico, SendGrid y Mailgun. Config
+  guardada en `app_config["email_config"]` (JSON), contraseñas enmascaradas en la API como
+  `"***"`. Servicio puro `email_service.py` + orquestador `email_notifications.py`.
+  AdminPanel — Herramientas: sección «Configuración de correo» con selector de proveedor y
+  textos de ayuda. AdminPanel — Usuarios: email visible + botón ✉ por fila.
 
 ---
 
@@ -496,6 +505,10 @@ Qué puede hacer la app hoy (visión de producto):
   (título + cuerpo) a un usuario concreto o a todos los activos (broadcast). Aparecen
   en la campana del destinatario. AdminPanel tab Usuarios: botón por fila + sección
   broadcast.
+- **Email para administradores**: los admins con email configurado reciben copia por
+  correo de eventos relevantes (nueva solicitud de catálogo, nuevo mensaje, respuesta de
+  usuario). Proveedores: Gmail, Outlook, SMTP genérico, SendGrid, Mailgun. Configuración
+  en AdminPanel → Herramientas → «Configuración de correo».
 - **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
   global (un fallo de UI no deja la pantalla en negro).
 
@@ -503,7 +516,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.13.2 · 512 tests en verde** (pytest, SQLite en memoria). 21 migraciones
+**v1.14.0 · 534 tests en verde** (pytest, SQLite en memoria). 22 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
@@ -526,6 +539,8 @@ notificaciones, mensajes, protección auth/admin).
 `test_user_notifications.py` (GET, PATCH read, DELETE, POST reply, aislamiento entre usuarios).
 `test_v1130.py` (v1.13.0–v1.13.2: mensajes subject/pending-count/reply/notif message_reply,
 campos nativos USD en PositionSummary, notificaciones personalizadas del admin).
+`test_email.py` (v1.14.0: campo email en usuarios, config de email, test endpoint,
+triggers en solicitudes/mensajes/reply — mock `app.api.admin_markets.send_email`).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
@@ -579,8 +594,12 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 - `GET /api/admin/catalog/messages/pending-count` → `{"count": N}` (admin). **Registrar ANTES de las rutas `{message_id}`** para evitar conflictos de ruta.
 - `POST /api/admin/catalog/messages/{id}/reply` body `{reply: str}` — respuesta única del admin (409 si ya respondió), crea notificación `message_reply` al usuario (admin).
 - `POST /api/admin/notifications/send` body `{user_id: int|null, title: str, body: str}` — notificación personalizada a usuario concreto o broadcast (`user_id=null`). Devuelve `{sent: N}`.
+- `PATCH /api/admin/users/{id}/email` body `{email: str|null}` — actualiza o borra el email del usuario (admin). Solo relevante en práctica para admins.
+- `GET /api/admin/config/email` — devuelve config de email con contraseña/api_key enmascaradas como `"***"` (404 si no hay config).
+- `PATCH /api/admin/config/email` body `EmailConfigIn` — guarda en `app_config["email_config"]`; si contraseña/api_key llegan como `"***"`, se conserva el valor guardado.
+- `POST /api/admin/config/email/test` — envía email de prueba al email del admin logueado (422 si sin email o sin config).
 - `GET /api/portfolio/history`, `/xirr`, `/period-returns` aceptan `?position_ids=id1,id2,…` como alternativa a `?types=…` para filtrar por subcartera.
-- `GET /api/admin/config` (incluye `dust_threshold`) · `PATCH
+- `GET /api/admin/config` (incluye `dust_threshold`, `email_configured`, `email_provider`) · `PATCH
   /api/admin/config/dust-threshold` (admin) · `PATCH /api/admin/config/snapshot-interval`.
 - `POST /api/markets/refresh-all` (admin) · `POST /api/admin/force-history-update`
   (+ `/status`) · `POST /api/admin/markets/{code}/sync-currency` (admin) ·
