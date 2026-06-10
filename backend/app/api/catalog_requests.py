@@ -28,6 +28,7 @@ from app.models.catalog_requests import (
     UserNotificationRow,
 )
 from app.schemas.catalog_requests import (
+    AdminMessageReply,
     CatalogMessageCreate,
     CatalogMessageOut,
     SecurityRequestCreate,
@@ -226,6 +227,7 @@ def create_message(
     """Envía un mensaje libre al administrador."""
     msg = CatalogMessageRow(
         user_id=user.id,
+        subject=body.subject,
         message=body.message,
         security_request_id=body.security_request_id,
         is_resolved=False,
@@ -238,8 +240,11 @@ def create_message(
         id=msg.id,
         user_id=msg.user_id,
         username=user.username,
+        subject=msg.subject,
         message=msg.message,
         security_request_id=msg.security_request_id,
         is_resolved=msg.is_resolved,
+        admin_reply=msg.admin_reply,
+        admin_reply_at=msg.admin_reply_at,
         created_at=msg.created_at,
     )

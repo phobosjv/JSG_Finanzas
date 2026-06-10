@@ -2,14 +2,16 @@
 api/admin_catalog_requests.py
 ==============================
 Endpoints de administrador para gestionar solicitudes de catálogo y mensajes
-de usuarios (v1.12.0).
+de usuarios (v1.12.0, ampliado v1.13.0).
 
-GET    /api/admin/catalog/requests?status=pending  — lista solicitudes.
-GET    /api/admin/catalog/requests/pending-count   — nº solicitudes pendientes.
-PATCH  /api/admin/catalog/requests/{id}/approve    — aprueba y crea el Security.
-PATCH  /api/admin/catalog/requests/{id}/reject     — rechaza con notas opcionales.
-GET    /api/admin/catalog/messages                 — lista mensajes de usuarios.
-PATCH  /api/admin/catalog/messages/{id}/resolve    — marca mensaje como resuelto.
+GET    /api/admin/catalog/requests?status=pending       — lista solicitudes.
+GET    /api/admin/catalog/requests/pending-count        — nº solicitudes pendientes.
+PATCH  /api/admin/catalog/requests/{id}/approve         — aprueba y crea el Security.
+PATCH  /api/admin/catalog/requests/{id}/reject          — rechaza con notas opcionales.
+GET    /api/admin/catalog/messages                      — lista mensajes de usuarios.
+GET    /api/admin/catalog/messages/pending-count        — nº mensajes sin resolver.
+POST   /api/admin/catalog/messages/{id}/reply           — responde al mensaje y notifica al usuario.
+PATCH  /api/admin/catalog/messages/{id}/resolve         — marca mensaje como resuelto.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from app.models.catalog_requests import (
     UserNotificationRow,
 )
 from app.schemas.catalog_requests import (
+    AdminMessageReply,
     CatalogMessageOut,
     RequestApprove,
     RequestReject,
@@ -242,6 +245,35 @@ def reject_request(
 #  Mensajes de usuarios
 # ---------------------------------------------------------------------------
 
+def _build_message_out(msg: CatalogMessageRow, db: Session) -> CatalogMessageOut:
+    user = db.get(User, msg.user_id)
+    return CatalogMessageOut(
+        id=msg.id,
+        user_id=msg.user_id,
+        username=user.username if user else None,
+        subject=msg.subject,
+        message=msg.message,
+        security_request_id=msg.security_request_id,
+        is_resolved=msg.is_resolved,
+        admin_reply=msg.admin_reply,
+        admin_reply_at=msg.admin_reply_at,
+        created_at=msg.created_at,
+    )
+
+
+@router.get("/messages/pending-count")
+def pending_messages_count(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    count = db.scalar(
+        select(func.count(CatalogMessageRow.id)).where(
+            CatalogMessageRow.is_resolved == False  # noqa: E712
+        )
+    ) or 0
+    return {"count": count}
+
+
 @router.get("/messages", response_model=list[CatalogMessageOut])
 def list_messages(
     db: Session = Depends(get_db),
@@ -250,19 +282,45 @@ def list_messages(
     rows = db.scalars(
         select(CatalogMessageRow).order_by(CatalogMessageRow.created_at.desc())
     ).all()
-    result = []
-    for msg in rows:
-        user = db.get(User, msg.user_id)
-        result.append(CatalogMessageOut(
-            id=msg.id,
-            user_id=msg.user_id,
-            username=user.username if user else None,
-            message=msg.message,
-            security_request_id=msg.security_request_id,
-            is_resolved=msg.is_resolved,
-            created_at=msg.created_at,
-        ))
-    return result
+    return [_build_message_out(msg, db) for msg in rows]
+
+
+@router.post("/messages/{message_id}/reply", response_model=CatalogMessageOut)
+def reply_message(
+    message_id: int,
+    body: AdminMessageReply,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Responde al mensaje del usuario y crea una notificación in-app para él."""
+    msg = db.get(CatalogMessageRow, message_id)
+    if msg is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Mensaje {message_id} no encontrado",
+        )
+    if msg.admin_reply is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este mensaje ya tiene una respuesta del administrador",
+        )
+
+    msg.admin_reply = body.reply
+    msg.admin_reply_at = _now()
+    msg.is_resolved = True
+
+    db.add(UserNotificationRow(
+        user_id=msg.user_id,
+        type="message_reply",
+        title="El administrador ha respondido a tu mensaje",
+        body=body.reply,
+        related_id=msg.id,
+        related_type="catalog_message",
+        is_read=False,
+    ))
+    db.commit()
+    db.refresh(msg)
+    return _build_message_out(msg, db)
 
 
 @router.patch("/messages/{message_id}/resolve", status_code=status.HTTP_204_NO_CONTENT)

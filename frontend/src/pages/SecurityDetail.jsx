@@ -12,6 +12,11 @@ function fmt(val, dec = 2) {
   if (val == null) return '—'
   return Number(val).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
+/** Formatea un importe con la divisa correcta: "€" para EUR, código ISO para el resto. */
+function fmtC(val, currency) {
+  if (currency === 'EUR') return `${fmt(val)} €`
+  return `${fmt(val)} ${currency}`
+}
 function fmtShares(val) {
   if (val == null) return '—'
   const n = Number(val)
@@ -1040,27 +1045,38 @@ export default function SecurityDetail() {
   const totalDivsGross = dividends.reduce(
     (s, d) => s + Number(d.gross_amount), 0
   )
+  // Divisa nativa del valor
+  const currency = security?.currency ?? 'EUR'
+  const isEUR    = currency === 'EUR'
+
   // Comisiones en EUR: fee / exchange_rate (igual que el resto de conversiones)
-  const totalFeesEur = transactions.reduce(
+  const totalFeesEur    = transactions.reduce(
     (s, tx) => s + Number(tx.fee) / Number(tx.exchange_rate), 0
   )
-  // Ganancia en venta SIN comisiones: se añaden de nuevo las comisiones
-  // ya descontadas en el cálculo FIFO, para mostrar el movimiento de precio puro.
-  const grossSaleGainEur = isClosed && closedSummary
-    ? Number(closedSummary.realized_pnl_eur) + totalFeesEur
+  // Comisiones en divisa nativa: suma de tx.fee tal cual
+  const totalFeesNative = transactions.reduce(
+    (s, tx) => s + Number(tx.fee), 0
+  )
+  // Ganancia en venta SIN comisiones (EUR y nativa)
+  const grossSaleGainEur    = isClosed && closedSummary
+    ? Number(closedSummary.realized_pnl_eur)    + totalFeesEur
     : 0
-  // B/P Latente sin comisiones: se añaden las comisiones de compra ya incluidas
-  // en el coste de los lotes, para mostrar solo el movimiento de precio.
-  const grossUnrealizedEur = posResult
-    ? Number(posResult.unrealized_pnl_eur) + totalFeesEur
+  const grossSaleGainNative = isClosed && closedSummary
+    ? Number(closedSummary.realized_pnl_native) + totalFeesNative
     : 0
-  // Beneficio realizado en posición aún abierta (ventas parciales pasadas)
-  const openRealizedEur = posResult ? Number(posResult.realized_pnl_eur) : 0
-  // B/P Total: latente + realizadas + dividendos - comisiones
-  // = (unrealized + fees) + realized + dividends - fees = unrealized + realized + dividends
-  const openBpTotalEur = posResult
-    ? grossUnrealizedEur + openRealizedEur + Number(posResult.dividends_eur) - totalFeesEur
+  // B/P Latente sin comisiones
+  const grossUnrealizedEur    = posResult
+    ? Number(posResult.unrealized_pnl_eur)    + totalFeesEur
     : 0
+  const grossUnrealizedNative = posResult
+    ? Number(posResult.unrealized_pnl_native) + totalFeesNative
+    : 0
+  // Beneficio realizado en posición aún abierta (ventas parciales)
+  const openRealizedEur    = posResult ? Number(posResult.realized_pnl_eur)    : 0
+  const openRealizedNative = posResult ? Number(posResult.realized_pnl_native) : 0
+  // B/P Total = total_profit del backend (unrealized + realized + dividends)
+  const openBpTotalEur    = posResult ? Number(posResult.total_profit_eur)    : 0
+  const openBpTotalNative = posResult ? Number(posResult.total_profit_native) : 0
 
   return (
     <div>
@@ -1143,11 +1159,11 @@ export default function SecurityDetail() {
             <div className="label">{t('sd.var_day')}</div>
           </div>
           <div className="card small">
-            <div className="value">{fmt(snapshot.min_1y)}</div>
+            <div className="value">{fmt(snapshot.min_1y)} {security.currency}</div>
             <div className="label">{t('sd.min_1y')}</div>
           </div>
           <div className="card small">
-            <div className="value">{fmt(snapshot.max_1y)}</div>
+            <div className="value">{fmt(snapshot.max_1y)} {security.currency}</div>
             <div className="label">{t('sd.max_1y')}</div>
           </div>
         </div>
@@ -1161,28 +1177,36 @@ export default function SecurityDetail() {
             <div className="label">{t('sd.shares_owned')}</div>
           </div>
           <div className="card small">
-            <div className="value">{fmt(posResult ? posResult.market_value_eur : 0)} €</div>
+            <div className="value">
+              {fmtC(posResult ? (isEUR ? posResult.market_value_eur : posResult.market_value_native) : 0, currency)}
+            </div>
             <div className="label">{t('sd.value_current')}</div>
           </div>
           {isClosed && closedSummary && (
             <>
               <div className="card small">
-                <div className={`value ${cls(grossSaleGainEur)}`}>
-                  {sign(grossSaleGainEur)}{fmt(grossSaleGainEur)} €
+                <div className={`value ${cls(isEUR ? grossSaleGainEur : grossSaleGainNative)}`}>
+                  {sign(isEUR ? grossSaleGainEur : grossSaleGainNative)}
+                  {fmtC(isEUR ? grossSaleGainEur : grossSaleGainNative, currency)}
                 </div>
                 <div className="label">{t('sd.bp_sale')}</div>
               </div>
               <div className="card small">
-                <div className="value">{fmt(closedSummary.dividends_eur)} €</div>
+                <div className="value">
+                  {fmtC(isEUR ? closedSummary.dividends_eur : closedSummary.dividends_native, currency)}
+                </div>
                 <div className="label">{t('sd.dividends_gross')}</div>
               </div>
               <div className="card small">
-                <div className="value neg">{totalFeesEur > 0 ? `-${fmt(totalFeesEur)}` : fmt(totalFeesEur)} €</div>
+                <div className="value neg">
+                  {(() => { const v = isEUR ? totalFeesEur : totalFeesNative; return v > 0 ? `-${fmtC(v, currency)}` : fmtC(v, currency) })()}
+                </div>
                 <div className="label">{t('sd.fees_paid')}</div>
               </div>
               <div className="card small">
-                <div className={`value ${cls(closedSummary.total_profit_eur)}`}>
-                  {sign(closedSummary.total_profit_eur)}{fmt(closedSummary.total_profit_eur)} €
+                <div className={`value ${cls(isEUR ? closedSummary.total_profit_eur : closedSummary.total_profit_native)}`}>
+                  {sign(isEUR ? closedSummary.total_profit_eur : closedSummary.total_profit_native)}
+                  {fmtC(isEUR ? closedSummary.total_profit_eur : closedSummary.total_profit_native, currency)}
                 </div>
                 <div className="label">{t('sd.bp_total')}</div>
               </div>
@@ -1191,41 +1215,46 @@ export default function SecurityDetail() {
           {posResult && (
             <>
               <div className="card small">
-                <div className="value">{fmt(posResult.cost_eur)} €</div>
+                <div className="value">{fmtC(isEUR ? posResult.cost_eur : posResult.cost_native, currency)}</div>
                 <div className="label">{t('sd.invested')}</div>
               </div>
               <div className="card small">
-                <div className="value">{fmt(posResult.avg_cost_eur)} €</div>
+                <div className="value">{fmtC(isEUR ? posResult.avg_cost_eur : posResult.avg_cost_native, currency)}</div>
                 <div className="label">{t('sd.avg_cost')}</div>
               </div>
               <div className="card small">
-                <div className={`value ${cls(grossUnrealizedEur)}`}>
-                  {sign(grossUnrealizedEur)}{fmt(grossUnrealizedEur)} €
+                <div className={`value ${cls(isEUR ? grossUnrealizedEur : grossUnrealizedNative)}`}>
+                  {sign(isEUR ? grossUnrealizedEur : grossUnrealizedNative)}
+                  {fmtC(isEUR ? grossUnrealizedEur : grossUnrealizedNative, currency)}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
                   {sign(posResult.unrealized_pnl_pct)}{fmt(posResult.unrealized_pnl_pct)}%
                 </div>
                 <div className="label">{t('sd.bp_latent')}</div>
               </div>
-              {openRealizedEur !== 0 && (
+              {(isEUR ? openRealizedEur : openRealizedNative) !== 0 && (
                 <div className="card small">
-                  <div className={`value ${cls(openRealizedEur)}`}>
-                    {sign(openRealizedEur)}{fmt(openRealizedEur)} €
+                  <div className={`value ${cls(isEUR ? openRealizedEur : openRealizedNative)}`}>
+                    {sign(isEUR ? openRealizedEur : openRealizedNative)}
+                    {fmtC(isEUR ? openRealizedEur : openRealizedNative, currency)}
                   </div>
                   <div className="label">{t('sd.bp_sale')}</div>
                 </div>
               )}
               <div className="card small">
-                <div className="value">{fmt(posResult.dividends_eur)} €</div>
+                <div className="value">{fmtC(isEUR ? posResult.dividends_eur : posResult.dividends_native, currency)}</div>
                 <div className="label">{t('sd.dividends_gross')}</div>
               </div>
               <div className="card small">
-                <div className="value neg">{totalFeesEur > 0 ? `-${fmt(totalFeesEur)}` : fmt(totalFeesEur)} €</div>
+                <div className="value neg">
+                  {(() => { const v = isEUR ? totalFeesEur : totalFeesNative; return v > 0 ? `-${fmtC(v, currency)}` : fmtC(v, currency) })()}
+                </div>
                 <div className="label">{t('sd.fees_paid')}</div>
               </div>
               <div className="card small">
-                <div className={`value ${cls(openBpTotalEur)}`}>
-                  {sign(openBpTotalEur)}{fmt(openBpTotalEur)} €
+                <div className={`value ${cls(isEUR ? openBpTotalEur : openBpTotalNative)}`}>
+                  {sign(isEUR ? openBpTotalEur : openBpTotalNative)}
+                  {fmtC(isEUR ? openBpTotalEur : openBpTotalNative, currency)}
                 </div>
                 <div className="label">{t('sd.bp_total')}</div>
               </div>

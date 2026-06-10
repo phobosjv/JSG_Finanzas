@@ -2069,15 +2069,21 @@ function RequestsSection({ onCountChanged }) {
 //  Sección: Mensajes de usuarios al admin (v1.12.0)
 // ---------------------------------------------------------------------------
 
-function CatalogMessagesSection() {
+function UserMessagesSection({ onCountChanged }) {
   const { t } = useAppConfig()
-  const [messages, setMessages] = useState([])
-  const [err, setErr]           = useState(null)
+  const [messages, setMessages]       = useState([])
+  const [err, setErr]                 = useState(null)
   const [showResolved, setShowResolved] = useState(false)
+  const [replyingId, setReplyingId]   = useState(null)
+  const [replyText, setReplyText]     = useState('')
+  const [replyBusy, setReplyBusy]     = useState(false)
+  const [replyErr, setReplyErr]       = useState(null)
 
   async function load() {
     try {
-      setMessages(await api.get('/admin/catalog/messages'))
+      const data = await api.get('/admin/catalog/messages')
+      setMessages(data)
+      onCountChanged?.()
     } catch (e) { setErr(e.message) }
   }
 
@@ -2087,18 +2093,37 @@ function CatalogMessagesSection() {
     try {
       await api.patch(`/admin/catalog/messages/${id}/resolve`)
       setMessages(ms => ms.map(m => m.id === id ? { ...m, is_resolved: true } : m))
+      onCountChanged?.()
     } catch (e) { setErr(e.message) }
+  }
+
+  function startReply(id) {
+    setReplyingId(id)
+    setReplyText('')
+    setReplyErr(null)
+  }
+
+  async function sendReply(id) {
+    if (!replyText.trim()) return
+    setReplyBusy(true); setReplyErr(null)
+    try {
+      const updated = await api.post(`/admin/catalog/messages/${id}/reply`, { reply: replyText.trim() })
+      setMessages(ms => ms.map(m => m.id === id ? updated : m))
+      setReplyingId(null)
+      onCountChanged?.()
+    } catch (e) { setReplyErr(e.message) }
+    finally { setReplyBusy(false) }
   }
 
   const visible = showResolved ? messages : messages.filter(m => !m.is_resolved)
 
   return (
-    <div className="card">
+    <div className="card" style={{ marginTop: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{t('admin.messages_section')}</h2>
         <label style={{ fontSize: '0.82rem', display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
           <input type="checkbox" checked={showResolved} onChange={e => setShowResolved(e.target.checked)} />
-          Mostrar resueltos
+          {t('admin.messages_show_resolved')}
         </label>
       </div>
 
@@ -2113,14 +2138,23 @@ function CatalogMessagesSection() {
               border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px',
               opacity: msg.is_resolved ? 0.6 : 1,
             }}>
+              {/* Cabecera del mensaje */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                   <strong>{msg.username || `user#${msg.user_id}`}</strong>
                   {' · '}
                   {msg.created_at ? new Date(msg.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                  {msg.subject && (
+                    <span style={{
+                      marginLeft: 8, background: 'var(--surface-2, #1e293b)', color: 'var(--text-muted)',
+                      borderRadius: 4, padding: '1px 6px', fontSize: '0.75rem', border: '1px solid var(--border)',
+                    }}>
+                      {msg.subject}
+                    </span>
+                  )}
                   {msg.security_request_id && (
                     <span style={{
-                      marginLeft: 8, background: 'var(--accent-soft, #e0e7ff)', color: 'var(--accent)',
+                      marginLeft: 4, background: 'var(--accent-soft, #e0e7ff)', color: 'var(--accent)',
                       borderRadius: 4, padding: '0 6px', fontSize: '0.75rem',
                     }}>
                       {t('admin.reply_badge')}
@@ -2128,12 +2162,62 @@ function CatalogMessagesSection() {
                   )}
                 </div>
                 {!msg.is_resolved && (
-                  <button className="btn-ghost btn-sm" style={{ fontSize: '0.75rem' }} onClick={() => resolve(msg.id)}>
-                    {t('admin.resolve_btn')}
-                  </button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {!msg.admin_reply && replyingId !== msg.id && (
+                      <button className="btn-primary btn-sm" style={{ fontSize: '0.75rem' }} onClick={() => startReply(msg.id)}>
+                        {t('admin.reply_btn')}
+                      </button>
+                    )}
+                    <button className="btn-ghost btn-sm" style={{ fontSize: '0.75rem' }} onClick={() => resolve(msg.id)}>
+                      {t('admin.resolve_btn')}
+                    </button>
+                  </div>
                 )}
               </div>
-              <div style={{ fontSize: '0.88rem', whiteSpace: 'pre-wrap' }}>{msg.message}</div>
+
+              {/* Texto del mensaje */}
+              <div style={{ fontSize: '0.88rem', whiteSpace: 'pre-wrap', marginBottom: 6 }}>{msg.message}</div>
+
+              {/* Respuesta del admin ya enviada */}
+              {msg.admin_reply && (
+                <div style={{
+                  marginTop: 8, padding: '8px 10px', borderRadius: 4,
+                  background: 'var(--surface-2, #1e2a3a)', borderLeft: '3px solid var(--accent)',
+                  fontSize: '0.85rem',
+                }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+                    {t('admin.reply_sent_label')}
+                    {msg.admin_reply_at ? ` · ${new Date(msg.admin_reply_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+                  </div>
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{msg.admin_reply}</div>
+                </div>
+              )}
+
+              {/* Formulario de respuesta inline */}
+              {replyingId === msg.id && (
+                <div style={{ marginTop: 10 }}>
+                  {replyErr && <div style={{ color: 'var(--red)', fontSize: '0.8rem', marginBottom: 6 }}>{replyErr}</div>}
+                  <textarea
+                    className="input"
+                    rows={3}
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    placeholder={t('admin.reply_placeholder')}
+                    disabled={replyBusy}
+                    style={{ width: '100%', marginBottom: 8, resize: 'vertical', fontSize: '0.88rem' }}
+                    autoFocus
+                  />
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <button className="btn-ghost btn-sm" onClick={() => setReplyingId(null)} disabled={replyBusy}>
+                      {t('admin.cancel')}
+                    </button>
+                    <button className="btn-primary btn-sm" onClick={() => sendReply(msg.id)}
+                      disabled={replyBusy || !replyText.trim()}>
+                      {replyBusy ? t('admin.sending') : t('admin.reply_send_btn')}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -2177,6 +2261,7 @@ export default function AdminPanel() {
   const [catalogErr, setCatalogErr]             = useState(null)
   const [pwBusy, setPwBusy] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const [pendingMsgCount, setPendingMsgCount] = useState(0)
   const [pwError, setPwError] = useState(null)
   const [pwOk, setPwOk] = useState(false)
 
@@ -2290,7 +2375,14 @@ export default function AdminPanel() {
     } catch { /* ignorar */ }
   }
 
-  useEffect(() => { loadUsers(); loadPendingCount() }, [])
+  async function loadPendingMsgCount() {
+    try {
+      const data = await api.get('/admin/catalog/messages/pending-count')
+      setPendingMsgCount(data?.count ?? 0)
+    } catch { /* ignorar */ }
+  }
+
+  useEffect(() => { loadUsers(); loadPendingCount(); loadPendingMsgCount() }, [])
 
   async function deleteUser(u) {
     if (!confirm(`¿Eliminar al usuario "${u.username}"? Esta acción no se puede deshacer.`)) return
@@ -2352,6 +2444,17 @@ export default function AdminPanel() {
                 fontWeight: 700, animation: 'pulse 1.5s infinite',
               }}>
                 {pendingCount > 9 ? '9+' : pendingCount}
+              </span>
+            )}
+            {key === 'usuarios' && pendingMsgCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -4,
+                background: 'var(--red, #dc2626)', color: '#fff',
+                borderRadius: '50%', width: 16, height: 16,
+                fontSize: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, animation: 'pulse 1.5s infinite',
+              }}>
+                {pendingMsgCount > 9 ? '9+' : pendingMsgCount}
               </span>
             )}
           </button>
@@ -2536,6 +2639,10 @@ export default function AdminPanel() {
         </form>
       </div>}
 
+      {tab === 'usuarios' && (
+        <UserMessagesSection onCountChanged={loadPendingMsgCount} />
+      )}
+
       {/* ── Pestaña: Herramientas ─────────────────────────────────────── */}
       {tab === 'herramientas' && <div className="card" style={{ marginTop: 0 }}>
         <h2>Backup completo del sistema</h2>
@@ -2603,7 +2710,6 @@ export default function AdminPanel() {
       {tab === 'catalogo' && <MarketsSection />}
       {tab === 'catalogo' && <SecuritiesSection />}
       {tab === 'catalogo' && <RequestsSection onCountChanged={loadPendingCount} />}
-      {tab === 'catalogo' && <CatalogMessagesSection />}
 
       {/* ── Pestaña: Configuración ────────────────────────────────────── */}
       {tab === 'configuracion' && <ConfigSection />}

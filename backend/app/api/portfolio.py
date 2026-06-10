@@ -91,11 +91,15 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         unrealized_pnl_eur = Decimal("0")
         unrealized_pnl_pct = Decimal("0")
         daily_chg_eur      = None
+        market_value_native  = Decimal("0")
+        unrealized_pnl_native = Decimal("0")
     else:
         v = value_position(result, current_price, current_rate)
         market_value_eur   = v["market_value_eur"]
         unrealized_pnl_eur = v["unrealized_gain_eur"]
         unrealized_pnl_pct = v["unrealized_gain_pct"]
+        market_value_native  = current_price * shares
+        unrealized_pnl_native = market_value_native - result.invested_native
 
         if snap and snap.prev_close is not None:
             dc = daily_change(shares, current_price, snap.prev_close, current_rate)
@@ -104,9 +108,13 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
             daily_chg_eur = None
 
     dividends_eur    = result.dividends_net_eur
+    dividends_native = result.dividends_net_native
     realized_pnl_eur = result.realized_gain_eur
+    realized_pnl_native = result.realized_gain_native
     total_profit_eur = unrealized_pnl_eur + realized_pnl_eur + dividends_eur
+    total_profit_native = unrealized_pnl_native + realized_pnl_native + dividends_native
     fees_eur         = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
+    fees_native      = sum((tx.fee for tx in txs), Decimal("0"))
 
     # Valor de MERCADO en el momento de cada traspaso de ENTRADA: participaciones
     # recibidas × NAV de esa fecha. Permite mostrar la rentabilidad "desde el
@@ -143,16 +151,24 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
         shares=shares,
         avg_cost_eur=avg_cost_eur,
         cost_eur=cost_eur,
+        avg_cost_native=result.avg_price_native,
+        cost_native=result.invested_native,
         current_price=current_price,
         market_value_eur=market_value_eur,
+        market_value_native=market_value_native,
         unrealized_pnl_eur=unrealized_pnl_eur,
         unrealized_pnl_pct=unrealized_pnl_pct,
+        unrealized_pnl_native=unrealized_pnl_native,
         daily_change_pct=daily_chg_pct,
         daily_change_eur=daily_chg_eur,
         dividends_eur=dividends_eur,
+        dividends_native=dividends_native,
         realized_pnl_eur=realized_pnl_eur,
+        realized_pnl_native=realized_pnl_native,
         total_profit_eur=total_profit_eur,
+        total_profit_native=total_profit_native,
         fees_eur=fees_eur,
+        fees_native=fees_native,
         target_sell_price=pos.target_sell_price,
         max_1y=max_1y,
         notes=pos.notes,
@@ -986,27 +1002,45 @@ def get_closed_positions(
         # equivalente post-split por _normalize_splits) en lugar de las
         # transacciones crudas. Así la cifra es coherente con el precio medio
         # y el coste que también vienen del cálculo FIFO normalizado.
-        shares_sold  = sum((m.shares       for m in computed.sale_matches), Decimal("0"))
-        cost_eur     = sum((m.cost_eur     for m in computed.sale_matches), Decimal("0"))
-        proceeds_eur = sum((m.proceeds_eur for m in computed.sale_matches), Decimal("0"))
+        shares_sold    = sum((m.shares          for m in computed.sale_matches), Decimal("0"))
+        cost_eur       = sum((m.cost_eur        for m in computed.sale_matches), Decimal("0"))
+        proceeds_eur   = sum((m.proceeds_eur    for m in computed.sale_matches), Decimal("0"))
+        cost_native    = sum((m.cost_native     for m in computed.sale_matches), Decimal("0"))
+        proceeds_native = sum((m.proceeds_native for m in computed.sale_matches), Decimal("0"))
 
-        fees_eur = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
+        fees_eur    = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
+        fees_native = sum((tx.fee for tx in txs), Decimal("0"))
+
+        realized_pnl_native = computed.realized_gain_native
+        dividends_native    = computed.dividends_net_native
+
+        # market_type comes from market_types dict; is_fund_market mirrors it
+        mtype = market_types.get(sec.market, "stock")
+        is_fund = mtype == "fund"
 
         result.append(ClosedPositionSummary(
             position_id=pos.id,
             security_id=sec.id,
             yahoo_ticker=sec.yahoo_ticker,
             name=sec.name,
+            isin=sec.isin,
+            currency=sec.currency,
             market_code=sec.market,
-            market_type=market_types.get(sec.market, "stock"),
-            is_fund_market=market_types.get(sec.market) == "fund",
+            market_type=mtype,
+            is_fund_market=is_fund,
             shares_sold=shares_sold,
             cost_eur=cost_eur,
+            cost_native=cost_native,
             proceeds_eur=proceeds_eur,
+            proceeds_native=proceeds_native,
             realized_pnl_eur=computed.realized_gain_eur,
+            realized_pnl_native=realized_pnl_native,
             dividends_eur=computed.dividends_net_eur,
+            dividends_native=dividends_native,
             total_profit_eur=computed.realized_gain_eur + computed.dividends_net_eur,
+            total_profit_native=realized_pnl_native + dividends_native,
             fees_eur=fees_eur,
+            fees_native=fees_native,
         ))
 
     return result
@@ -1057,10 +1091,13 @@ def get_closed_analytics(
 
         still_open = not computed.is_closed
         matches = computed.sale_matches
-        shares_sold  = sum((m.shares       for m in matches), Decimal("0"))
-        cost_eur     = sum((m.cost_eur     for m in matches), Decimal("0"))
-        proceeds_eur = sum((m.proceeds_eur for m in matches), Decimal("0"))
-        fees_eur     = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
+        shares_sold     = sum((m.shares          for m in matches), Decimal("0"))
+        cost_eur        = sum((m.cost_eur        for m in matches), Decimal("0"))
+        proceeds_eur    = sum((m.proceeds_eur    for m in matches), Decimal("0"))
+        cost_native     = sum((m.cost_native     for m in matches), Decimal("0"))
+        proceeds_native = sum((m.proceeds_native for m in matches), Decimal("0"))
+        fees_eur        = sum((tx.fee / tx.exchange_rate for tx in txs), Decimal("0"))
+        fees_native     = sum((tx.fee for tx in txs), Decimal("0"))
 
         # Defensa: una posición con sale_matches no vacío pero cost_eur=0 es
         # un dato corrupto. Mejor omitirla que mostrar pnl_pct sin sentido.
@@ -1081,23 +1118,36 @@ def get_closed_analytics(
         # al tramo vendido: no se pueden repartir limpiamente entre lo vendido y
         # lo que se conserva. Para cerradas, todos los dividendos pertenecen a
         # acciones ya vendidas, así que se incluyen.
-        dividends_eur = Decimal("0") if still_open else computed.dividends_net_eur
+        dividends_eur    = Decimal("0") if still_open else computed.dividends_net_eur
+        dividends_native = Decimal("0") if still_open else computed.dividends_net_native
+        realized_pnl_native = computed.realized_gain_native
+
+        mtype    = market_types.get(sec.market, "stock")
+        is_fund  = mtype == "fund"
 
         result.append(ClosedPositionAnalytics(
             position_id=pos.id,
             security_id=sec.id,
             yahoo_ticker=sec.yahoo_ticker,
             name=sec.name,
+            isin=sec.isin,
+            currency=sec.currency,
             market_code=sec.market,
-            market_type=market_types.get(sec.market, "stock"),
-            is_fund_market=market_types.get(sec.market) == "fund",
+            market_type=mtype,
+            is_fund_market=is_fund,
             shares_sold=shares_sold,
             cost_eur=cost_eur,
+            cost_native=cost_native,
             proceeds_eur=proceeds_eur,
+            proceeds_native=proceeds_native,
             realized_pnl_eur=computed.realized_gain_eur,
+            realized_pnl_native=realized_pnl_native,
             dividends_eur=dividends_eur,
+            dividends_native=dividends_native,
             total_profit_eur=computed.realized_gain_eur + dividends_eur,
+            total_profit_native=realized_pnl_native + dividends_native,
             fees_eur=fees_eur,
+            fees_native=fees_native,
             avg_days_held=avg_days,
             pnl_pct=pnl_pct,
             last_sell_date=last_sell_date,

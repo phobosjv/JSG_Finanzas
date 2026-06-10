@@ -5,6 +5,71 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.13.0] — 2026-06-10
+
+### Añadido — Mensajes de usuario con asunto y respuesta del administrador
+
+Los mensajes libres que los usuarios envían al administrador ahora incluyen un
+**asunto** (auto-determinado por el lugar desde el que se envía el mensaje,
+por ejemplo "Mercados") y permiten una **respuesta única del admin**.
+
+#### Asunto de mensaje (`subject`)
+- `POST /api/catalog/messages` acepta el nuevo campo `subject` (máx. 100 caracteres,
+  opcional; vacío por defecto).
+- El asunto se muestra como chip en la sección de mensajes del AdminPanel.
+- Migración Alembic `d1e2f3a4b5c6`: añade `subject TEXT NOT NULL DEFAULT ''`,
+  `admin_reply TEXT` y `admin_reply_at DATETIME` a la tabla `catalog_messages`.
+
+#### Respuesta del administrador
+- Nuevo endpoint `POST /api/admin/catalog/messages/{id}/reply` (admin): guarda la
+  respuesta, marca el mensaje como `is_resolved=True` y crea una
+  `UserNotificationRow` de tipo `message_reply` para que el usuario la vea en
+  la campana de notificaciones.
+- Intentar responder dos veces al mismo mensaje devuelve **409 Conflict**.
+- El frontend muestra la respuesta en la sección de mensajes del usuario (campana).
+
+#### Badge en tab Usuarios del AdminPanel
+- Nuevo endpoint `GET /api/admin/catalog/messages/pending-count` → `{"count": N}`.
+- La sección de mensajes de usuarios se ha **movido del tab "Catálogo" al tab
+  "Usuarios"**, con badge parpadeante cuando hay mensajes sin resolver (equivalente
+  al badge de solicitudes pendientes en el tab Catálogo).
+
+### Añadido — Valores de posiciones en moneda nativa
+
+Las posiciones en divisas distintas del euro (USD, GBP, etc.) ahora muestran sus
+valores monetarios en la **moneda propia del valor** en lugar de EUR.
+
+#### Backend
+- `PositionSummary` incluye nuevos campos: `avg_cost_native`, `cost_native`,
+  `market_value_native`, `unrealized_pnl_native`, `dividends_native`,
+  `realized_pnl_native`, `total_profit_native`, `fees_native` y `currency`.
+- `ClosedPositionSummary` y `ClosedPositionAnalytics` incluyen los mismos campos
+  nativos: `cost_native`, `proceeds_native`, `realized_pnl_native`,
+  `dividends_native`, `total_profit_native`, `fees_native`, `currency`.
+- Los totales del portfolio y los informes fiscales **siguen en EUR** (sin cambio).
+
+#### Frontend
+- **SecurityDetail**: todas las tarjetas de métricas (valor actual, invertido,
+  precio medio, B/P latente, B/P venta, dividendos, comisiones, B/P total) usan la
+  moneda nativa del valor; los rangos 52-semanas muestran el código de divisa.
+- **Portfolio abierto**: columnas avg_cost, cost, market_value, unrealized_pnl,
+  dividends, total_profit muestran moneda nativa para valores no-EUR; daily_change
+  sigue en EUR; las filas EUR no cambian.
+- **Portfolio cerrado**: cost, proceeds, realized_pnl, dividends, total_profit en
+  moneda nativa para valores no-EUR.
+- Los **totales** del panel (valor total, B/P latente total, etc.) permanecen en EUR.
+
+### Tests
+- 19 tests nuevos en `test_v1130.py` (502 en total):
+  - Mensajes: subject almacenado/devuelto, validación max-100, pending-count,
+    respuesta del admin, 409 en doble respuesta, creación de notificación
+    `message_reply`, decremento del contador, auth.
+  - Moneda nativa: campos presentes, valores aritméticos (5 acc × 100 USD @ 200 USD
+    snapshot → avg_cost_native=100, cost_native=500, market_value_native=1000,
+    unrealized_pnl_native=500), campos EUR intactos, posición EUR nativa ≡ EUR.
+
+---
+
 ## [1.12.2] — 2026-06-10
 
 ### Cambiado — Título de sección en Dashboard

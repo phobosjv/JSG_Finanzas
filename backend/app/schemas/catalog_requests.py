@@ -90,6 +90,7 @@ class UserNotificationOut(BaseModel):
 
 class CatalogMessageCreate(BaseModel):
     message: str
+    subject: str = ""
     security_request_id: int | None = None
 
     @field_validator("message")
@@ -99,15 +100,37 @@ class CatalogMessageCreate(BaseModel):
             raise ValueError("El mensaje no puede estar vacío")
         return v.strip()
 
+    @field_validator("subject")
+    @classmethod
+    def subject_max_len(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) > 100:
+            raise ValueError("El asunto no puede superar 100 caracteres")
+        return v
+
 
 class CatalogMessageOut(BaseModel):
     id: int
     user_id: int
     username: str | None = None
+    subject: str = ""
     message: str
     security_request_id: int | None
     is_resolved: bool
+    admin_reply: str | None = None
+    admin_reply_at: datetime | None = None
     created_at: datetime
+
+
+class AdminMessageReply(BaseModel):
+    reply: str
+
+    @field_validator("reply")
+    @classmethod
+    def reply_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("La respuesta no puede estar vacía")
+        return v.strip()
 
 
 class NotificationReply(BaseModel):

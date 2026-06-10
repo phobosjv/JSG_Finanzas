@@ -332,20 +332,28 @@ class PositionSummary(BaseModel):
     shares: Decimal
     avg_cost_eur: Decimal        # precio medio por acción en EUR (con comisión)
     cost_eur: Decimal            # importe invertido = shares × avg_cost_eur
+    avg_cost_native: Decimal     # precio medio por acción en divisa nativa
+    cost_native: Decimal         # importe invertido en divisa nativa
     # Valoración actual
     current_price: Decimal | None
     market_value_eur: Decimal
+    market_value_native: Decimal
     # Beneficio latente
     unrealized_pnl_eur: Decimal
     unrealized_pnl_pct: Decimal
+    unrealized_pnl_native: Decimal
     # Variación diaria
     daily_change_pct: Decimal | None
     daily_change_eur: Decimal | None
     # Dividendos y beneficio total
     dividends_eur: Decimal
+    dividends_native: Decimal
     realized_pnl_eur: Decimal    # beneficio realizado de ventas parciales
+    realized_pnl_native: Decimal
     total_profit_eur: Decimal    # unrealized_pnl + realized_pnl + dividends
+    total_profit_native: Decimal
     fees_eur: Decimal            # suma de comisiones de todas las transacciones en EUR
+    fees_native: Decimal         # suma de comisiones en divisa nativa
     # Objetivos de precio e indicadores. El objetivo de COMPRA vive en favorites
     # (catálogo/mercados), no en la posición; aquí solo el de venta.
     target_sell_price: Decimal | None
@@ -361,16 +369,24 @@ class ClosedPositionSummary(BaseModel):
     security_id: int
     yahoo_ticker: str
     name: str
+    isin: str | None = None
+    currency: str = "EUR"        # divisa nativa del valor
     market_code: str             # código de mercado (para badge ETF/Crypto/Acción)
     market_type: str = "stock"   # tipo de producto: stock|fund|etf|crypto (segmentación)
     is_fund_market: bool = False # True si el mercado es de fondos de inversión
     shares_sold: Decimal
-    cost_eur: Decimal            # coste total de adquisición
-    proceeds_eur: Decimal        # ingresos totales de la venta
+    cost_eur: Decimal            # coste total de adquisición en EUR
+    cost_native: Decimal         # coste total de adquisición en divisa nativa
+    proceeds_eur: Decimal        # ingresos totales de la venta en EUR
+    proceeds_native: Decimal     # ingresos totales de la venta en divisa nativa
     realized_pnl_eur: Decimal
+    realized_pnl_native: Decimal
     dividends_eur: Decimal
-    total_profit_eur: Decimal    # realized_pnl + dividends
+    dividends_native: Decimal
+    total_profit_eur: Decimal    # realized_pnl + dividends (EUR)
+    total_profit_native: Decimal
     fees_eur: Decimal
+    fees_native: Decimal
 
 
 class ClosedPositionAnalytics(ClosedPositionSummary):

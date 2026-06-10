@@ -38,6 +38,11 @@ function fmt(val, dec = 2) {
   if (val == null) return '—'
   return Number(val).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
+/** Formatea un importe con su divisa: "€" para EUR, código ISO para el resto. */
+function fmtC(val, currency) {
+  if ((currency ?? 'EUR') === 'EUR') return `${fmt(val)} €`
+  return `${fmt(val)} ${currency}`
+}
 
 /** Convierte meses a "X año(s) y Y mes(es)" para la tabla de dividendos. */
 function fmtYearsMonths(months) {
@@ -441,30 +446,30 @@ export default function Portfolio() {
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{p.name}</div>
                       </td>
                       <td className="num">{fmt(p.shares, 4)}</td>
-                      <td className="num">{fmt(p.avg_cost_eur)}</td>
-                      <td className="num">{fmt(p.cost_eur)}</td>
+                      <td className="num">{fmtC(p.currency !== 'EUR' ? p.avg_cost_native : p.avg_cost_eur, p.currency)}</td>
+                      <td className="num">{fmtC(p.currency !== 'EUR' ? p.cost_native : p.cost_eur, p.currency)}</td>
                       <td className="num">
-                        {fmt(p.current_price)}
-                        {p.currency === 'USD' && p.current_price != null && (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 3 }}>$</span>
-                        )}
+                        {fmt(p.current_price)} {p.currency !== 'EUR' && p.current_price != null ? p.currency : (p.current_price != null ? '€' : '')}
                       </td>
-                      <td className="num">{fmt(p.market_value_eur)}</td>
-                      <td className={`num ${cls(p.unrealized_pnl_eur)}`}>{sign(p.unrealized_pnl_eur)}{fmt(p.unrealized_pnl_eur)}</td>
+                      <td className="num">{fmtC(p.currency !== 'EUR' ? p.market_value_native : p.market_value_eur, p.currency)}</td>
+                      <td className={`num ${cls(p.currency !== 'EUR' ? p.unrealized_pnl_native : p.unrealized_pnl_eur)}`}>
+                        {sign(p.currency !== 'EUR' ? p.unrealized_pnl_native : p.unrealized_pnl_eur)}
+                        {fmtC(p.currency !== 'EUR' ? p.unrealized_pnl_native : p.unrealized_pnl_eur, p.currency)}
+                      </td>
                       <td className={`num ${cls(p.unrealized_pnl_pct)}`}>{sign(p.unrealized_pnl_pct)}{fmt(p.unrealized_pnl_pct)}%</td>
                       <td className={`num ${p.daily_change_eur != null ? cls(p.daily_change_eur) : 'neu'}`}>
-                        {p.daily_change_eur != null ? `${sign(p.daily_change_eur)}${fmt(p.daily_change_eur)}` : '—'}
+                        {p.daily_change_eur != null ? `${sign(p.daily_change_eur)}${fmt(p.daily_change_eur)} €` : '—'}
                       </td>
                       <td className={`num ${p.daily_change_pct != null ? cls(p.daily_change_pct) : 'neu'}`}>
                         {p.daily_change_pct != null ? `${sign(p.daily_change_pct)}${fmt(p.daily_change_pct)}%` : '—'}
                       </td>
-                      <td className="num">{fmt(p.dividends_eur)}</td>
-                      <td className={`num ${cls(p.total_profit_eur)}`}>{sign(p.total_profit_eur)}{fmt(p.total_profit_eur)}</td>
+                      <td className="num">{fmtC(p.currency !== 'EUR' ? p.dividends_native : p.dividends_eur, p.currency)}</td>
+                      <td className={`num ${cls(p.currency !== 'EUR' ? p.total_profit_native : p.total_profit_eur)}`}>
+                        {sign(p.currency !== 'EUR' ? p.total_profit_native : p.total_profit_eur)}
+                        {fmtC(p.currency !== 'EUR' ? p.total_profit_native : p.total_profit_eur, p.currency)}
+                      </td>
                       <td className="num">
-                        {fmt(p.max_1y)}
-                        {p.currency === 'USD' && p.max_1y != null && (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 3 }}>$</span>
-                        )}
+                        {p.max_1y != null ? `${fmt(p.max_1y)} ${p.currency}` : '—'}
                       </td>
                       <TargetSellCell pos={p} onUpdate={handleTargetUpdate} />
                       <td className={`num ${pctToSell == null ? 'neu' : pctToSell > 0 ? 'neg' : 'pos'}`}>
@@ -540,11 +545,17 @@ export default function Portfolio() {
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{p.name}</div>
                     </td>
                     <td className="num">{fmt(p.shares_sold, 4)}</td>
-                    <td className="num">{fmt(p.cost_eur)}</td>
-                    <td className="num">{fmt(p.proceeds_eur)}</td>
-                    <td className={`num ${cls(p.realized_pnl_eur)}`}>{sign(p.realized_pnl_eur)}{fmt(p.realized_pnl_eur)}</td>
-                    <td className="num">{fmt(p.dividends_eur)}</td>
-                    <td className={`num ${cls(p.total_profit_eur)}`}>{sign(p.total_profit_eur)}{fmt(p.total_profit_eur)}</td>
+                    <td className="num">{fmtC(p.currency !== 'EUR' ? p.cost_native    : p.cost_eur,          p.currency)}</td>
+                    <td className="num">{fmtC(p.currency !== 'EUR' ? p.proceeds_native : p.proceeds_eur,     p.currency)}</td>
+                    <td className={`num ${cls(p.currency !== 'EUR' ? p.realized_pnl_native : p.realized_pnl_eur)}`}>
+                      {sign(p.currency !== 'EUR' ? p.realized_pnl_native : p.realized_pnl_eur)}
+                      {fmtC(p.currency !== 'EUR' ? p.realized_pnl_native : p.realized_pnl_eur, p.currency)}
+                    </td>
+                    <td className="num">{fmtC(p.currency !== 'EUR' ? p.dividends_native : p.dividends_eur,   p.currency)}</td>
+                    <td className={`num ${cls(p.currency !== 'EUR' ? p.total_profit_native : p.total_profit_eur)}`}>
+                      {sign(p.currency !== 'EUR' ? p.total_profit_native : p.total_profit_eur)}
+                      {fmtC(p.currency !== 'EUR' ? p.total_profit_native : p.total_profit_eur, p.currency)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

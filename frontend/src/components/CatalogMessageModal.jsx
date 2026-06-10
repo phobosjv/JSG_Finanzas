@@ -6,10 +6,11 @@ import { api } from '../api/client'
  * Modal simple para que un usuario normal envíe un mensaje libre al admin.
  *
  * Props:
+ *   subject        — asunto del mensaje (auto-determinado por el contexto de llamada).
  *   onClose()      — cierra el modal.
  *   onSubmitted()  — callback opcional tras enviar con éxito.
  */
-export default function CatalogMessageModal({ onClose, onSubmitted }) {
+export default function CatalogMessageModal({ subject = '', onClose, onSubmitted }) {
   const { t } = useAppConfig()
   const [message, setMessage]     = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -26,7 +27,7 @@ export default function CatalogMessageModal({ onClose, onSubmitted }) {
     setError('')
     setSubmitting(true)
     try {
-      await api.post('/catalog/messages', { message: message.trim() })
+      await api.post('/catalog/messages', { message: message.trim(), subject })
       setSuccess(true)
       onSubmitted?.()
     } catch (err) {

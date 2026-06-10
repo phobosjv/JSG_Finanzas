@@ -362,6 +362,7 @@ export default function Markets() {
       )}
       {showMessageModal && (
         <CatalogMessageModal
+          subject="Mercados"
           onClose={() => setShowMessageModal(false)}
         />
       )}

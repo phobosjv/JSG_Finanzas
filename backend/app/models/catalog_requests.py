@@ -90,6 +90,10 @@ class CatalogMessageRow(Base):
     Puede ser un contacto directo (security_request_id=NULL) o una
     respuesta del usuario tras recibir la resolución de su solicitud
     (security_request_id apunta a la SecurityRequestRow).
+
+    subject identifica el origen del mensaje (ej. "Mercados").
+    admin_reply / admin_reply_at: respuesta única del admin; al responder
+    se marca is_resolved=True y se crea una UserNotificationRow.
     """
 
     __tablename__ = "catalog_messages"
@@ -98,11 +102,14 @@ class CatalogMessageRow(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    subject: Mapped[str] = mapped_column(Text, nullable=False, default="")
     message: Mapped[str] = mapped_column(Text, nullable=False)
     security_request_id: Mapped[int | None] = mapped_column(
         ForeignKey("security_requests.id", ondelete="SET NULL"), nullable=True
     )
     is_resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    admin_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    admin_reply_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.datetime("now")
     )
