@@ -25,11 +25,14 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_admin
 from app.models import AppConfig, MarketRow, Security, TaxBracketRow, User
 from app.schemas.market_admin import (
-    AppNameUpdate, CatalogImportBody, CurrenciesUpdate, DustThresholdUpdate, LogoUpdate,
-    MarketCreate, MarketOut, MarketReorderItem, MarketUpdate, SnapshotIntervalUpdate,
+    AppNameUpdate, CatalogImportBody, CurrenciesUpdate, DustThresholdUpdate, EmailConfigIn,
+    EmailConfigOut, LogoUpdate, MarketCreate, MarketOut, MarketReorderItem, MarketUpdate,
+    SnapshotIntervalUpdate,
 )
 from app.repositories.portfolio_repository import DUST_THRESHOLD_KEY, get_dust_threshold
 from app.schemas.tax_bracket import TaxBracketCreate, TaxBracketOut, TaxBracketUpdate
+from app.services.email_notifications import EMAIL_CONFIG_KEY, load_email_config
+from app.services.email_service import EmailConfig, send_email
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -406,6 +409,13 @@ def get_config(
     _admin: User = Depends(require_admin),
 ):
     logo_updated = db.get(AppConfig, _CONFIG_LOGO_UPDATED_KEY)
+    email_row = db.get(AppConfig, EMAIL_CONFIG_KEY)
+    email_provider: str | None = None
+    if email_row:
+        try:
+            email_provider = json.loads(email_row.value).get("provider")
+        except Exception:
+            pass
     return {
         "snapshot_interval_minutes": _get_interval(db),
         "app_name": _get_app_name(db),
@@ -413,7 +423,118 @@ def get_config(
         "logo_updated_at": logo_updated.value if logo_updated else None,
         "supported_currencies": _get_supported_currencies(db),
         "dust_threshold": str(get_dust_threshold(db)),
+        "email_configured": email_row is not None,
+        "email_provider": email_provider,
     }
+
+
+@router.get("/config/email", response_model=EmailConfigOut)
+def get_email_config(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Devuelve la configuración de email con contraseña/api_key enmascaradas."""
+    config = load_email_config(db)
+    if config is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No hay configuración de email guardada",
+        )
+    return EmailConfigOut(
+        provider=config.provider,
+        from_name=config.from_name,
+        from_address=config.from_address,
+        smtp_host=config.smtp_host,
+        smtp_port=config.smtp_port,
+        smtp_user=config.smtp_user,
+        smtp_password="***" if config.smtp_password else None,
+        smtp_use_tls=config.smtp_use_tls,
+        api_key="***" if config.api_key else None,
+        mailgun_domain=config.mailgun_domain,
+    )
+
+
+@router.patch("/config/email", response_model=EmailConfigOut)
+def set_email_config(
+    body: EmailConfigIn,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Guarda la configuración de email. Si smtp_password o api_key vienen como
+    '***', se conserva el valor existente en BD (no se sobreescribe)."""
+    existing = load_email_config(db)
+
+    # Resolver contraseña y api_key: si "***" llega, conservar la actual
+    password = body.smtp_password
+    if password == "***":
+        password = existing.smtp_password if existing else None
+
+    api_key = body.api_key
+    if api_key == "***":
+        api_key = existing.api_key if existing else None
+
+    config = EmailConfig(
+        provider=body.provider,
+        from_name=body.from_name,
+        from_address=body.from_address,
+        smtp_host=body.smtp_host,
+        smtp_port=body.smtp_port,
+        smtp_user=body.smtp_user,
+        smtp_password=password,
+        smtp_use_tls=body.smtp_use_tls,
+        api_key=api_key,
+        mailgun_domain=body.mailgun_domain,
+    )
+    _upsert_config(db, EMAIL_CONFIG_KEY, json.dumps(config.__dict__))
+    db.commit()
+    return EmailConfigOut(
+        provider=config.provider,
+        from_name=config.from_name,
+        from_address=config.from_address,
+        smtp_host=config.smtp_host,
+        smtp_port=config.smtp_port,
+        smtp_user=config.smtp_user,
+        smtp_password="***" if config.smtp_password else None,
+        smtp_use_tls=config.smtp_use_tls,
+        api_key="***" if config.api_key else None,
+        mailgun_domain=config.mailgun_domain,
+    )
+
+
+@router.post("/config/email/test")
+def test_email_config(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Envía un email de prueba al email del administrador logueado.
+
+    422 si el admin no tiene email configurado o si la configuración de email
+    no existe. 422 con detalle si el envío falla.
+    """
+    if not admin.email:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Configura primero tu email en la tabla de usuarios",
+        )
+    config = load_email_config(db)
+    if config is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No hay configuración de email guardada",
+        )
+    try:
+        body_html = (
+            "<h2>Correo de prueba</h2>"
+            "<p>Si recibes este mensaje, la configuración de email funciona correctamente.</p>"
+            "<p><small>JSG Portfolio — configuración de notificaciones</small></p>"
+        )
+        send_email(config, admin.email, "Prueba de configuración de email", body_html)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Error al enviar el email: {exc}",
+        )
+    return {"sent_to": admin.email}
 
 
 @router.patch("/config/dust-threshold")

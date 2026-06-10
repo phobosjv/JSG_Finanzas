@@ -5,6 +5,65 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.14.0] — 2026-06-10
+
+### Añadido — Notificaciones por email para administradores
+
+Los administradores con email configurado reciben ahora una copia por correo
+electrónico de los eventos que requieren su atención (nuevas solicitudes de
+catálogo, mensajes de usuarios, respuestas de usuarios).
+
+#### Backend
+
+- **Campo `email` en usuarios** (`users.email TEXT`, nullable). Nueva migración
+  Alembic `e2f3a4b5c6d7` (22ª).
+- **Nuevo endpoint** `PATCH /api/admin/users/{id}/email` — actualiza o borra el
+  email de un usuario (requiere admin). Schema `UserEmailIn`.
+- **`UserAdminOut`** y **`CreateUserRequest`** actualizados para incluir `email`.
+- **`services/email_service.py`** — servicio puro de envío de email. Soporta:
+  - `smtp_gmail` — Gmail con contraseña de aplicación (SMTP + STARTTLS, puerto 587).
+  - `smtp_outlook` — Outlook / Microsoft 365 (SMTP + STARTTLS, puerto 587).
+  - `smtp_generic` — SMTP genérico (host, puerto, TLS configurables).
+  - `sendgrid` — API REST de SendGrid (vía `httpx`, sin nueva dependencia).
+  - `mailgun` — API REST de Mailgun (vía `httpx`, sin nueva dependencia).
+- **`services/email_notifications.py`** — orquestador: carga config y admins
+  con email desde BD, llama al servicio de envío. Errores se loguean pero no
+  interrumpen el flujo principal.
+- **Configuración de email** guardada en `app_config["email_config"]` (JSON).
+  Nuevos endpoints (admin):
+  - `GET /api/admin/config/email` — devuelve config con contraseña/api_key enmascaradas.
+  - `PATCH /api/admin/config/email` — guarda config; `"***"` en contraseña/api_key conserva el valor existente.
+  - `POST /api/admin/config/email/test` — envía email de prueba al email del admin logueado (422 si no tiene email o no hay config).
+  - `GET /api/admin/config` ampliado con `email_configured: bool` y `email_provider`.
+- **Triggers de email** (try/except para no romper el flujo):
+  - `POST /api/catalog/requests` — nueva solicitud de catálogo.
+  - `POST /api/catalog/messages` — nuevo mensaje libre al admin.
+  - `POST /api/notifications/{id}/reply` — usuario responde a notificación del admin.
+
+#### Frontend
+
+- **AdminPanel — Tab Herramientas**: nueva sección «Configuración de correo
+  electrónico» al inicio (antes de Backup). Incluye selector de proveedor
+  (Gmail / Outlook / SMTP genérico / SendGrid / Mailgun) con texto de ayuda
+  específico por proveedor, formulario dinámico con campos por proveedor, botón
+  «Guardar configuración» y botón «Probar configuración».
+- **AdminPanel — Tab Usuarios**: el email del usuario aparece en la columna
+  de identidad (texto secundario, gris). Nuevo botón «✉ Email» en las acciones
+  de cada usuario. Modal `EditEmailModal` para editar o borrar el email.
+- **`CreateUserModal`**: nuevo campo email opcional con nota
+  «Solo se envían notificaciones por email a administradores».
+- Traducciones ES+EN completas para todos los nuevos textos (`admin.email_*`).
+
+#### Tests
+
+- Nuevo fichero `test_email.py` con 4 bloques:
+  1. Campo email en usuarios (crear, listar, editar, borrar, permisos).
+  2. Configuración de email (guardar, recuperar enmascarada, actualizar con `***`).
+  3. Test de email (422 sin email admin, mock de `send_email`, error de envío).
+  4. Triggers de email (mock de `notify_admins`, prueba de resiliencia ante fallos).
+
+---
+
 ## [1.13.2] — 2026-06-10
 
 ### Cambiado

@@ -289,7 +289,8 @@ function ChangePasswordModal({ user, onClose, onDone }) {
 // ---------------------------------------------------------------------------
 
 function CreateUserModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ username: '', password: '', is_admin: false })
+  const { t } = useAppConfig()
+  const [form, setForm] = useState({ username: '', password: '', is_admin: false, email: '' })
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -306,7 +307,12 @@ function CreateUserModal({ onClose, onCreated }) {
     if (form.password.length < 8) { setError('Contraseña: mínimo 8 caracteres'); return }
     setBusy(true); setError(null)
     try {
-      await api.post('/admin/users', { ...form, username: form.username.trim() })
+      await api.post('/admin/users', {
+        username: form.username.trim(),
+        password: form.password,
+        is_admin: form.is_admin,
+        email: form.email.trim() || null,
+      })
       onCreated()
     } catch (err) { setError(err.message) }
     finally { setBusy(false) }
@@ -326,6 +332,17 @@ function CreateUserModal({ onClose, onCreated }) {
             <label>Contraseña</label>
             <input type="password" {...field('password')} required minLength={8} />
           </div>
+          <div className="form-group">
+            <label>{t('admin.email_user_label')}</label>
+            <input
+              type="email"
+              {...field('email')}
+              placeholder={t('admin.email_user_placeholder')}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
+              ℹ️ {t('admin.email_admin_only_note')}
+            </span>
+          </div>
           <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <input
               type="checkbox"
@@ -340,6 +357,58 @@ function CreateUserModal({ onClose, onCreated }) {
             <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn-primary" disabled={busy}>
               {busy ? 'Creando…' : 'Crear'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
+//  Modal: editar email de un usuario
+// ---------------------------------------------------------------------------
+
+function EditEmailModal({ user, onClose, onDone }) {
+  const { t } = useAppConfig()
+  const [email, setEmail] = useState(user.email || '')
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    try {
+      await api.patch(`/admin/users/${user.id}/email`, { email: email.trim() || null })
+      onDone()
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+        <h2>{t('admin.email_edit_title')} — {user.username}</h2>
+        {error && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{error}</div>}
+        <form onSubmit={submit}>
+          <div className="form-group">
+            <label>{t('admin.email_user_label')}</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder={t('admin.email_user_placeholder')}
+              autoFocus
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
+              ℹ️ {t('admin.email_admin_only_note')}
+            </span>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Guardando…' : t('admin.email_user_save')}
             </button>
           </div>
         </form>
@@ -926,6 +995,284 @@ function ConfigSection() {
       {/* ── Tramos IRPF ─────────────────────────────── */}
       <hr style={{ margin: '24px 0', borderColor: 'var(--border-color, #333)' }} />
       <TaxBracketsSubsection />
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
+//  Configuración de correo electrónico
+// ---------------------------------------------------------------------------
+
+const EMAIL_PROVIDERS = [
+  { key: 'smtp_gmail',   label: 'Gmail',           icon: '📧' },
+  { key: 'smtp_outlook', label: 'Outlook / Microsoft 365', icon: '📨' },
+  { key: 'smtp_generic', label: 'SMTP genérico',   icon: '⚙️' },
+  { key: 'sendgrid',     label: 'SendGrid',        icon: '📤' },
+  { key: 'mailgun',      label: 'Mailgun',         icon: '📬' },
+]
+
+const SMTP_PRESETS = {
+  smtp_gmail:   { host: 'smtp.gmail.com',     port: 587 },
+  smtp_outlook: { host: 'smtp.office365.com', port: 587 },
+}
+
+function EmailConfigSection() {
+  const { t } = useAppConfig()
+  const [cfg, setCfg] = useState({
+    provider: 'smtp_gmail',
+    from_name: '',
+    from_address: '',
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_user: '',
+    smtp_password: '',
+    smtp_use_tls: true,
+    api_key: '',
+    mailgun_domain: '',
+  })
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [err, setErr] = useState(null)
+
+  useEffect(() => {
+    api.get('/admin/config/email')
+      .then(data => {
+        setCfg(prev => ({
+          ...prev,
+          ...data,
+          smtp_password: data.smtp_password || '',
+          api_key: data.api_key || '',
+        }))
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+  }, [])
+
+  function updateField(name, value) {
+    setCfg(prev => ({ ...prev, [name]: value }))
+  }
+
+  async function save(e) {
+    e.preventDefault()
+    setSaving(true); setMsg(null); setErr(null)
+    try {
+      const payload = { ...cfg }
+      // Si la contraseña/api_key está vacía, no la enviamos
+      if (!payload.smtp_password) delete payload.smtp_password
+      if (!payload.api_key) delete payload.api_key
+      await api.patch('/admin/config/email', payload)
+      setMsg(t('admin.email_saved_ok'))
+      // Después de guardar, recargar para reflejar máscaras
+      const fresh = await api.get('/admin/config/email')
+      setCfg(prev => ({
+        ...prev,
+        ...fresh,
+        smtp_password: fresh.smtp_password || '',
+        api_key: fresh.api_key || '',
+      }))
+    } catch (ex) { setErr(ex.message) }
+    finally { setSaving(false) }
+  }
+
+  async function testEmail() {
+    setTesting(true); setMsg(null); setErr(null)
+    try {
+      const data = await api.post('/admin/config/email/test', {})
+      setMsg(t('admin.email_test_ok').replace('{email}', data.sent_to))
+    } catch (ex) { setErr(ex.message) }
+    finally { setTesting(false) }
+  }
+
+  const isSmtp = cfg.provider.startsWith('smtp_')
+  const hasPreset = cfg.provider in SMTP_PRESETS
+
+  return (
+    <div className="card" style={{ marginTop: 0 }}>
+      <h2>{t('admin.email_section_title')}</h2>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
+        {t('admin.email_section_desc')}
+      </p>
+
+      {msg && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12, fontSize: '0.85rem' }}>{msg}</div>}
+      {err && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{err}</div>}
+
+      <form onSubmit={save}>
+        {/* Selector de proveedor */}
+        <div className="form-group">
+          <label>{t('admin.email_provider_label')}</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {EMAIL_PROVIDERS.map(p => (
+              <button
+                key={p.key}
+                type="button"
+                className={cfg.provider === p.key ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+                onClick={() => updateField('provider', p.key)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                {p.icon} {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Texto de ayuda por proveedor */}
+        {cfg.provider !== 'smtp_generic' && (
+          <div style={{
+            background: 'var(--bg-input)',
+            borderRadius: 6,
+            padding: '10px 14px',
+            marginBottom: 16,
+            fontSize: '0.82rem',
+            color: 'var(--text-muted)',
+            lineHeight: 1.5,
+          }}>
+            {t(`admin.email_help_${cfg.provider}`)}
+          </div>
+        )}
+
+        {/* Campos comunes */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="form-group">
+            <label>{t('admin.email_from_name')}</label>
+            <input
+              type="text"
+              value={cfg.from_name}
+              onChange={e => updateField('from_name', e.target.value)}
+              placeholder="JSG Portfolio"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>{t('admin.email_from_address')}</label>
+            <input
+              type="email"
+              value={cfg.from_address}
+              onChange={e => updateField('from_address', e.target.value)}
+              placeholder="noreply@tudominio.com"
+              required
+            />
+          </div>
+        </div>
+
+        {/* Campos SMTP */}
+        {isSmtp && (
+          <>
+            {!hasPreset && (
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label>{t('admin.email_smtp_host')}</label>
+                  <input
+                    type="text"
+                    value={cfg.smtp_host}
+                    onChange={e => updateField('smtp_host', e.target.value)}
+                    placeholder="smtp.tuservidor.com"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>{t('admin.email_smtp_port')}</label>
+                  <input
+                    type="number"
+                    value={cfg.smtp_port}
+                    onChange={e => updateField('smtp_port', parseInt(e.target.value) || 587)}
+                    min={1}
+                    max={65535}
+                  />
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="form-group">
+                <label>{t('admin.email_smtp_user')}</label>
+                <input
+                  type="text"
+                  value={cfg.smtp_user}
+                  onChange={e => updateField('smtp_user', e.target.value)}
+                  placeholder={cfg.provider === 'smtp_gmail' ? 'tucuenta@gmail.com' : 'usuario'}
+                  autoComplete="username"
+                />
+              </div>
+              <div className="form-group">
+                <label>{t('admin.email_smtp_password')}</label>
+                <input
+                  type="password"
+                  value={cfg.smtp_password}
+                  onChange={e => updateField('smtp_password', e.target.value)}
+                  placeholder={cfg.smtp_password === '***' ? '••••••••••••••••' : ''}
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            {!hasPreset && (
+              <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  id="smtp_tls"
+                  checked={cfg.smtp_use_tls}
+                  onChange={e => updateField('smtp_use_tls', e.target.checked)}
+                  style={{ width: 'auto', margin: 0 }}
+                />
+                <label htmlFor="smtp_tls" style={{ margin: 0 }}>{t('admin.email_smtp_tls')}</label>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* SendGrid */}
+        {cfg.provider === 'sendgrid' && (
+          <div className="form-group">
+            <label>{t('admin.email_api_key')}</label>
+            <input
+              type="password"
+              value={cfg.api_key}
+              onChange={e => updateField('api_key', e.target.value)}
+              placeholder={cfg.api_key === '***' ? '••••••••••••••••' : 'SG.XXXX…'}
+              autoComplete="new-password"
+            />
+          </div>
+        )}
+
+        {/* Mailgun */}
+        {cfg.provider === 'mailgun' && (
+          <>
+            <div className="form-group">
+              <label>{t('admin.email_api_key')}</label>
+              <input
+                type="password"
+                value={cfg.api_key}
+                onChange={e => updateField('api_key', e.target.value)}
+                placeholder={cfg.api_key === '***' ? '••••••••••••••••' : 'key-XXXX…'}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="form-group">
+              <label>{t('admin.email_mailgun_domain')}</label>
+              <input
+                type="text"
+                value={cfg.mailgun_domain}
+                onChange={e => updateField('mailgun_domain', e.target.value)}
+                placeholder="mg.tudominio.com"
+              />
+            </div>
+          </>
+        )}
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+          <button type="submit" className="btn-primary btn-sm" disabled={saving}>
+            {saving ? t('admin.email_saving') : t('admin.email_save')}
+          </button>
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            disabled={testing}
+            onClick={testEmail}
+          >
+            {testing ? t('admin.email_testing') : t('admin.email_test')}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
@@ -2246,6 +2593,7 @@ export default function AdminPanel() {
   const [expiryModal, setExpiryModal] = useState(null)   // usuario para fijar caducidad
   const [historyModal, setHistoryModal] = useState(null) // usuario para ver historial
   const [notifModal, setNotifModal] = useState(null)     // { userId, username } | null
+  const [emailModal, setEmailModal] = useState(null)    // usuario para editar email
 
   const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
   const [userSearch, setUserSearch] = useState('')
@@ -2529,6 +2877,11 @@ export default function AdminPanel() {
                         Caduca: {fmt(u.expires_at)}
                       </div>
                     )}
+                    {u.email && (
+                      <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                        ✉ {u.email}
+                      </div>
+                    )}
                   </td>
 
                   {/* Columna 2: actividad */}
@@ -2558,6 +2911,13 @@ export default function AdminPanel() {
                         title={t('admin.notif_send_btn')}
                       >
                         {t('admin.notif_send_btn')}
+                      </button>
+                      <button
+                        className="btn-ghost btn-sm"
+                        onClick={() => setEmailModal(u)}
+                        title={t('admin.email_edit_label')}
+                      >
+                        {t('admin.email_edit_label')}
                       </button>
                       {u.id !== me?.id && (
                         <>
@@ -2655,7 +3015,9 @@ export default function AdminPanel() {
       )}
 
       {/* ── Pestaña: Herramientas ─────────────────────────────────────── */}
-      {tab === 'herramientas' && <div className="card" style={{ marginTop: 0 }}>
+      {tab === 'herramientas' && <EmailConfigSection />}
+
+      {tab === 'herramientas' && <div className="card" style={{ marginTop: 24 }}>
         <h2>Backup completo del sistema</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
           Exporta todos los usuarios, el catálogo de valores y todas las carteras a un JSON.
@@ -2765,6 +3127,13 @@ export default function AdminPanel() {
           username={notifModal.username}
           onClose={() => setNotifModal(null)}
           onSent={() => setNotifModal(null)}
+        />
+      )}
+      {emailModal && (
+        <EditEmailModal
+          user={emailModal}
+          onClose={() => setEmailModal(null)}
+          onDone={() => { setEmailModal(null); loadUsers() }}
         />
       )}
     </div>

@@ -507,6 +507,41 @@ export const translations = {
     'admin.broadcast_section_title':     'Mensaje a todos los usuarios',
     'admin.broadcast_section_desc':      'Envía una notificación personalizada a todos los usuarios activos de la plataforma.',
     'admin.broadcast_btn':               'Enviar a todos',
+
+    // Email
+    'admin.email_section_title':  'Configuración de correo electrónico',
+    'admin.email_section_desc':   'Configura el proveedor de correo para que los administradores con email reciban alertas automáticas.',
+    'admin.email_provider_label': 'Proveedor',
+    'admin.email_from_name':      'Nombre del remitente',
+    'admin.email_from_address':   'Dirección del remitente',
+    'admin.email_smtp_host':      'Servidor SMTP',
+    'admin.email_smtp_port':      'Puerto',
+    'admin.email_smtp_user':      'Usuario',
+    'admin.email_smtp_password':  'Contraseña / contraseña de app',
+    'admin.email_smtp_tls':       'Usar STARTTLS (recomendado)',
+    'admin.email_api_key':        'API Key',
+    'admin.email_mailgun_domain': 'Dominio de Mailgun',
+    'admin.email_save':           'Guardar configuración',
+    'admin.email_saving':         'Guardando…',
+    'admin.email_saved_ok':       'Configuración de email guardada correctamente',
+    'admin.email_test':           'Probar configuración',
+    'admin.email_testing':        'Enviando prueba…',
+    'admin.email_test_ok':        'Email de prueba enviado a {email}',
+    'admin.email_admin_only_note': 'Solo se envían notificaciones por email a administradores',
+    'admin.email_edit_label':     '✉ Email',
+    'admin.email_edit_title':     'Editar email',
+    'admin.email_user_label':     'Email de contacto',
+    'admin.email_user_placeholder': 'correo@ejemplo.com',
+    'admin.email_user_save':      'Guardar',
+    'admin.email_help_smtp_gmail':
+      'Activa la verificación en 2 pasos en tu cuenta Google. Ve a Seguridad → Contraseñas de aplicación → Generar. Introduce "JSG Portfolio" como nombre y pega aquí los 16 caracteres generados. Nota: las contraseñas de aplicación solo están disponibles con 2FA activo.',
+    'admin.email_help_smtp_outlook':
+      'En account.microsoft.com activa la verificación en 2 pasos. Ve a Seguridad → Contraseñas de aplicación → Crear. Si usas Microsoft 365 corporativo puede que necesites que el administrador de tu organización habilite SMTP AUTH.',
+    'admin.email_help_sendgrid':
+      'Crea una cuenta en sendgrid.com (plan gratuito: 100 emails/día sin caducidad). En el panel ve a Settings → API Keys → Create API Key. Elige "Restricted Access" y activa solo "Mail Send". Copia la clave generada (solo se muestra una vez).',
+    'admin.email_help_mailgun':
+      'Crea una cuenta en mailgun.com (plan gratuito: 1.000 emails/mes durante 3 meses). En el panel ve a Sending → Domains para ver tu dominio. Copia la API Key privada desde API Security. El dominio de envío suele ser de la forma "mg.tudominio.com" o el sandbox proporcionado.',
+
     'admin.currencies':           'Divisas soportadas',
     'admin.currencies_note':      'EUR siempre está activa como divisa base y no se puede eliminar.',
     'admin.currencies_add':       'Añadir divisa',
@@ -1108,6 +1143,41 @@ export const translations = {
     'admin.broadcast_section_title':     'Message to all users',
     'admin.broadcast_section_desc':      'Send a custom notification to all active users on the platform.',
     'admin.broadcast_btn':               'Send to all',
+
+    // Email
+    'admin.email_section_title':  'Email notifications',
+    'admin.email_section_desc':   'Configure the email provider so admins with an email address receive automatic alerts.',
+    'admin.email_provider_label': 'Provider',
+    'admin.email_from_name':      'Sender name',
+    'admin.email_from_address':   'Sender address',
+    'admin.email_smtp_host':      'SMTP server',
+    'admin.email_smtp_port':      'Port',
+    'admin.email_smtp_user':      'Username',
+    'admin.email_smtp_password':  'Password / app password',
+    'admin.email_smtp_tls':       'Use STARTTLS (recommended)',
+    'admin.email_api_key':        'API Key',
+    'admin.email_mailgun_domain': 'Mailgun domain',
+    'admin.email_save':           'Save configuration',
+    'admin.email_saving':         'Saving…',
+    'admin.email_saved_ok':       'Email configuration saved successfully',
+    'admin.email_test':           'Test configuration',
+    'admin.email_testing':        'Sending test…',
+    'admin.email_test_ok':        'Test email sent to {email}',
+    'admin.email_admin_only_note': 'Email notifications are only sent to admin users',
+    'admin.email_edit_label':     '✉ Email',
+    'admin.email_edit_title':     'Edit email',
+    'admin.email_user_label':     'Contact email',
+    'admin.email_user_placeholder': 'email@example.com',
+    'admin.email_user_save':      'Save',
+    'admin.email_help_smtp_gmail':
+      'Enable 2-Step Verification on your Google account. Go to Security → App passwords → Generate. Enter "JSG Portfolio" as the name and paste the 16-character code here. Note: app passwords are only available with 2FA enabled.',
+    'admin.email_help_smtp_outlook':
+      'On account.microsoft.com enable 2-Step Verification. Go to Security → App passwords → Create. If you use corporate Microsoft 365 your org admin may need to enable SMTP AUTH first.',
+    'admin.email_help_sendgrid':
+      'Create an account at sendgrid.com (free plan: 100 emails/day forever). Go to Settings → API Keys → Create API Key. Choose "Restricted Access" and enable only "Mail Send". Copy the generated key (shown only once).',
+    'admin.email_help_mailgun':
+      'Create an account at mailgun.com (free plan: 1,000 emails/month for 3 months). Go to Sending → Domains to see your domain. Copy the private API Key from API Security. The sending domain is usually "mg.yourdomain.com" or the provided sandbox.',
+
     'admin.currencies':           'Supported currencies',
     'admin.currencies_note':      'EUR is always active as the base currency and cannot be removed.',
     'admin.currencies_add':       'Add currency',

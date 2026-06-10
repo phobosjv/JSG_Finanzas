@@ -34,6 +34,7 @@ from app.schemas.catalog_requests import (
     SecurityRequestCreate,
     SecurityRequestOut,
 )
+from app.services.email_notifications import notify_admins
 
 log = logging.getLogger(__name__)
 
@@ -211,6 +212,19 @@ def create_request(
     db.commit()
     db.refresh(req)
 
+    try:
+        notify_admins(
+            db,
+            subject=f"Nueva solicitud de catálogo: {body.ticker}",
+            body_html=(
+                f"<p>El usuario <strong>{user.username}</strong> ha solicitado agregar "
+                f"<strong>{body.name}</strong> ({body.ticker}) al catálogo.</p>"
+                f"<p>Mercado: {body.market_id}</p>"
+            ),
+        )
+    except Exception:
+        log.exception("Error notificando a admins por email sobre nueva solicitud")
+
     return _make_request_out(req, username=user.username)
 
 
@@ -235,6 +249,19 @@ def create_message(
     db.add(msg)
     db.commit()
     db.refresh(msg)
+
+    try:
+        notify_admins(
+            db,
+            subject=f"Nuevo mensaje de {user.username}",
+            body_html=(
+                f"<p>El usuario <strong>{user.username}</strong> ha enviado un mensaje:</p>"
+                f"<p><em>Asunto: {msg.subject or '(sin asunto)'}</em></p>"
+                f"<blockquote>{msg.message}</blockquote>"
+            ),
+        )
+    except Exception:
+        log.exception("Error notificando a admins por email sobre nuevo mensaje")
 
     return CatalogMessageOut(
         id=msg.id,

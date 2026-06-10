@@ -11,6 +11,8 @@ POST   /api/notifications/{id}/reply — elimina + crea mensaje al admin.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,6 +24,9 @@ from app.models.catalog_requests import (
     UserNotificationRow,
 )
 from app.schemas.catalog_requests import NotificationReply, UserNotificationOut
+from app.services.email_notifications import notify_admins
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -118,3 +123,16 @@ def reply_and_dismiss(
     db.add(msg)
     db.delete(notif)
     db.commit()
+
+    try:
+        notify_admins(
+            db,
+            subject=f"Respuesta de {user.username}: {notif.title}",
+            body_html=(
+                f"<p>El usuario <strong>{user.username}</strong> ha respondido a una notificación:</p>"
+                f"<p><em>{notif.title}</em></p>"
+                f"<blockquote>{body.message}</blockquote>"
+            ),
+        )
+    except Exception:
+        log.exception("Error notificando a admins por email sobre respuesta de usuario")

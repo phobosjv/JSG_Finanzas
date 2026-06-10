@@ -52,6 +52,7 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    email: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.datetime("now")
     )

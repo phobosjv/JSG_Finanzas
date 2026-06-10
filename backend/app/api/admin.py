@@ -36,7 +36,7 @@ from app.models.catalog_requests import UserNotificationRow
 from app.schemas.catalog_requests import AdminNotificationSend
 from app.schemas.auth import (
     ChangePasswordRequest, CreateUserRequest, UserAdminOut,
-    UserStatusIn, UserExpiryIn, UserStatusLogOut,
+    UserStatusIn, UserExpiryIn, UserStatusLogOut, UserEmailIn,
 )
 from app.api.admin_markets import _get_supported_currencies
 from app.api.backup import import_recurring_plans
@@ -127,6 +127,7 @@ def create_user(
         username=body.username,
         password_hash=hash_password(body.password),
         is_admin=body.is_admin,
+        email=body.email or None,
     )
     db.add(user)
     db.flush()  # obtener user.id antes del commit
@@ -223,6 +224,20 @@ def set_user_expiry(
         )
     else:
         user.expires_at = None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.patch("/users/{user_id}/email", response_model=UserAdminOut)
+def set_user_email(
+    user_id: int,
+    body: UserEmailIn,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    user = _require_user(db, user_id)
+    user.email = body.email or None
     db.commit()
     db.refresh(user)
     return user

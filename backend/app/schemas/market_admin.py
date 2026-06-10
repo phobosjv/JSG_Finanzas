@@ -234,6 +234,55 @@ class CatalogImportBody(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+#  Configuración de email
+# ---------------------------------------------------------------------------
+
+_VALID_PROVIDERS = {"smtp_gmail", "smtp_outlook", "smtp_generic", "sendgrid", "mailgun"}
+
+
+class EmailConfigIn(BaseModel):
+    """Cuerpo para guardar la configuración de email del sistema."""
+    provider: str
+    from_name: str
+    from_address: str
+    smtp_host: str | None = None
+    smtp_port: int | None = None
+    smtp_user: str | None = None
+    smtp_password: str | None = None  # "***" → conservar el valor almacenado
+    smtp_use_tls: bool = True
+    api_key: str | None = None        # "***" → conservar el valor almacenado
+    mailgun_domain: str | None = None
+
+    @field_validator("provider")
+    @classmethod
+    def provider_valid(cls, v: str) -> str:
+        if v not in _VALID_PROVIDERS:
+            raise ValueError(f"Proveedor no válido. Usa: {', '.join(sorted(_VALID_PROVIDERS))}")
+        return v
+
+    @field_validator("from_name", "from_address")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("No puede estar vacío")
+        return v.strip()
+
+
+class EmailConfigOut(BaseModel):
+    """Respuesta con la configuración de email. Contraseña y API key enmascaradas."""
+    provider: str
+    from_name: str
+    from_address: str
+    smtp_host: str | None = None
+    smtp_port: int | None = None
+    smtp_user: str | None = None
+    smtp_password: str | None = None  # "***" si existe, None si no
+    smtp_use_tls: bool = True
+    api_key: str | None = None        # "***" si existe, None si no
+    mailgun_domain: str | None = None
+
+
+# ---------------------------------------------------------------------------
 #  Splits / contrasplits
 # ---------------------------------------------------------------------------
 
