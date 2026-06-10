@@ -121,7 +121,8 @@ export default function AddProductModal({ defaultMarket, onClose, onSubmitted })
             {/* Preview resultado de validación */}
             {preview && (
               <div style={{
-                background: 'var(--surface-2, #f4f4f5)',
+                background: 'var(--bg-card)',
+                color: 'var(--text)',
                 border: '1px solid var(--border)',
                 borderRadius: 6,
                 padding: '10px 14px',
