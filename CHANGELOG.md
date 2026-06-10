@@ -5,6 +5,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.12.1] — 2026-06-10
+
+### Cambiado — Segmentación por tipo de producto en Mi Cartera
+
+- Los chips de tipo de producto (Acciones, Fondos, ETF, Cripto) ahora tienen
+  comportamiento de **selección exclusiva (radio)**: pulsar un tipo activa solo
+  ese tipo y desactiva cualquier otro que estuviera seleccionado.
+- Antes era posible activar varios tipos simultáneamente (comportamiento
+  multiselect), lo que generaba ambigüedad en la segmentación.
+- Pulsar el tipo ya activo vuelve al estado «Todo» (sin filtro).
+- El chip «Todo» sigue funcionando igual: resetea la selección.
+
+---
+
 ## [1.12.0] — 2026-06-10
 
 ### Añadido — Solicitudes de usuario para agregar productos al catálogo

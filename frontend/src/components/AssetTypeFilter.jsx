@@ -16,13 +16,13 @@ export function presentTypes(items) {
 }
 
 /**
- * Segmentador de chips multiselección por tipo de producto.
- *  value     : array de tipos seleccionados ([] = Todo)
+ * Segmentador de chips por tipo de producto (selección exclusiva).
+ *  value     : array de tipos seleccionados ([] = Todo, máximo 1 elemento)
  *  onChange  : (nextArray) => void
  *  available : tipos a mostrar (en orden canónico)
  *
- * "Todo" se activa cuando value está vacío. Al activar/desactivar tipos se
- * normaliza a [] cuando quedan todos o ninguno seleccionados.
+ * "Todo" se activa cuando value está vacío. Pulsar un tipo activo vuelve a
+ * "Todo"; pulsar un tipo distinto lo sustituye (comportamiento radio).
  */
 export default function AssetTypeFilter({ value = [], available = [], onChange }) {
   const { t } = useAppConfig()
@@ -31,11 +31,8 @@ export default function AssetTypeFilter({ value = [], available = [], onChange }
   if (available.length < 2) return null
 
   function toggle(type) {
-    const has = value.includes(type)
-    let next = has ? value.filter(x => x !== type) : [...value, type]
-    // Si quedan todos seleccionados → equivale a "Todo" (vacío).
-    if (next.length === available.length) next = []
-    onChange(next)
+    // Si ya está seleccionado, deseleccionar (volver a Todo).
+    onChange(value.includes(type) ? [] : [type])
   }
 
   const isAll = value.length === 0
