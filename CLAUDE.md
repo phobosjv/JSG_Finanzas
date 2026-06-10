@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.12.0** · **Tests: 483 en verde** · Aplicación web personal
+> **Versión actual: 1.12.2** · **Tests: 483 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -324,8 +324,8 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   (v1.8.4–1.8.5): `services/returns.py` (puro). Endpoints
   `GET /api/portfolio/xirr` y `/period-returns` (YTD/1a/3a/total). Los traspasos
   no son flujos de caja.
-- **Segmentación por tipo de activo** (v1.7.6): chips Todo/Acciones/Fondos/… que
-  filtran cartera, gráficos y retornos (`?types=`).
+- **Segmentación por tipo de activo** (v1.7.6, comportamiento radio desde v1.12.1): chips Todo/Acciones/Fondos/…
+  con selección exclusiva (un solo tipo activo a la vez) que filtran cartera, gráficos y retornos (`?types=`).
 - **Importación**: CSV de operaciones (`csv_import`) y Ghostfolio
   (`ghostfolio_import`).
 - **Aportaciones periódicas (DCA)** (v1.7.4): backfill de las pasadas + plan
@@ -404,7 +404,7 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 - **Búsqueda por ISIN** (v1.11.3): todos los buscadores de productos de inversión
   (catálogo de Mercados, cartera abierta/cerrada, editor de subcarteras) admiten
   el código ISIN además de ticker y nombre. `PositionSummary` incluye `isin`.
-- **Variación diaria — Top en Dashboard** (v1.11.3): sección configurable
+- **«Posiciones Abiertas - Movimientos del día» en Dashboard** (v1.11.3, título renombrado en v1.12.2): sección configurable
   `topperformers` habilitada por defecto. Dos columnas: mayores subidas y
   mayores bajadas del día (`daily_change_eur`). N por columna configurable
   (3 ó 5; defecto 5). Solo posiciones con snapshot del día. Sin llamada extra
@@ -463,7 +463,7 @@ Qué puede hacer la app hoy (visión de producto):
   Toggle «Por tipo / Por subcartera» en Mi Cartera (oculto si no hay subcarteras).
 - **Búsqueda por ISIN**: todos los buscadores de productos (Mercados, cartera,
   subcarteras) admiten ticker, nombre o ISIN.
-- **Dashboard — Variación diaria Top**: sección configurable con las mayores
+- **Dashboard — «Posiciones Abiertas - Movimientos del día»**: sección configurable con las mayores
   subidas y bajadas del día de las posiciones abiertas (`daily_change_eur`).
 - **Solicitudes de catálogo**: usuarios normales proponen nuevos valores (validación
   Yahoo Finance, flujo de aprobación/rechazo por el admin, notificaciones in-app
@@ -475,7 +475,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.12.0 · 483 tests en verde** (pytest, SQLite en memoria). 20 migraciones
+**v1.12.2 · 483 tests en verde** (pytest, SQLite en memoria). 20 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
