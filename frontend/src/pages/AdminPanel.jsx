@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useAppConfig } from '../context/AppContext'
+import SendNotificationModal from '../components/SendNotificationModal'
 
 function fmt(dt) {
   if (!dt) return '—'
@@ -2244,6 +2245,7 @@ export default function AdminPanel() {
   const [statusModal, setStatusModal] = useState(null)   // usuario para enable/disable
   const [expiryModal, setExpiryModal] = useState(null)   // usuario para fijar caducidad
   const [historyModal, setHistoryModal] = useState(null) // usuario para ver historial
+  const [notifModal, setNotifModal] = useState(null)     // { userId, username } | null
 
   const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
   const [userSearch, setUserSearch] = useState('')
@@ -2498,63 +2500,64 @@ export default function AdminPanel() {
             <thead>
               <tr>
                 <th>Usuario</th>
-                <th>Rol</th>
-                <th>Estado</th>
-                <th>Caduca</th>
-                <th>Creado</th>
-                <th>{t('admin.user_last_login')}</th>
-                <th>{t('admin.user_operations')}</th>
+                <th>Actividad</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(u => (
                 <tr key={u.id}>
-                  <td>
-                    <span style={{ fontWeight: u.id === me?.id ? 600 : 400 }}>{u.username}</span>
-                    {u.id === me?.id && <span style={{ marginLeft: 6, fontSize: '0.75rem', color: 'var(--text-muted)' }}>(tú)</span>}
-                  </td>
-                  <td>
-                    <span
-                      className="badge"
-                      style={{
+                  {/* Columna 1: identidad */}
+                  <td style={{ verticalAlign: 'top' }}>
+                    <div style={{ fontWeight: u.id === me?.id ? 700 : 500, marginBottom: 4 }}>
+                      {u.username}
+                      {u.id === me?.id && (
+                        <span style={{ marginLeft: 6, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>(tú)</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <span className="badge" style={{
                         background: u.is_admin ? 'var(--accent)' : 'var(--bg-input)',
                         color: u.is_admin ? '#fff' : 'var(--text-muted)',
-                      }}
-                    >
-                      {u.is_admin ? 'Admin' : 'Usuario'}
-                    </span>
+                      }}>
+                        {u.is_admin ? 'Admin' : 'Usuario'}
+                      </span>
+                      <StatusBadge enabled={u.is_enabled} />
+                    </div>
+                    {u.expires_at && (
+                      <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                        Caduca: {fmt(u.expires_at)}
+                      </div>
+                    )}
                   </td>
-                  <td><StatusBadge enabled={u.is_enabled} /></td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    {u.expires_at ? fmt(u.expires_at) : '—'}
+
+                  {/* Columna 2: actividad */}
+                  <td style={{ verticalAlign: 'top', fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    <div>Alta: {fmt(u.created_at)}</div>
+                    <div>{t('admin.user_last_login')}: {u.last_login_at ? fmt(u.last_login_at) : t('admin.never')}</div>
+                    <div>
+                      {t('admin.user_operations')}:{' '}
+                      <span style={{ color: u.has_operations ? 'var(--green)' : 'var(--text-muted)', fontWeight: 600 }}>
+                        {u.has_operations ? 'Sí' : 'No'}
+                      </span>
+                    </div>
                   </td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{fmt(u.created_at)}</td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    {u.last_login_at ? fmt(u.last_login_at) : t('admin.never')}
-                  </td>
-                  <td>
-                    <span style={{
-                      fontSize: '0.8rem', fontWeight: 600,
-                      color: u.has_operations ? 'var(--green)' : 'var(--text-muted)',
-                    }}>
-                      {u.has_operations ? 'Sí' : 'No'}
-                    </span>
-                  </td>
-                  <td>
+
+                  {/* Columna 3: acciones */}
+                  <td style={{ verticalAlign: 'top' }}>
                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                      <button
-                        className="btn-ghost btn-sm"
-                        onClick={() => setChangingPw(u)}
-                      >
+                      <button className="btn-ghost btn-sm" onClick={() => setChangingPw(u)}>
                         Contraseña
+                      </button>
+                      <button className="btn-ghost btn-sm" onClick={() => setHistoryModal(u)} title="Ver historial de estados">
+                        Historial
                       </button>
                       <button
                         className="btn-ghost btn-sm"
-                        onClick={() => setHistoryModal(u)}
-                        title="Ver historial de estados"
+                        onClick={() => setNotifModal({ userId: u.id, username: u.username })}
+                        title={t('admin.notif_send_btn')}
                       >
-                        Historial
+                        {t('admin.notif_send_btn')}
                       </button>
                       {u.id !== me?.id && (
                         <>
@@ -2565,11 +2568,7 @@ export default function AdminPanel() {
                           >
                             {u.is_enabled ? 'Deshabilitar' : 'Habilitar'}
                           </button>
-                          <button
-                            className="btn-ghost btn-sm"
-                            onClick={() => setExpiryModal(u)}
-                            title="Fecha de caducidad"
-                          >
+                          <button className="btn-ghost btn-sm" onClick={() => setExpiryModal(u)} title="Fecha de caducidad">
                             Caducidad
                           </button>
                           <button
@@ -2579,10 +2578,7 @@ export default function AdminPanel() {
                           >
                             {u.is_admin ? '↓ Usuario' : '↑ Admin'}
                           </button>
-                          <button
-                            className="btn-danger btn-sm"
-                            onClick={() => deleteUser(u)}
-                          >
+                          <button className="btn-danger btn-sm" onClick={() => deleteUser(u)}>
                             Eliminar
                           </button>
                         </>
@@ -2638,6 +2634,21 @@ export default function AdminPanel() {
           </div>
         </form>
       </div>}
+
+      {tab === 'usuarios' && (
+        <div className="card" style={{ marginTop: 24 }}>
+          <h2 style={{ marginBottom: 8 }}>{t('admin.broadcast_section_title')}</h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+            {t('admin.broadcast_section_desc')}
+          </p>
+          <button
+            className="btn-primary btn-sm"
+            onClick={() => setNotifModal({ userId: null, username: null })}
+          >
+            {t('admin.broadcast_btn')}
+          </button>
+        </div>
+      )}
 
       {tab === 'usuarios' && (
         <UserMessagesSection onCountChanged={loadPendingMsgCount} />
@@ -2746,6 +2757,14 @@ export default function AdminPanel() {
         <UserHistoryModal
           user={historyModal}
           onClose={() => setHistoryModal(null)}
+        />
+      )}
+      {notifModal && (
+        <SendNotificationModal
+          userId={notifModal.userId}
+          username={notifModal.username}
+          onClose={() => setNotifModal(null)}
+          onSent={() => setNotifModal(null)}
         />
       )}
     </div>

@@ -142,3 +142,31 @@ class NotificationReply(BaseModel):
         if not v.strip():
             raise ValueError("El mensaje no puede estar vacío")
         return v.strip()
+
+
+class AdminNotificationSend(BaseModel):
+    """Cuerpo de POST /api/admin/notifications/send.
+
+    user_id=None → broadcast a todos los usuarios activos.
+    """
+
+    user_id: int | None = None
+    title: str
+    body: str
+
+    @field_validator("title")
+    @classmethod
+    def title_not_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("El título no puede estar vacío")
+        if len(v) > 200:
+            raise ValueError("El título no puede superar 200 caracteres")
+        return v
+
+    @field_validator("body")
+    @classmethod
+    def body_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("El mensaje no puede estar vacío")
+        return v.strip()

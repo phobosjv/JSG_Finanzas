@@ -345,3 +345,163 @@ class TestNativeCurrencyFields:
         # EUR: native ≡ EUR
         assert float(pos["cost_native"]) == pytest.approx(float(pos["cost_eur"]), rel=1e-4)
         assert float(pos["market_value_native"]) == pytest.approx(float(pos["market_value_eur"]), rel=1e-4)
+
+
+# ===========================================================================
+#  Bloque 3 — Notificaciones personalizadas del administrador
+# ===========================================================================
+
+@pytest.fixture()
+def notif_users(engine):
+    """Crea dos usuarios normales y un admin. Devuelve (user1, user2, admin)."""
+    with Session(engine) as db:
+        u1 = User(username="notif_u1", password_hash=hash_password("p1"), is_enabled=True)
+        u2 = User(username="notif_u2", password_hash=hash_password("p2"), is_enabled=True)
+        a  = User(username="notif_adm", password_hash=hash_password("ap"), is_admin=True, is_enabled=True)
+        db.add(u1); db.add(u2); db.add(a)
+        db.commit()
+        db.refresh(u1); db.refresh(u2); db.refresh(a)
+        return u1, u2, a
+
+
+class TestAdminSendNotification:
+    """POST /api/admin/notifications/send — notificaciones personalizadas del admin."""
+
+    def test_send_to_single_user(self, client, notif_users, engine):
+        """El admin puede enviar una notificación a un usuario concreto."""
+        user1, _, admin = notif_users
+        client.post("/api/auth/login", json={"username": "notif_adm", "password": "ap"})
+
+        resp = client.post("/api/admin/notifications/send", json={
+            "user_id": user1.id,
+            "title": "Hola",
+            "body": "Tienes un mensaje importante.",
+        })
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["sent"] == 1
+
+        with Session(engine) as db:
+            notif = db.execute(
+                select(UserNotificationRow).where(UserNotificationRow.user_id == user1.id)
+            ).scalar_one_or_none()
+
+        assert notif is not None
+        assert notif.type == "admin_message"
+        assert notif.title == "Hola"
+        assert notif.body == "Tienes un mensaje importante."
+
+    def test_send_only_reaches_target_user(self, client, notif_users, engine):
+        """La notificación individual no llega al resto de usuarios."""
+        user1, user2, _ = notif_users
+        client.post("/api/auth/login", json={"username": "notif_adm", "password": "ap"})
+        client.post("/api/admin/notifications/send", json={
+            "user_id": user1.id,
+            "title": "Solo para user1",
+            "body": "Msg",
+        })
+
+        with Session(engine) as db:
+            for uid in [user2.id]:
+                n = db.execute(
+                    select(UserNotificationRow).where(UserNotificationRow.user_id == uid)
+                ).scalar_one_or_none()
+                assert n is None, f"user_id={uid} no debería tener notificación"
+
+    def test_broadcast_reaches_all_enabled_users(self, client, notif_users, engine):
+        """Broadcast (user_id=null) llega a todos los usuarios activos."""
+        user1, user2, admin = notif_users
+        client.post("/api/auth/login", json={"username": "notif_adm", "password": "ap"})
+
+        resp = client.post("/api/admin/notifications/send", json={
+            "user_id": None,
+            "title": "Mantenimiento programado",
+            "body": "El sistema estará en mantenimiento mañana a las 03:00.",
+        })
+        assert resp.status_code == 200
+        # Hay 3 usuarios activos (user1, user2, admin)
+        assert resp.json()["sent"] == 3
+
+        with Session(engine) as db:
+            count = db.execute(
+                select(UserNotificationRow).where(
+                    UserNotificationRow.type == "admin_message",
+                    UserNotificationRow.title == "Mantenimiento programado",
+                )
+            ).scalars().all()
+        assert len(count) == 3
+
+    def test_broadcast_empty_users(self, client, engine):
+        """Broadcast con 0 usuarios activos devuelve {sent: 0} sin error.
+
+        Nota: en este test no se crean fixtures de usuarios activos, pero el
+        admin que hace login también es is_enabled=True, así que se espera 1
+        (el propio admin). Verificamos solo que no hay error.
+        """
+        with Session(engine) as db:
+            a = User(username="lone_admin", password_hash=hash_password("ap2"), is_admin=True, is_enabled=True)
+            db.add(a); db.commit()
+
+        client.post("/api/auth/login", json={"username": "lone_admin", "password": "ap2"})
+        resp = client.post("/api/admin/notifications/send", json={
+            "user_id": None, "title": "T", "body": "B",
+        })
+        assert resp.status_code == 200
+        assert resp.json()["sent"] >= 1
+
+    def test_send_to_nonexistent_user_returns_404(self, client, notif_users):
+        """Enviar a un user_id que no existe devuelve 404."""
+        client.post("/api/auth/login", json={"username": "notif_adm", "password": "ap"})
+        resp = client.post("/api/admin/notifications/send", json={
+            "user_id": 99999,
+            "title": "Test",
+            "body": "Cuerpo",
+        })
+        assert resp.status_code == 404
+
+    def test_non_admin_cannot_send(self, client, notif_users):
+        """Un usuario normal recibe 403."""
+        client.post("/api/auth/login", json={"username": "notif_u1", "password": "p1"})
+        resp = client.post("/api/admin/notifications/send", json={
+            "user_id": None, "title": "T", "body": "B",
+        })
+        assert resp.status_code == 403
+
+    def test_unauthenticated_returns_401(self, client, notif_users):
+        """Sin sesión devuelve 401."""
+        client.post("/api/auth/logout")
+        resp = client.post("/api/admin/notifications/send", json={
+            "user_id": None, "title": "T", "body": "B",
+        })
+        assert resp.status_code == 401
+
+    def test_user_sees_admin_notification_in_bell(self, client, notif_users):
+        """La notificación admin_message aparece en GET /notifications del usuario."""
+        user1, _, _ = notif_users
+        client.post("/api/auth/login", json={"username": "notif_adm", "password": "ap"})
+        client.post("/api/admin/notifications/send", json={
+            "user_id": user1.id,
+            "title": "Bienvenido",
+            "body": "Tu cuenta está activa.",
+        })
+
+        client.post("/api/auth/login", json={"username": "notif_u1", "password": "p1"})
+        resp = client.get("/api/notifications")
+        assert resp.status_code == 200
+        notifs = resp.json()
+        assert any(n["type"] == "admin_message" and n["title"] == "Bienvenido" for n in notifs)
+
+    def test_empty_title_rejected(self, client, notif_users):
+        """Un título vacío devuelve 422."""
+        client.post("/api/auth/login", json={"username": "notif_adm", "password": "ap"})
+        resp = client.post("/api/admin/notifications/send", json={
+            "user_id": None, "title": "", "body": "Msg",
+        })
+        assert resp.status_code == 422
+
+    def test_empty_body_rejected(self, client, notif_users):
+        """Un cuerpo vacío devuelve 422."""
+        client.post("/api/auth/login", json={"username": "notif_adm", "password": "ap"})
+        resp = client.post("/api/admin/notifications/send", json={
+            "user_id": None, "title": "T", "body": "",
+        })
+        assert resp.status_code == 422

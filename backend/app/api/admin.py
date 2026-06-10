@@ -10,6 +10,7 @@ PATCH  /admin/users/{id}/role             — cambia el rol (admin/usuario). No 
 DELETE /admin/users/{id}                  — elimina un usuario (no puede ser el propio admin).
 POST   /admin/force-history-update        — lanza update_price_history en segundo plano.
 GET    /admin/force-history-update/status — estado del job en curso o del último ejecutado.
+POST   /admin/notifications/send          — envía notificación personalizada a un usuario o a todos.
 """
 
 from __future__ import annotations
@@ -31,6 +32,8 @@ from app.models import (
     DividendRow, Favorite, MarketRow, Position, RecurringPlanRow,
     Security, TransactionRow, User, UserStatusLog,
 )
+from app.models.catalog_requests import UserNotificationRow
+from app.schemas.catalog_requests import AdminNotificationSend
 from app.schemas.auth import (
     ChangePasswordRequest, CreateUserRequest, UserAdminOut,
     UserStatusIn, UserExpiryIn, UserStatusLogOut,
@@ -907,3 +910,44 @@ async def admin_import_backup(
 
     db.commit()
     return result.to_dict()
+
+
+# ---------------------------------------------------------------------------
+#  Notificaciones personalizadas (admin → usuario o broadcast)
+# ---------------------------------------------------------------------------
+
+@router.post("/notifications/send")
+def send_admin_notification(
+    body: AdminNotificationSend,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Envía una notificación personalizada a un usuario concreto o a todos.
+
+    Si body.user_id es None → broadcast a todos los usuarios activos (is_enabled).
+    Devuelve {sent: N}.
+    """
+    if body.user_id is not None:
+        target = db.get(User, body.user_id)
+        if target is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado",
+            )
+        targets = [target]
+    else:
+        targets = db.scalars(
+            select(User).where(User.is_enabled.is_(True))
+        ).all()
+
+    now = _now()
+    for u in targets:
+        db.add(UserNotificationRow(
+            user_id=u.id,
+            type="admin_message",
+            title=body.title,
+            body=body.body,
+            created_at=now,
+        ))
+    db.commit()
+    return {"sent": len(targets)}

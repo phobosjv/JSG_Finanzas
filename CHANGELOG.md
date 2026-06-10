@@ -5,6 +5,42 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.13.1] — 2026-06-10
+
+### Añadido — Notificaciones personalizadas del administrador
+
+El administrador puede enviar notificaciones personalizadas (título + cuerpo) a
+usuarios específicos o a todos los usuarios activos a la vez.
+
+#### Backend
+- Nuevo endpoint `POST /api/admin/notifications/send` (admin):
+  - `{user_id: int | null, title: str, body: str}`.
+  - `user_id=null` → broadcast a todos los usuarios con `is_enabled=True`.
+  - Crea `UserNotificationRow(type="admin_message")` para cada destinatario.
+  - Devuelve `{sent: N}` con el número de notificaciones enviadas.
+  - 404 si el `user_id` proporcionado no existe; 403 si no es admin.
+- Nuevo schema `AdminNotificationSend` en `schemas/catalog_requests.py`.
+- 10 tests nuevos en `test_v1130.py` (512 en total).
+
+#### Frontend
+- **Botón «Notificación»** en cada fila de la tabla de usuarios (tab Usuarios del
+  AdminPanel) → abre modal pre-relleno con ese usuario.
+- **Sección «Mensaje a todos los usuarios»** al final del tab Usuarios → botón
+  «Enviar a todos» abre el mismo modal en modo broadcast.
+- Nuevo componente `SendNotificationModal.jsx` (título, cuerpo, envío,
+  confirmación de éxito con número de destinatarios).
+
+### Cambiado — Tabla de usuarios compactada
+
+La tabla de usuarios del AdminPanel pasa de 8 columnas separadas a 3 columnas
+con información apilada, para dar más espacio a los botones de acción:
+- **Columna 1 — Usuario**: nombre + badges rol/estado + fecha de caducidad (si aplica).
+- **Columna 2 — Actividad**: fecha de alta, último acceso, tiene operaciones.
+- **Columna 3 — Acciones**: todos los botones (Contraseña, Historial, Notificación,
+  Deshabilitar/Habilitar, Caducidad, cambio de rol, Eliminar).
+
+---
+
 ## [1.13.0] — 2026-06-10
 
 ### Añadido — Mensajes de usuario con asunto y respuesta del administrador
