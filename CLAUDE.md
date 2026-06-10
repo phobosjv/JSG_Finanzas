@@ -409,6 +409,27 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   mayores bajadas del día (`daily_change_eur`). N por columna configurable
   (3 ó 5; defecto 5). Solo posiciones con snapshot del día. Sin llamada extra
   al backend; respeta el filtro de tipo.
+- **Solicitudes de catálogo por usuarios** (v1.12.0): usuarios normales pueden
+  proponer nuevos valores sin depender del admin directamente.
+  - Hint al pie de Mercados (solo no-admin): «¿No encuentra el producto?» +
+    botón «Agréguelo aquí» + «contacte con el administrador».
+  - Modal `AddProductModal`: ticker → botón **Validar** (`GET /api/catalog/validate-ticker`,
+    Yahoo Finance sin persistencia, preview con precio/divisa/exchange/in_catalog)
+    → nombre auto-rellenado → selector de mercado → **Enviar solicitud**.
+  - Modal `CatalogMessageModal`: texto libre → `POST /api/catalog/messages`.
+  - **Campana extendida**: `GET /api/notifications` se suma a alertas de precio.
+    Notificaciones de solicitud (`request_pending`, `request_approved`,
+    `request_rejected`) con opciones **Entendido** (DELETE) y **Entendido +
+    Dejar mensaje** (POST reply → crea `CatalogMessageRow` vinculado a la solicitud).
+  - **AdminPanel — tab Catálogo**: badge parpadeante con count de pendientes
+    (`GET /api/admin/catalog/requests/pending-count`). Sección **Solicitudes**:
+    tabla filtrable por estado, modal de revisión donde el admin puede reasignar
+    el mercado, añadir notas y aprobar/rechazar. Aprobar crea el `Security`.
+    Sección **Mensajes de usuarios**: mensajes libres + respuestas post-resolución,
+    botón «Marcar resuelto».
+  - 3 tablas nuevas: `security_requests`, `user_notifications`, `catalog_messages`.
+  - 3 routers nuevos: `/api/catalog` (user), `/api/admin/catalog` (admin),
+    `/api/notifications` (user).
 
 ---
 
@@ -444,6 +465,9 @@ Qué puede hacer la app hoy (visión de producto):
   subcarteras) admiten ticker, nombre o ISIN.
 - **Dashboard — Variación diaria Top**: sección configurable con las mayores
   subidas y bajadas del día de las posiciones abiertas (`daily_change_eur`).
+- **Solicitudes de catálogo**: usuarios normales proponen nuevos valores (validación
+  Yahoo Finance, flujo de aprobación/rechazo por el admin, notificaciones in-app
+  en la campana, mensajes bidireccionales usuario↔admin).
 - **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
   global (un fallo de UI no deja la pantalla en negro).
 
@@ -469,6 +493,9 @@ Cálculo puro: `test_calculations.py`, `test_splits.py`, `test_tax_report.py`,
 `test_app_logo.py`, `test_indicators.py`, `test_backup_service.py`,
 `test_push.py` (VAPID, suscripciones, alertas push, dedup).
 `test_subcarteras.py` (CRUD, scoping, muchos-a-muchos, 404/403, filtrado position_ids).
+`test_security_requests.py` (solicitudes de catálogo: crear, aprobar, rechazar,
+notificaciones, mensajes, protección auth/admin).
+`test_user_notifications.py` (GET, PATCH read, DELETE, POST reply, aislamiento entre usuarios).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
@@ -766,7 +793,8 @@ Cada bug arreglado se documenta en `test_bugs.py` con:
 ```
 frontend/src/
 ├── pages/        — Dashboard, Markets, Portfolio, SecurityDetail, TaxReport, Utilities, AdminPanel, Login
-├── components/   — PortfolioChartsPanel, SecurityTable, SecurityCard, Navigation, ErrorBoundary
+├── components/   — PortfolioChartsPanel, SecurityTable, SecurityCard, Navigation, ErrorBoundary,
+│                   AddProductModal (solicitar ticker), CatalogMessageModal (mensaje libre al admin)
 ├── hooks/        — useSortableData (orden de tablas), useMediaQuery
 ├── context/      — AuthContext (user, login, logout), AppContext (t, appName, theme, locale)
 ├── i18n/         — translations.js (ES+EN obligatorio)
@@ -891,6 +919,13 @@ docker compose up --build
   causa es difícil de depurar porque no hay error visible. Regla: **en componentes
   que reciben posiciones del API, usar siempre `p.position_id`** como clave,
   filtro y argumento de llamadas al backend.
+- **`auth_client` y `admin_client` comparten la misma instancia `client`** (StaticPool).
+  En pytest, si un test recibe ambas fixtures, el último login (adminuser) gana.
+  Para tests que necesitan acciones de usuario Y admin: usar el mismo `client` con
+  re-login explícito (`client.post("/api/auth/login", ...)`) y **no combinar
+  `auth_client` + `admin_client` en el mismo test**. Al insertar mercados directamente
+  en BD (sin HTTP), pasar siempre `created_at` explícito — el `server_default` de
+  SQLAlchemy no se aplica en inserts ORM directos con SQLite en memoria.
 
 ---
 
