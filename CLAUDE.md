@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.13.0** · **Tests: 502 en verde** · Aplicación web personal
+> **Versión actual: 1.13.1** · **Tests: 512 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -441,6 +441,11 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   incluyen `*_native` (cost, market_value, unrealized_pnl, dividends, realized_pnl,
   total_profit, fees, avg_cost) y `currency`. SecurityDetail y filas de cartera usan
   moneda nativa del valor (USD, GBP…); totales del portfolio y fiscal en EUR.
+- **Notificaciones personalizadas del admin** (v1.13.1): `POST /api/admin/notifications/send`
+  con `{user_id, title, body}`. `user_id=null` → broadcast a todos los usuarios activos.
+  Crea `UserNotificationRow(type="admin_message")`. Componente `SendNotificationModal`.
+  Tab Usuarios del AdminPanel: botón por fila + sección broadcast. Tabla de usuarios
+  compactada a 3 columnas (Usuario, Actividad, Acciones).
 
 ---
 
@@ -483,6 +488,10 @@ Qué puede hacer la app hoy (visión de producto):
 - **Valores en moneda nativa**: SecurityDetail y filas de cartera abierta/cerrada
   muestran los importes en la moneda propia del valor (USD, GBP…); totales y fiscal
   en EUR.
+- **Notificaciones del admin**: el admin puede enviar notificaciones personalizadas
+  (título + cuerpo) a un usuario concreto o a todos los activos (broadcast). Aparecen
+  en la campana del destinatario. AdminPanel tab Usuarios: botón por fila + sección
+  broadcast.
 - **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
   global (un fallo de UI no deja la pantalla en negro).
 
@@ -490,7 +499,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.13.0 · 502 tests en verde** (pytest, SQLite en memoria). 21 migraciones
+**v1.13.1 · 512 tests en verde** (pytest, SQLite en memoria). 21 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
@@ -511,8 +520,8 @@ Cálculo puro: `test_calculations.py`, `test_splits.py`, `test_tax_report.py`,
 `test_security_requests.py` (solicitudes de catálogo: crear, aprobar, rechazar,
 notificaciones, mensajes, protección auth/admin).
 `test_user_notifications.py` (GET, PATCH read, DELETE, POST reply, aislamiento entre usuarios).
-`test_v1130.py` (v1.13.0: mensajes subject/pending-count/reply/notif message_reply,
-campos nativos USD en PositionSummary).
+`test_v1130.py` (v1.13.0–v1.13.1: mensajes subject/pending-count/reply/notif message_reply,
+campos nativos USD en PositionSummary, notificaciones personalizadas del admin).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
@@ -565,6 +574,7 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 - `GET /api/admin/catalog/messages` · `PATCH /api/admin/catalog/messages/{id}/resolve` (admin).
 - `GET /api/admin/catalog/messages/pending-count` → `{"count": N}` (admin). **Registrar ANTES de las rutas `{message_id}`** para evitar conflictos de ruta.
 - `POST /api/admin/catalog/messages/{id}/reply` body `{reply: str}` — respuesta única del admin (409 si ya respondió), crea notificación `message_reply` al usuario (admin).
+- `POST /api/admin/notifications/send` body `{user_id: int|null, title: str, body: str}` — notificación personalizada a usuario concreto o broadcast (`user_id=null`). Devuelve `{sent: N}`.
 - `GET /api/portfolio/history`, `/xirr`, `/period-returns` aceptan `?position_ids=id1,id2,…` como alternativa a `?types=…` para filtrar por subcartera.
 - `GET /api/admin/config` (incluye `dust_threshold`) · `PATCH
   /api/admin/config/dust-threshold` (admin) · `PATCH /api/admin/config/snapshot-interval`.
