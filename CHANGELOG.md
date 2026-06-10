@@ -5,6 +5,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.12.2] — 2026-06-10
+
+### Cambiado — Título de sección en Dashboard
+
+- La sección de variación diaria de la cartera pasa a llamarse
+  **«Posiciones Abiertas - Movimientos del día»** (antes «Variación diaria — Top»).
+  EN: «Open Positions - Daily Movers».
+
+---
+
 ## [1.12.1] — 2026-06-10
 
 ### Cambiado — Segmentación por tipo de producto en Mi Cartera
