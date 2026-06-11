@@ -39,6 +39,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from app.models import (
     AppConfig, EcbRate, Favorite, Position, PriceHistory, PriceSnapshot,
     PushSubscription, RecurringPlanRow, Security, TransactionRow,
+    User, UserStatusLog, UserNotificationRow,
 )
 from app.models.market import MarketRow
 from app.providers.yahoo import YahooProvider
@@ -62,10 +63,82 @@ def daily_update(db: Session) -> None:
     update_price_history(db)
     update_snapshots(db)
     update_ecb_rates(db)
-    # Tras refrescar precios y tipos, ejecutar las aportaciones periódicas
-    # vencidas: cada plan crea las compras pendientes con el precio del día.
     execute_due_recurring_plans(db)
+    check_expired_users(db)
     log.info("Actualizacion diaria completada")
+
+
+# ---------------------------------------------------------------------------
+#  Detección y notificación de usuarios caducados
+# ---------------------------------------------------------------------------
+
+def check_expired_users(db: Session) -> int:
+    """Detecta usuarios que han caducado (expires_at <= ahora, is_enabled=True).
+
+    Para cada usuario caducado:
+      - Lo deshabilita.
+      - Registra el evento en UserStatusLog.
+      - Crea notificaciones in-app para todos los admins activos.
+      - Envía copia por email a los admins con email configurado.
+
+    Devuelve el número de usuarios procesados.
+    El job nocturno cubre el caso de usuarios que caducan sin haber intentado
+    hacer login (el login ya gestiona el primer acceso tras la caducidad).
+    """
+    from app.services.email_notifications import notify_admins, notify_admins_inapp
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    expired = db.scalars(
+        select(User).where(
+            User.expires_at.is_not(None),
+            User.expires_at <= now,
+            User.is_enabled == True,
+            User.is_admin == False,
+        )
+    ).all()
+
+    if not expired:
+        return 0
+
+    for user in expired:
+        user.is_enabled = False
+        db.add(UserStatusLog(
+            user_id=user.id,
+            actor_id=None,
+            status="expired",
+            annotation="Cuenta caducada automáticamente (job nocturno)",
+            created_at=now,
+        ))
+
+    db.flush()
+
+    for user in expired:
+        exp_str = user.expires_at.strftime("%d/%m/%Y") if user.expires_at else "—"
+        title = f"Cuenta caducada: {user.username}"
+        body_text = (
+            f"La cuenta del usuario '{user.username}' ha caducado "
+            f"(fecha límite: {exp_str}). "
+            f"Puedes renovar el acceso desde el panel de administración."
+        )
+        try:
+            notify_admins_inapp(db, type_="user_expired", title=title, body=body_text)
+            notify_admins(
+                db,
+                subject=f"[Finanzas] Cuenta caducada: {user.username}",
+                body_html=(
+                    f"<p>La cuenta del usuario <strong>{user.username}</strong> "
+                    f"ha caducado el {exp_str}.</p>"
+                    f"<p>Puedes renovar el acceso desde el "
+                    f"panel de administración → Usuarios.</p>"
+                ),
+            )
+        except Exception:
+            log.exception("Error notificando caducidad de %s", user.username)
+
+    db.commit()
+    log.info("check_expired_users: %d usuario(s) caducado(s) procesado(s)", len(expired))
+    return len(expired)
 
 
 # ---------------------------------------------------------------------------

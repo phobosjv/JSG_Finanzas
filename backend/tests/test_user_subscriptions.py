@@ -111,7 +111,7 @@ def test_usuario_caducado_no_puede_hacer_login(admin_client, client):
         "password": "expired_pass123",
     })
     assert resp.status_code == 403
-    assert resp.json()["detail"] == "Contactar con el administrador"
+    assert resp.json()["detail"] == "account_expired"
 
     # Comprobar que ahora está deshabilitado en la BD
     users = admin_client.get("/api/admin/users").json()

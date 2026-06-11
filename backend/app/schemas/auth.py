@@ -107,3 +107,15 @@ class UserStatusLogOut(BaseModel):
 class UserEmailIn(BaseModel):
     """Actualizar el email de un usuario (null para borrarlo)."""
     email: str | None = None
+
+
+class RenewalRequest(BaseModel):
+    """Solicitud de renovación de acceso enviada por un usuario caducado."""
+    username: str
+
+    @field_validator("username")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("No puede estar vacío")
+        return v

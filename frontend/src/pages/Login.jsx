@@ -2,28 +2,53 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAppConfig } from '../context/AppContext'
+import { api } from '../api/client'
 import { version } from '../../package.json'
 import './Login.css'
 
 export default function Login() {
   const { login } = useAuth()
-  const { appName, logoUrl } = useAppConfig()
+  const { appName, logoUrl, t } = useAppConfig()
   const navigate = useNavigate()
-  const [form, setForm]   = useState({ username: '', password: '' })
-  const [error, setError] = useState(null)
-  const [busy, setBusy]   = useState(false)
+  const [form, setForm]           = useState({ username: '', password: '' })
+  const [error, setError]         = useState(null)
+  const [busy, setBusy]           = useState(false)
+  const [isExpired, setIsExpired] = useState(false)
+  const [renewalSent, setRenewalSent]   = useState(false)
+  const [renewalBusy, setRenewalBusy]   = useState(false)
+  const [renewalError, setRenewalError] = useState(null)
 
   async function submit(e) {
     e.preventDefault()
     setBusy(true)
     setError(null)
+    setIsExpired(false)
+    setRenewalSent(false)
+    setRenewalError(null)
     try {
       await login(form.username, form.password)
       navigate('/')
     } catch (err) {
-      setError(err.message)
+      if (err.message === 'account_expired') {
+        setIsExpired(true)
+      } else {
+        setError(err.message)
+      }
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function requestRenewal() {
+    setRenewalBusy(true)
+    setRenewalError(null)
+    try {
+      await api.post('/auth/request-renewal', { username: form.username })
+      setRenewalSent(true)
+    } catch {
+      setRenewalError(t('login.renewal_error'))
+    } finally {
+      setRenewalBusy(false)
     }
   }
 
@@ -37,7 +62,35 @@ export default function Login() {
         <p className="login-sub">Seguimiento de cartera de inversión</p>
         <p className="login-version">v{version}</p>
 
-        {error && <div className="state-error" style={{ padding: '8px', marginBottom: 12 }}>{error}</div>}
+        {error && (
+          <div className="state-error" style={{ padding: '8px', marginBottom: 12 }}>
+            {error}
+          </div>
+        )}
+
+        {isExpired && !renewalSent && (
+          <div className="state-error" style={{ padding: '8px', marginBottom: 12 }}>
+            <p style={{ margin: '0 0 8px' }}>{t('login.error_expired')}</p>
+            {renewalError && (
+              <p style={{ margin: '0 0 8px', fontSize: '0.85rem' }}>{renewalError}</p>
+            )}
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ width: '100%' }}
+              onClick={requestRenewal}
+              disabled={renewalBusy}
+            >
+              {renewalBusy ? '…' : t('login.request_renewal')}
+            </button>
+          </div>
+        )}
+
+        {renewalSent && (
+          <div className="state-success" style={{ padding: '8px', marginBottom: 12 }}>
+            {t('login.renewal_sent')}
+          </div>
+        )}
 
         <div className="form-group">
           <label>Usuario</label>

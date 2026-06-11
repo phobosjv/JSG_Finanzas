@@ -108,7 +108,7 @@ function NotificationDetail({ notif, t, onDismiss, onReply }) {
           <button className="btn-ghost btn-sm" onClick={onDismiss} style={{ fontSize: '0.75rem' }}>
             {t('nav.notif_dismiss')}
           </button>
-          {notif.type !== 'request_pending' && (
+          {!['request_pending', 'user_expired', 'renewal_request'].includes(notif.type) && (
             <button
               className="btn-secondary btn-sm"
               onClick={() => setShowReply(true)}
@@ -159,6 +159,8 @@ function AlertBell({ alerts, serverNotifs, t, placement, onNotifsChanged }) {
     if (type === 'request_pending')  return { label: t('nav.notif_request_pending'),  color: '#d97706' }
     if (type === 'request_approved') return { label: t('nav.notif_request_approved'), color: 'var(--green)' }
     if (type === 'request_rejected') return { label: t('nav.notif_request_rejected'), color: 'var(--red)' }
+    if (type === 'user_expired')     return { label: t('nav.notif_user_expired'),      color: '#9333ea' }
+    if (type === 'renewal_request')  return { label: t('nav.notif_renewal_request'),   color: '#0ea5e9' }
     return { label: type, color: 'var(--text-muted)' }
   }
 

@@ -26,6 +26,14 @@ export const translations = {
     'nav.notif_reply':             'Entendido + Dejar mensaje',
     'nav.notif_reply_placeholder': 'Tu mensaje al administrador…',
     'nav.notif_send_reply':        'Enviar y cerrar',
+    'nav.notif_user_expired':      'Cuenta caducada',
+    'nav.notif_renewal_request':   'Solicitud de renovación',
+
+    // ── Login ────────────────────────────────────────────────────────────
+    'login.error_expired':         'Tu cuenta ha caducado. Contacta con el administrador para renovar el acceso.',
+    'login.request_renewal':       'Solicitar renovación de acceso',
+    'login.renewal_sent':          'Solicitud enviada. El administrador ha sido notificado.',
+    'login.renewal_error':         'No se pudo enviar la solicitud. Inténtalo de nuevo.',
 
     // ── Dashboard ────────────────────────────────────────────────────────
     'dashboard.title':                 'Dashboard',
@@ -661,6 +669,14 @@ export const translations = {
     'nav.notif_reply':             'Got it + Leave message',
     'nav.notif_reply_placeholder': 'Your message to the administrator…',
     'nav.notif_send_reply':        'Send and close',
+    'nav.notif_user_expired':      'Expired account',
+    'nav.notif_renewal_request':   'Renewal request',
+
+    // ── Login ─────────────────────────────────────────────────────────────
+    'login.error_expired':         'Your account has expired. Contact the administrator to renew access.',
+    'login.request_renewal':       'Request access renewal',
+    'login.renewal_sent':          'Request sent. The administrator has been notified.',
+    'login.renewal_error':         'Could not send the request. Please try again.',
 
     // ── Dashboard ────────────────────────────────────────────────────────
     'dashboard.title':                 'Dashboard',

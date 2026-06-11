@@ -5,6 +5,59 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.15.0] — 2026-06-11
+
+### Añadido — Notificaciones por caducidad de cuenta y solicitud de renovación
+
+Cuando la cuenta de un usuario normal caduca, los administradores reciben ahora
+una notificación in-app (campana) y una copia por correo electrónico. El usuario
+caducado ve un mensaje específico al intentar entrar y puede solicitar la
+renovación de su acceso con un botón en el login.
+
+#### Backend
+
+- **`services/email_notifications.py`** — nueva función `notify_admins_inapp`
+  que crea `UserNotificationRow` para todos los admins activos. Base reutilizable
+  para notificaciones in-app a administradores.
+- **`api/auth.py`** — tres cambios:
+  - Login con cuenta caducada devuelve `detail="account_expired"` (antes era el
+    mensaje genérico), para que el frontend lo distinga del bloqueo manual.
+  - Nuevo endpoint `POST /api/auth/request-renewal` (sin autenticación): recibe
+    `{username}`, notifica a todos los admins (in-app + email) si el usuario
+    existe y tiene `expires_at` en el pasado. Siempre devuelve 200 (sin revelar
+    si el usuario existe, anti-enumeración).
+  - Cuando el login detecta la primera caducidad (desactiva la cuenta), notifica
+    inmediatamente a los admins in-app + email.
+- **`scheduler/jobs.py`** — nueva función `check_expired_users(db)` invocada
+  desde `daily_update`: detecta usuarios normales con `expires_at ≤ ahora` y
+  `is_enabled=True`, los desactiva, registra en `UserStatusLog` y notifica a los
+  admins. Cubre el caso de cuentas que caducan sin que el usuario intente login.
+- **`schemas/auth.py`** — nuevo schema `RenewalRequest {username: str}`.
+- **`tests/test_user_expiry.py`** — 23 tests nuevos (3 bloques: login caducado,
+  renovación, job nocturno).
+
+#### Frontend
+
+- **`Login.jsx`** — detecta `err.message === 'account_expired'`, muestra el
+  mensaje localizado de caducidad y un botón «Solicitar renovación de acceso»
+  que llama a `POST /auth/request-renewal`. Tras el envío muestra confirmación o
+  error.
+- **`Navigation.jsx`** — los tipos `user_expired` y `renewal_request` muestran
+  solo el botón «Entendido» (sin «Dejar mensaje», que no tiene sentido en
+  notificaciones dirigidas al admin). Etiquetas de badge propias con colores
+  diferenciados (púrpura / azul).
+- **`translations.js`** — 6 claves nuevas ES/EN: `login.error_expired`,
+  `login.request_renewal`, `login.renewal_sent`, `login.renewal_error`,
+  `nav.notif_user_expired`, `nav.notif_renewal_request`.
+
+#### Tests
+
+- 557 tests en verde (534 anteriores + 23 nuevos).
+- `test_user_subscriptions.py` — actualizado el test `test_usuario_caducado_no_puede_hacer_login`
+  para reflejar el nuevo `detail="account_expired"`.
+
+---
+
 ## [1.14.0] — 2026-06-10
 
 ### Añadido — Notificaciones por email para administradores
