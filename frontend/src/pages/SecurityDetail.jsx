@@ -1160,38 +1160,36 @@ export default function SecurityDetail() {
             </div>
             <div className="label">{t('sd.var_day')}</div>
           </div>
-          <div className="card small">
-            <div className="value">{fmt(snapshot.min_1y)} {security.currency}</div>
-            <div className="label">{t('sd.min_1y')}</div>
-          </div>
-          <div className="card small">
-            <div className="value">{fmt(snapshot.max_1y)} {security.currency}</div>
-            <div className="label">{t('sd.max_1y')}</div>
-          </div>
-          {snapshot.min_2y != null && (
+          {chartRange === '1y' && (<>
+            <div className="card small">
+              <div className="value">{fmt(snapshot.min_1y)} {security.currency}</div>
+              <div className="label">{t('sd.min_1y')}</div>
+            </div>
+            <div className="card small">
+              <div className="value">{fmt(snapshot.max_1y)} {security.currency}</div>
+              <div className="label">{t('sd.max_1y')}</div>
+            </div>
+          </>)}
+          {chartRange === '2y' && snapshot.min_2y != null && (<>
             <div className="card small">
               <div className="value">{fmt(snapshot.min_2y)} {security.currency}</div>
               <div className="label">{t('sd.min_2y')}</div>
             </div>
-          )}
-          {snapshot.max_2y != null && (
             <div className="card small">
               <div className="value">{fmt(snapshot.max_2y)} {security.currency}</div>
               <div className="label">{t('sd.max_2y')}</div>
             </div>
-          )}
-          {snapshot.min_5y != null && (
+          </>)}
+          {chartRange === '5y' && snapshot.min_5y != null && (<>
             <div className="card small">
               <div className="value">{fmt(snapshot.min_5y)} {security.currency}</div>
               <div className="label">{t('sd.min_5y')}</div>
             </div>
-          )}
-          {snapshot.max_5y != null && (
             <div className="card small">
               <div className="value">{fmt(snapshot.max_5y)} {security.currency}</div>
               <div className="label">{t('sd.max_5y')}</div>
             </div>
-          )}
+          </>)}
         </div>
       )}
 

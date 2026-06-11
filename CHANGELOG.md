@@ -5,6 +5,17 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.17.1] — 2026-06-11
+
+### Corregido
+
+- **Detalle de valor — tarjetas de rango**: el selector 1A/2A/5A ahora también
+  controla qué par de tarjetas (Mín./Máx.) se muestra; antes aparecían todas a
+  la vez. Al cambiar el rango del gráfico se ocultan las tarjetas del rango
+  anterior y se muestran las del nuevo.
+
+---
+
 ## [1.17.0] — 2026-06-11
 
 ### Añadido — Rangos de precio 2/5 años y selector de rango en el gráfico
