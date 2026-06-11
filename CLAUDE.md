@@ -35,7 +35,8 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   `mapped_column`) + Alembic (migraciones) + APScheduler (jobs nocturnos).
 - **BD**: SQLite, fichero único, volumen persistente.
 - **Datos de mercado**: yfinance, detrás de una capa de abstracción de
-  proveedores (`providers/`). Tipos de cambio EUR/USD del BCE.
+  proveedores (`providers/`). Tipos de cambio del BCE (multidivisa desde
+  v1.8.0; divisas soportadas configurables por admin).
 - **Frontend**: React + Vite, instalable como PWA. Responsive (escritorio y
   móvil). Gráficos con `recharts`.
 - **Despliegue**: dos contenedores Docker (`finanzas` + `caddy`), volumen
@@ -54,8 +55,9 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
    absoluta.
 2. **Todo se deriva de `transactions`.** El número de acciones, el precio
    medio y los beneficios NO se almacenan. Se calculan aplicando FIFO sobre
-   las transacciones. Una posición cerrada es la que tiene cero acciones
-   vivas.
+   las transacciones. Una posición está cerrada si tiene cero acciones vivas
+   **o** si solo queda «polvo» (coste vivo < umbral configurable por admin,
+   def. 0,10 — ver umbral de polvo en Capacidades).
 3. **FIFO obligatorio** para valores homogéneos (norma española): las
    acciones vendidas son siempre las primeras compradas.
 4. **No hardcodear nada que pueda cambiar**: nombre de la app, mercados,
@@ -64,8 +66,10 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 
 ### Arquitectura
 
-5. **Capa de cálculo pura.** `services/calculations.py` y
-   `services/tax_report.py` no importan SQLAlchemy, FastAPI ni nada de I/O.
+5. **Capa de cálculo pura.** `services/calculations.py`, `tax_report.py`,
+   `returns.py`, `indicators.py` y `email_service.py` no importan SQLAlchemy,
+   FastAPI ni nada de I/O de BD. La configuración (p. ej. `dust_threshold`)
+   se inyecta como parámetro desde la API, nunca leyendo BD en `services/`.
 6. **No mezclar responsabilidades**: repositorios para I/O puro, servicios
    para lógica pura, routers para HTTP.
 7. **Distinguir modelos de BD y objetos de cálculo.** `TransactionRow` (BD) ≠
@@ -223,7 +227,7 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 
 - Tabla `security_splits`: `security_id`, `ex_date`, `ratio_num` (nuevas),
   `ratio_den` (antiguas), `notes`. Eventos globales gestionados por admin.
-- `calculations._normalize_splits()` multiplica shares y divide price por
+- `calculations.normalize_splits()` multiplica shares y divide price por
   el factor para todas las transacciones anteriores a `ex_date`. El coste
   total por lote se conserva (invariante).
 - `PortfolioRepository.splits_for_security()` carga los splits; **todos
@@ -311,254 +315,183 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 - Por cada dividendo, calcula el capital en esa fecha con
   `compute_position(txs_until_div_date)` → `avg_cost × shares_at_date`.
 
-### Capacidades añadidas v1.7–v1.10 (resumen + punteros)
+### Capacidades añadidas v1.7–v1.18 (resumen + punteros)
 
-> Las anteriores siguen vigentes. Estas son las grandes piezas posteriores; el
-> detalle versión a versión está en [CHANGELOG.md](CHANGELOG.md).
+> Las features pre-v1.7 anteriores siguen vigentes. Estas son las piezas
+> posteriores agrupadas por tema, con sus punteros técnicos. El detalle
+> versión a versión está en [CHANGELOG.md](CHANGELOG.md).
 
-- **Fondos de inversión y traspasos fiscalmente neutros** (v1.7.0): mercados con
-  `is_fund_market`. Un traspaso = `transfer_out` (consume sin tributar) +
-  `transfer_in` (hereda el coste FIFO), acoplados por `transfer_group_id`. La
-  plusvalía se difiere hasta el reembolso. Endpoints `POST/DELETE
-  /api/portfolio/transfer`. Lógica en `calculations.py` (`consumed_cost_fifo`).
-- **Multidivisa** (v1.8.0): divisas configurables por admin, no solo EUR/USD.
-  Conversión a EUR con el tipo del BCE de cada fecha (`exchange_rates.py`).
-- **Rentabilidad ponderada por dinero (TIR/XIRR) y por tiempo (Modified Dietz)**
-  (v1.8.4–1.8.5): `services/returns.py` (puro). Endpoints
-  `GET /api/portfolio/xirr` y `/period-returns` (YTD/1a/3a/total). Los traspasos
-  no son flujos de caja.
-- **Segmentación por tipo de activo** (v1.7.6, comportamiento radio desde v1.12.1): chips Todo/Acciones/Fondos/…
-  con selección exclusiva (un solo tipo activo a la vez) que filtran cartera, gráficos y retornos (`?types=`).
-- **Importación**: CSV de operaciones (`csv_import`) y Ghostfolio
-  (`ghostfolio_import`).
-- **Aportaciones periódicas (DCA)** (v1.7.4): backfill de las pasadas + plan
+#### Cálculo y datos
+
+- **Fondos y traspasos fiscalmente neutros** (v1.7.0): mercados con
+  `is_fund_market`. Un traspaso = `transfer_out` (consume FIFO sin tributar) +
+  `transfer_in` (hereda el coste como precio sintético en EUR), acoplados por
+  `transfer_group_id`; la plusvalía se difiere hasta el reembolso. Lógica en
+  `calculations.py` (`consumed_cost_fifo`). Endpoints
+  `POST/PATCH/DELETE /api/portfolio/transfer[/{group_id}]`; la edición
+  (v1.10.7) recalcula el coste heredado y valida FIFO en origen y destino;
+  el historial incluye `TransactionOut.transfer_partner_shares`.
+- **Multidivisa** (v1.8.0): divisas configurables por admin. Conversión a EUR
+  con el tipo del BCE de cada fecha (`repositories/exchange_rates.py`:
+  `rate_on_date`, `latest_rate`).
+- **TIR (XIRR) y retornos por periodo (Modified Dietz)** (v1.8.4–1.8.5):
+  `services/returns.py` (puro). `GET /api/portfolio/xirr` y `/period-returns`
+  (YTD/1a/3a/total). **Los traspasos no son flujos de caja.**
+- **Histórico de cartera** (v1.9.5/1.9.9): `_history_series` valora cada fecha
+  con el último cierre conocido de cada valor (carry-forward) y el tipo de
+  cambio **de esa fecha** (`rate_on_date`). Alimenta gráfico y retornos.
+- **Umbral de «polvo»** (v1.10.2/1.10.4): `PositionResult.is_closed` también
+  cierra la posición si el coste vivo cae bajo el umbral (residuos de
+  redondeo). Configurable (`app_config.dust_threshold`, def. 0,10); se inyecta
+  vía `get_dust_threshold(db)` → `compute_position(dust_threshold=…)` — la
+  capa de cálculo sigue pura.
+- **Rangos de precio 1/2/5 años** (v1.17.0–v1.18.1): `compute_ranges()` calcula
+  min/max con cortes por fecha natural; `PriceSnapshot` guarda los 6 campos
+  (migración 23ª añadió `max_2y`/`max_5y`). En `SecurityDetail`, el selector
+  1A/2A/5A corta el gráfico **por fecha natural** (v1.18.1 — no por nº de
+  filas: el histórico solo tiene ~252 sesiones/año) y muestra solo el par de
+  tarjetas Mín./Máx. del rango activo. El estado guarda 5 años (`slice(-1825)`).
+
+#### Cartera, catálogo y filtros
+
+- **Segmentación por tipo de activo** (v1.7.6; radio desde v1.12.1): chips
+  Todo/Acciones/Fondos/… con selección exclusiva; filtran cartera, gráficos y
+  retornos (`?types=`).
+- **Subcarteras** (v1.11.0): agrupaciones personalizadas de posiciones
+  (muchos-a-muchos: `subcarteras` + `subcartera_positions`). Router
+  `/api/subcarteras` (CRUD + `POST/DELETE /{id}/positions/{pos_id}`). Toggle
+  «Por tipo / Por subcartera» (oculto si no hay subcarteras); las tablas
+  filtran client-side y los gráficos server-side (`?position_ids=…`).
+- **Aportaciones periódicas DCA** (v1.7.4): backfill de las pasadas + plan
   (`recurring_plans`) que ejecuta el scheduler para las futuras.
-- **Jobs en segundo plano con estado por polling** (patrón clave): operaciones
-  largas que en el VPS darían timeout ("Failed to fetch") se lanzan en un hilo,
-  devuelven 202 y exponen `.../status`. Lo usan **forzar histórico** y **rellenar
-  ISINs**; el ISIN además hace **commit incremental** (lo hecho persiste aunque
-  se corte).
+- **Importación**: CSV (`csv_import`) y Ghostfolio (`ghostfolio_import`).
 - **Pipeline de ISINs en 2 pasadas** (v1.9.1/1.9.7): 1ª exacta (Yahoo por
   ticker), 2ª heurística por nombre en Business Insider
-  (`providers/business_insider.py`), conservadora y sin colisionar con ISINs ya
-  en BBDD; excluye cripto.
-- **Informe fiscal — fondos aparte** (v1.8.9/1.9.2/1.9.4): los reembolsos de
-  fondos van en su propia sección/indicador (PDF y home fiscal), separados de la
-  venta de acciones; cada tarjeta de ganancia muestra su cuota IRPF estimada. La
-  base imponible sigue agregando todo (base del ahorro). No modela compensación
-  cruzada del 25 % ni arrastre de pérdidas de 4 años (se avisa en el informe).
-- **Histórico de cartera correcto** (v1.9.5/1.9.9): `_history_series` valora cada
-  fecha con el último cierre conocido de cada valor (carry-forward) y con el tipo
-  de cambio **de esa fecha** (`rate_on_date`). Alimenta el gráfico y los retornos
-  por periodo.
-- **Scatter de operaciones cerradas** incluye round-trips parciales de posiciones
-  aún abiertas (`still_open`). **Donut de distribución**: top 8 por volumen +
-  «Otros».
-- **Precios objetivo y alertas** (v1.9.11–1.9.16, 1.10.1): objetivo de **compra**
-  (fuente única: `favorites.target_buy_price`, editable en lista de mercados y en
-  el detalle) y objetivo de **venta** (`positions.target_sell_price`). El detalle
-  muestra «% hasta obj.» junto a cada precio. Indicador parpadeante
-  «Comprar»/«Vender» en la ficha. **Campana** de alertas en el menú (todas las
-  secciones): badge con nº de alertas activas y popup clicable; se recalcula al
-  navegar entre secciones. (El `target_buy_price` de `positions` quedó **muerto**
-  y se eliminó del código en v1.10.6; la columna permanece en BD, deprecada.)
-- **Notificaciones push (Web Push)** (v1.10.0): claves VAPID auto-generadas y
-  guardadas en `app_config`; tabla `push_subscriptions`; router `api/push.py`
-  (`/vapid-key` público, `/subscribe`, `/unsubscribe`). El job de snapshots llama
-  `check_push_alerts`, que envía **solo las alertas nuevas** por dispositivo
-  (dedup con `last_notified_keys`) y borra suscripciones muertas (HTTP 410).
-  Service worker propio (`src/sw.js`, estrategia `injectManifest`) maneja `push` y
-  `notificationclick`. UI de alta/baja en Utilidades. Requiere HTTPS (lo da Caddy)
-  y, en iOS, PWA instalada.
-- **Borrar datos de cartera** (v1.10.0/1.9.13): Utilidades → zona de peligro;
-  exporta backup JSON y luego `DELETE /api/portfolio/reset` (borra posiciones,
-  transacciones, dividendos y planes; conserva cuenta, favoritos y preferencias).
-- **Umbral de «polvo»** (v1.10.2/1.10.4): `PositionResult.is_closed` cierra una
-  posición si no quedan acciones vivas **o** si el coste de los lotes vivos cae por
-  debajo de un umbral (descarta residuos de redondeo). El umbral es **configurable
-  por admin** (`app_config.dust_threshold`, por defecto 0,10); se inyecta en
-  `compute_position(dust_threshold=…)` desde la API vía `get_dust_threshold(db)`,
-  manteniendo la **capa de cálculo pura**.
+  (`providers/business_insider.py`), conservadora, sin colisionar con ISINs
+  existentes, excluye cripto. **Búsqueda por ISIN** (v1.11.3) en todos los
+  buscadores de productos; `PositionSummary.isin`.
+- **Valores en moneda nativa** (v1.13.0): `PositionSummary` y
+  `ClosedPositionSummary` añaden campos `*_native` + `currency`; SecurityDetail
+  y filas de cartera muestran la divisa del valor. **Totales y fiscal en EUR.**
+- **Selector de mercados visibles** (v1.18.0): ⚙ en Mercados abre un modal de
+  checkboxes por tipo. Config en `localStorage('marketsConfig')` =
+  `{hiddenMarkets: []}` (lista vacía = todo visible → los mercados nuevos del
+  admin aparecen visibles por defecto). Si el mercado/tipo activo queda oculto
+  al guardar, auto-salta al primer visible. Favoritos no se puede ocultar.
+
+#### Fiscal
+
+- **Informe fiscal — fondos aparte** (v1.8.9–1.9.4): los reembolsos de fondos
+  van en sección/indicador propio (PDF y home fiscal), separados de la venta
+  de acciones; cada tarjeta muestra su cuota IRPF estimada. La base imponible
+  agrega todo (base del ahorro). No modela la compensación cruzada del 25 % ni
+  el arrastre de pérdidas de 4 años (se avisa en el propio informe).
+
+#### Alertas, notificaciones y comunicación
+
+- **Precios objetivo** (v1.9.11–v1.10.6): objetivo de compra =
+  `favorites.target_buy_price` (**fuente única**); objetivo de venta =
+  `positions.target_sell_price`. Campana de alertas en el menú con badge;
+  indicador «Comprar»/«Vender» en la ficha. (`positions.target_buy_price`
+  quedó deprecada en BD, sin uso en código desde v1.10.6.)
+- **Notificaciones push (Web Push)** (v1.10.0): claves VAPID auto-generadas en
+  `app_config`; tabla `push_subscriptions`; router `api/push.py` (`/vapid-key`
+  público). `check_push_alerts` (job de snapshots) envía **solo las alertas
+  nuevas** por dispositivo (dedup con `last_notified_keys`) y borra
+  suscripciones muertas (HTTP 410). SW propio `src/sw.js` (injectManifest).
+  Requiere HTTPS; en iOS, PWA instalada. El título del push usa
+  `get_app_name(db)` (v1.18.1).
+- **Solicitudes de catálogo y mensajes** (v1.12.0–v1.13.2): los usuarios
+  proponen valores (`GET /api/catalog/validate-ticker` → preview de Yahoo sin
+  persistencia → `POST /api/catalog/requests`); el admin aprueba (crea el
+  `Security`) o rechaza desde AdminPanel → Catálogo (badge con pending-count).
+  Mensajes libres con `subject` auto-determinado por el origen; el admin
+  responde **una sola vez** (`POST .../messages/{id}/reply`, 409 si repite) →
+  notificación `message_reply` al usuario. La respuesta del usuario a una
+  notificación incluye el contexto original (título + cuerpo). 3 tablas
+  (`security_requests`, `user_notifications`, `catalog_messages`) y 3 routers
+  (`/api/catalog`, `/api/admin/catalog`, `/api/notifications`).
+- **Notificaciones personalizadas del admin** (v1.13.1):
+  `POST /api/admin/notifications/send {user_id|null, title, body}`;
+  `user_id=null` = broadcast a todos los usuarios activos.
+- **Email para administradores** (v1.14.0): `users.email` (nullable, migración
+  22ª); los admins con email reciben copia de solicitudes, mensajes y
+  respuestas. Proveedores: Gmail/Outlook/SMTP genérico/SendGrid/Mailgun.
+  Config en `app_config["email_config"]`; secretos enmascarados como `"***"`
+  en la API (el PATCH conserva el valor guardado si recibe `"***"`). Servicio
+  puro `email_service.py` + orquestador `email_notifications.py` (incluye
+  `notify_admins_inapp`, que **no hace commit** — responsabilidad del caller,
+  y `get_app_name(db)` para los sujetos).
+- **Caducidad de cuenta y renovación** (v1.15.0–v1.16.0): el job nocturno
+  `check_expired_users` desactiva caducados y notifica a los admins (in-app +
+  email). Login caducado → `detail="account_expired"`.
+  `POST /api/auth/request-renewal` (sin auth, idempotente, siempre 200): crea
+  notificación + `CatalogMessageRow` visible en AdminPanel → Usuarios →
+  Mensajes. **`db.commit()` siempre antes de enviar email** (ver Lecciones
+  críticas).
+
+#### Operación y UX
+
+- **Jobs en segundo plano con polling** (patrón clave): las operaciones largas
+  que darían timeout en el VPS («Failed to fetch») se lanzan en un hilo →
+  202 + endpoint `.../status`. Lo usan forzar histórico y rellenar ISINs
+  (este último con **commit incremental**: lo hecho persiste aunque se corte).
 - **Ordenación de tablas + buscador** (v1.10.3): hook `useSortableData` +
-  `SortableHead` (orden en cliente, 3 estados asc/desc/defecto, nulos al final, no
-  persistente) en cartera abierta/cerrada, mercados/favoritos y tablas del detalle.
-  Buscador por ticker/nombre en cartera abierta y cerrada. **Cuidado con las reglas
-  de hooks**: estos hooks deben ir ANTES de cualquier `return` de carga/error (ver
-  [Notas operativas](#notas-operativas-lecciones-aprendidas)).
-- **Error Boundary global** (v1.10.6): envuelve el contenido; un error de runtime
-  muestra un mensaje recuperable en vez de pantalla en negro, con el menú operativo.
-- **Mejoras en la herramienta de traspasos** (v1.10.7): (1) **Edición** de un
-  traspaso ya grabado (`PATCH /api/portfolio/transfer/{group_id}`): corrige
-  shares, dest_shares y fecha sin deshacer; recalcula el coste heredado por FIFO
-  y valida consistencia FIFO en origen y destino. El modal se abre pre-relleno;
-  el fondo queda bloqueado. (2) **Buscador** en el selector de fondo destino:
-  combobox filtrable por nombre, ticker o ISIN. (3) Columna renombrada «Base de
-  coste (€)» / «Cost basis (€)» (antes «Coste heredado»). (4)
-  `TransactionOut.transfer_partner_shares`: historial incluye las participaciones
-  del lado opuesto del traspaso.
-- **Subcarteras** (v1.11.0): agrupaciones personalizadas de posiciones (abiertas
-  y cerradas) definidas por el usuario. Alternativa no acumulativa al filtro por
-  tipo de activo. Tablas `subcarteras` + `subcartera_positions` (muchos-a-muchos).
-  Router `/api/subcarteras` con CRUD + gestión de posiciones. Frontend: toggle
-  «Por tipo / Por subcartera» (solo visible si hay subcarteras), chips de
-  subcartera, filtrado client-side de tablas y server-side de gráficos
-  (`?position_ids=…` en history/xirr/period-returns). Modal de gestión con
-  editor de dos columnas (todas las posiciones / en la subcartera).
-- **Búsqueda por ISIN** (v1.11.3): todos los buscadores de productos de inversión
-  (catálogo de Mercados, cartera abierta/cerrada, editor de subcarteras) admiten
-  el código ISIN además de ticker y nombre. `PositionSummary` incluye `isin`.
-- **«Posiciones Abiertas - Movimientos del día» en Dashboard** (v1.11.3, título renombrado en v1.12.2): sección configurable
-  `topperformers` habilitada por defecto. Dos columnas: mayores subidas y
-  mayores bajadas del día (`daily_change_eur`). N por columna configurable
-  (3 ó 5; defecto 5). Solo posiciones con snapshot del día. Sin llamada extra
-  al backend; respeta el filtro de tipo.
-- **Solicitudes de catálogo por usuarios** (v1.12.0): usuarios normales pueden
-  proponer nuevos valores sin depender del admin directamente.
-  - Hint al pie de Mercados (solo no-admin): «¿No encuentra el producto?» +
-    botón «Agréguelo aquí» + «contacte con el administrador».
-  - Modal `AddProductModal`: ticker → botón **Validar** (`GET /api/catalog/validate-ticker`,
-    Yahoo Finance sin persistencia, preview con precio/divisa/exchange/in_catalog)
-    → nombre auto-rellenado → selector de mercado → **Enviar solicitud**.
-  - Modal `CatalogMessageModal`: texto libre → `POST /api/catalog/messages`.
-  - **Campana extendida**: `GET /api/notifications` se suma a alertas de precio.
-    Notificaciones de solicitud (`request_pending`, `request_approved`,
-    `request_rejected`) con opciones **Entendido** (DELETE) y **Entendido +
-    Dejar mensaje** (POST reply → crea `CatalogMessageRow` vinculado a la solicitud).
-  - **AdminPanel — tab Catálogo**: badge parpadeante con count de pendientes
-    (`GET /api/admin/catalog/requests/pending-count`). Sección **Solicitudes**:
-    tabla filtrable por estado, modal de revisión donde el admin puede reasignar
-    el mercado, añadir notas y aprobar/rechazar. Aprobar crea el `Security`.
-    Sección **Mensajes de usuarios**: mensajes libres + respuestas post-resolución,
-    botón «Marcar resuelto».
-  - 3 tablas nuevas: `security_requests`, `user_notifications`, `catalog_messages`.
-  - 3 routers nuevos: `/api/catalog` (user), `/api/admin/catalog` (admin),
-    `/api/notifications` (user).
-- **Mensajes con asunto + respuesta del admin** (v1.13.0): campo `subject` en
-  `catalog_messages` (auto-determinado por el origen: "Mercados", etc.); admin puede
-  responder una vez (`POST /admin/catalog/messages/{id}/reply`) → notificación
-  `message_reply` al usuario en la campana. `GET /admin/catalog/messages/pending-count`
-  para badge en tab Usuarios. Sección de mensajes movida de tab Catálogo → tab Usuarios.
-  Migración `d1e2f3a4b5c6`.
-- **Valores en moneda nativa** (v1.13.0): `PositionSummary` y `ClosedPositionSummary`
-  incluyen `*_native` (cost, market_value, unrealized_pnl, dividends, realized_pnl,
-  total_profit, fees, avg_cost) y `currency`. SecurityDetail y filas de cartera usan
-  moneda nativa del valor (USD, GBP…); totales del portfolio y fiscal en EUR.
-- **Notificaciones personalizadas del admin** (v1.13.1): `POST /api/admin/notifications/send`
-  con `{user_id, title, body}`. `user_id=null` → broadcast a todos los usuarios activos.
-  Crea `UserNotificationRow(type="admin_message")`. Componente `SendNotificationModal`.
-  Tab Usuarios del AdminPanel: botón por fila + sección broadcast. Tabla de usuarios
-  compactada a 3 columnas (Usuario, Actividad, Acciones).
-- **Contexto en respuestas de usuario** (v1.13.2): `POST /notifications/{id}/reply`
-  incluye el bloque de contexto de la notificación original en el `CatalogMessageRow`
-  (título + cuerpo, separados visualmente). El campo `subject` se rellena con el título
-  de la notificación automáticamente. Título campana: «Alertas de precio y notificaciones».
-- **Notificaciones por email para administradores** (v1.14.0): campo `email` en usuarios
-  (`users.email TEXT` nullable, migración 22ª). Los admins con email reciben una copia por
-  correo de nuevas solicitudes de catálogo, mensajes de usuarios y respuestas. Proveedores:
-  Gmail (SMTP + contraseña de app), Outlook, SMTP genérico, SendGrid y Mailgun. Config
-  guardada en `app_config["email_config"]` (JSON), contraseñas enmascaradas en la API como
-  `"***"`. Servicio puro `email_service.py` + orquestador `email_notifications.py`.
-  AdminPanel — Herramientas: sección «Configuración de correo» con selector de proveedor y
-  textos de ayuda. AdminPanel — Usuarios: email visible + botón ✉ por fila.
-- **Notificaciones por caducidad y solicitud de renovación** (v1.15.0): cuando una cuenta
-  de usuario normal caduca, los admins reciben notificación in-app (campana) y copia por
-  email. El job nocturno `check_expired_users` detecta caducados proactivamente (sin esperar
-  al login). Login con cuenta caducada devuelve `detail="account_expired"` distinguible del
-  bloqueo manual. Nuevo endpoint `POST /api/auth/request-renewal` (sin auth): usuario
-  caducado solicita renovación → notificación in-app + email a todos los admins. En el
-  frontend, Login muestra mensaje específico + botón «Solicitar renovación de acceso».
-  Nuevos tipos de notificación `user_expired` y `renewal_request` (solo «Entendido», sin
-  botón de respuesta). Función `notify_admins_inapp` en `email_notifications.py`.
-  La solicitud de renovación también crea un `CatalogMessageRow` visible en AdminPanel →
-  Usuarios → «Mensajes de usuarios», donde el admin puede responder o resolver (v1.15.2).
-  La campana refresca notificaciones al abrirse, no solo al navegar (v1.15.1).
-- **Auditoría de código y correcciones críticas** (v1.16.0):
-  - `db.commit()` movido antes de `notify_admins()` en `request_renewal` y
-    `_notify_admins_user_expired`: antes un fallo de email descartaba
-    silenciosamente notificaciones in-app y `CatalogMessageRow`.
-  - `request_renewal` es idempotente: clics repetidos no crean mensajes
-    duplicados en AdminPanel.
-  - `Navigation.jsx`: split `loadAlerts` (completo, en navigate+intervalo) /
-    `refreshNotifs` (solo `/notifications`, al abrir campana); guards
-    `loadingRef`/`notifLoadingRef` evitan race conditions; `useEffect([open])`
-    en `AlertBell`; `onClick` vuelve a forma funcional.
-  - `email_notifications.py`: nueva función `get_app_name(db)` → sujetos de
-    email usan el nombre configurable de la app en lugar de `"[Finanzas]"`.
-- **Rangos de precio extendidos en detalle de valor** (v1.17.0/v1.17.1):
-  - `PriceSnapshot` añade `max_2y` y `max_5y` (migración 23ª). `compute_ranges()`
-    calcula min/max para 1, 2 y 5 años.
-  - `SecurityDetail`: selector **1A / 2A / 5A** junto al título del gráfico.
-    Al cambiar el rango: (1) el gráfico muestra el periodo seleccionado y (2)
-    las tarjetas Mín./Máx. muestran solo el par correspondiente al rango activo.
-    Histórico almacenado en estado ampliado a 5 años (`slice(-1825)`).
-- **Selector de mercados visibles en Mercados** (v1.18.0): icono ⚙ arriba a la
-  derecha abre un modal con checkboxes agrupados por tipo de activo. Config
-  guardada en `localStorage('marketsConfig')` como `{hiddenMarkets: string[]}`.
-  Si al guardar el mercado activo queda oculto, salta al primero visible del mismo
-  tipo; si todo el tipo queda oculto, cambia al primer tipo con mercados visibles.
-  Nuevos mercados añadidos por el admin aparecen visibles por defecto (lista
-  `hiddenMarkets` vacía = mostrar todo). Favoritos siempre visible.
+  `SortableHead` (3 estados asc/desc/defecto, nulos al final). **Los hooks van
+  SIEMPRE antes de los `return` de carga/error** (ver Lecciones críticas).
+- **Error Boundary global** (v1.10.6): un error de runtime muestra un mensaje
+  recuperable con el menú operativo, no pantalla negra.
+- **Borrar cartera** (v1.10.0): Utilidades → exporta backup JSON y luego
+  `DELETE /api/portfolio/reset` (conserva cuenta, favoritos y preferencias).
+- **Dashboard — Movimientos del día** (v1.11.3): sección configurable con las
+  mayores subidas/bajadas del día de las posiciones abiertas
+  (`daily_change_eur`), 3 ó 5 por columna, sin llamada extra al backend.
+- **Scatter de cerradas** incluye round-trips parciales de posiciones aún
+  abiertas (`still_open`); **donut de distribución** top 8 + «Otros».
+- **Auditorías de código** (v1.16.0 y v1.18.1): los incidentes encontrados y
+  las reglas resultantes están en
+  [Lecciones críticas](#lecciones-críticas-incidentes-reales-no-repetir).
 
 ---
 
 ## Funcionalidad actual
 
-Qué puede hacer la app hoy (visión de producto):
+Qué puede hacer la app hoy (visión de producto, agrupada):
 
-- **Catálogo dinámico** de mercados y valores (IBEX 35, Mercado Continuo, Nasdaq,
-  ETFs, cripto y **fondos**), con buscador, screener de Yahoo e importación por
-  catálogo. Divisas configurables.
-- **Cartera por usuario**: compras/ventas (FIFO), dividendos (con retención),
-  splits, **traspasos de fondos** y **aportaciones periódicas (DCA)**. Todo se
-  deriva de `transactions`.
-- **Valoración en vivo**: snapshots de precio (scheduler periódico) y barrido
-  nocturno de histórico + tipos del BCE.
-- **Analítica**: B/P latente y realizado, dividendos, comisiones, **TIR (XIRR)**,
-  **retornos por periodo**, gráfico de evolución, distribución (donut top 8),
-  scatter rentabilidad/tiempo, dividendos por valor.
-- **Informe fiscal IRPF** (HTML→PDF): ganancias/pérdidas de acciones, regla de
-  recompra, dividendos, **sección de fondos**, tramos configurables y cuota
-  estimada. Más resumen del año en curso en la sección fiscal.
-- **Importar/Exportar**: CSV, Ghostfolio y backup completo (admin).
-- **Administración**: usuarios y suscripciones, mercados (incl. sincronizar
-  divisa y rellenar ISINs), splits, tramos IRPF, configuración (nombre de app,
-  logo, divisas, intervalo de snapshots, **umbral de cierre por «polvo»**),
-  forzar histórico.
-- **Precios objetivo y alertas**: objetivo de compra/venta por valor, campana de
-  alertas en el menú y **notificaciones push** al dispositivo (PWA).
-- **Subcarteras**: agrupaciones personalizadas de posiciones, alternativa al
-  filtro por tipo. Editor de dos columnas para asignar/quitar posiciones.
-  Toggle «Por tipo / Por subcartera» en Mi Cartera (oculto si no hay subcarteras).
-- **Búsqueda por ISIN**: todos los buscadores de productos (Mercados, cartera,
-  subcarteras) admiten ticker, nombre o ISIN.
-- **Dashboard — «Posiciones Abiertas - Movimientos del día»**: sección configurable con las mayores
-  subidas y bajadas del día de las posiciones abiertas (`daily_change_eur`).
-- **Solicitudes de catálogo y mensajes**: usuarios normales proponen nuevos valores
-  (validación Yahoo Finance, flujo aprobación/rechazo por el admin) y pueden enviar
-  mensajes con **asunto** al admin; el admin puede responder → notificación en la
-  campana. Tab Usuarios del AdminPanel incluye badge y sección de mensajes.
-- **Valores en moneda nativa**: SecurityDetail y filas de cartera abierta/cerrada
-  muestran los importes en la moneda propia del valor (USD, GBP…); totales y fiscal
-  en EUR.
-- **Notificaciones del admin**: el admin puede enviar notificaciones personalizadas
-  (título + cuerpo) a un usuario concreto o a todos los activos (broadcast). Aparecen
-  en la campana del destinatario. AdminPanel tab Usuarios: botón por fila + sección
-  broadcast.
-- **Email para administradores**: los admins con email configurado reciben copia por
-  correo de eventos relevantes (nueva solicitud de catálogo, nuevo mensaje, respuesta de
-  usuario). Proveedores: Gmail, Outlook, SMTP genérico, SendGrid, Mailgun. Configuración
-  en AdminPanel → Herramientas → «Configuración de correo».
-- **Notificaciones por caducidad y renovación**: cuando una cuenta caduca los admins
-  reciben notificación in-app + email. El usuario caducado ve el motivo al login y puede
-  pulsar «Solicitar renovación de acceso» para notificar al admin sin estar autenticado.
-- **Rangos de precio en detalle de valor**: selector 1A/2A/5A vinculado al gráfico
-  histórico y a las tarjetas Mín./Máx. — al cambiar el rango se muestra el gráfico
-  del periodo y el par de tarjetas correspondiente (solo 2 tarjetas visibles a la vez).
-- **Configuración de mercados visibles**: icono ⚙ en la página Mercados permite
-  ocultar/mostrar mercados individualmente. Config persistida en `localStorage`;
-  los mercados nuevos aparecen visibles por defecto. Favoritos siempre visible.
-- **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
-  global (un fallo de UI no deja la pantalla en negro).
+- **Catálogo dinámico** de mercados y valores (IBEX 35, Mercado Continuo,
+  Nasdaq, ETFs, cripto y fondos) con buscador por ticker/nombre/ISIN, screener
+  de Yahoo, importación por catálogo y divisas configurables. Cada usuario
+  elige qué mercados ve (⚙, `localStorage`). Los usuarios normales pueden
+  solicitar el alta de productos (validación Yahoo + aprobación del admin).
+- **Cartera por usuario**: compras/ventas (FIFO), dividendos con retención,
+  splits, traspasos de fondos fiscalmente neutros (crear/editar/borrar) y
+  aportaciones periódicas (DCA). Todo derivado de `transactions`.
+- **Valoración y analítica**: snapshots en vivo + barrido nocturno (histórico
+  y tipos BCE). B/P latente y realizado, dividendos, comisiones, TIR (XIRR),
+  retornos por periodo, gráfico de evolución, donut de distribución, scatter
+  rentabilidad/tiempo y dividendos por valor. Filtros por tipo de activo o
+  por subcarteras personalizadas. Importes en la moneda nativa del valor;
+  totales y fiscal siempre en EUR.
+- **Detalle de valor**: gráfico histórico con selector 1A/2A/5A vinculado a
+  las tarjetas Mín./Máx. del rango activo; precios objetivo de compra/venta
+  con «% hasta obj.» e indicador «Comprar»/«Vender».
+- **Informe fiscal IRPF** (HTML→PDF): ganancias/pérdidas con regla de
+  recompra, dividendos, sección de fondos aparte, tramos configurables y
+  cuota estimada. Resumen del año en curso en la sección fiscal.
+- **Importar/Exportar**: CSV, Ghostfolio y backup completo.
+- **Alertas y comunicación**: campana en el menú (alertas de precio +
+  notificaciones in-app), notificaciones Web Push al dispositivo (PWA),
+  mensajes usuario↔admin con asunto y respuesta, notificaciones
+  personalizadas/broadcast del admin, copia por email a admins
+  (Gmail/Outlook/SMTP/SendGrid/Mailgun), aviso de caducidad de cuenta y
+  solicitud de renovación desde el login.
+- **Administración**: usuarios (suscripciones, email, bloqueo/caducidad),
+  mercados (sincronizar divisa, rellenar ISINs), splits, tramos IRPF,
+  configuración (nombre de app, logo, divisas, intervalo de snapshots, umbral
+  de «polvo») y forzar histórico.
+- **PWA** instalable, responsive, ES/EN, tema claro/oscuro, Error Boundary
+  global, ordenación de tablas y buscadores en cartera. El usuario puede
+  borrar su cartera (con backup previo automático).
 
 ---
 
@@ -677,8 +610,10 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 
 - Columna `is_admin BOOLEAN NOT NULL DEFAULT 0` en `users`.
 - Auth por cookie firmada (`itsdangerous`), password con bcrypt.
-- Bloqueado si `is_enabled=False` o `expires_at` pasado → 403
-  "Contactar con el administrador".
+- Bloqueado manualmente (`is_enabled=False`) → 403 "Contactar con el
+  administrador". Caducado (`expires_at` pasado) → 403 con
+  `detail="account_expired"` (v1.15.0), que el Login distingue para ofrecer
+  el botón «Solicitar renovación de acceso».
 - Router `api/admin.py` con dependencia `require_admin` (403 si no es admin).
 - Crear primer admin: `python -m app.scripts.create_user <user> <pass> --admin`
 - Al arrancar, `_ensure_default_admin()` crea admin si
@@ -1056,7 +991,7 @@ de contexto y se mantenga la trayectoria del proyecto:
      si se añadieron.
    - [Routers](#routers-y-prefijos-api) y [Endpoints especiales](#endpoints-especiales-a-recordar)
      si hay nuevos/eliminados.
-   - [Capacidades v1.7–v1.10](#capacidades-añadidas-v17v110-resumen--punteros),
+   - [Capacidades v1.7–v1.18](#capacidades-añadidas-v17v118-resumen--punteros),
      [Funcionalidad actual](#funcionalidad-actual) y [Tests (ficheros)](#tests-ficheros).
    - **Limitaciones conocidas** y **Lecciones críticas** si surgió algo nuevo.
 3. **Memoria persistente** (`~/.claude/.../memory/`): actualizar `MEMORY.md`,
