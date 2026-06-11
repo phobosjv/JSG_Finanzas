@@ -20,6 +20,7 @@ from app.api.deps import get_current_user, get_db
 from app.auth.security import hash_password, needs_rehash, verify_password
 from app.auth.session import clear_session_cookie, create_session_cookie
 from app.models import User, UserStatusLog
+from app.models.catalog_requests import CatalogMessageRow
 from app.schemas.auth import LoginRequest, RenewalRequest, SelfChangePasswordRequest, UserOut
 from app.services.email_notifications import notify_admins, notify_admins_inapp
 
@@ -134,6 +135,11 @@ def request_renewal(body: RenewalRequest, db: Session = Depends(get_db)):
         )
         try:
             notify_admins_inapp(db, type_="renewal_request", title=title, body=body_text)
+            db.add(CatalogMessageRow(
+                user_id=user.id,
+                subject="Solicitud de renovación de acceso",
+                message=body_text,
+            ))
             notify_admins(
                 db,
                 subject=f"[Finanzas] Solicitud de renovación: {user.username}",

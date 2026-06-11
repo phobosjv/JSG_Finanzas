@@ -5,6 +5,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.15.2] — 2026-06-11
+
+### Corregido — Solicitudes de renovación no aparecían en «Mensajes de usuarios»
+
+- **`api/auth.py`** — `POST /auth/request-renewal` crea ahora también un
+  `CatalogMessageRow` (subject: «Solicitud de renovación de acceso»), de modo
+  que la solicitud aparece en AdminPanel → Usuarios → Mensajes de usuarios.
+  El admin puede responderla o marcarla como resuelta desde ahí, igual que
+  cualquier otro mensaje de usuario. La notificación in-app en la campana y
+  el email siguen funcionando igual.
+
+---
+
 ## [1.15.1] — 2026-06-11
 
 ### Corregido — Campana no actualizaba al abrirla

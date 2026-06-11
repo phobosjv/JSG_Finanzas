@@ -23,6 +23,7 @@ from sqlalchemy import select
 
 from app.models import User, UserStatusLog, UserNotificationRow
 from app.auth.security import hash_password
+from app.models.catalog_requests import CatalogMessageRow
 from app.models.config import AppConfig
 from app.services.email_notifications import EMAIL_CONFIG_KEY
 
@@ -230,6 +231,21 @@ class TestRequestRenewal:
 
         assert len(_admin_notifs(engine, admin1.id)) == 1
         assert len(_admin_notifs(engine, admin2.id)) == 1
+
+    def test_renewal_creates_catalog_message(self, client, engine):
+        # La solicitud debe aparecer en "Mensajes de usuarios" del AdminPanel
+        past = _now() - timedelta(days=2)
+        user = _make_user(engine, "msg_user", expires_at=past)
+
+        client.post("/api/auth/request-renewal", json={"username": "msg_user"})
+
+        with Session(engine) as s:
+            msgs = s.scalars(
+                select(CatalogMessageRow).where(CatalogMessageRow.user_id == user.id)
+            ).all()
+        assert len(msgs) == 1
+        assert "renovación" in msgs[0].subject.lower()
+        assert "msg_user" in msgs[0].message
 
 
 # ===========================================================================
