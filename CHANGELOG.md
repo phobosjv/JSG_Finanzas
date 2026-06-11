@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.18.0] — 2026-06-11
+
+### Añadido — Configuración de mercados visibles en Mercados
+
+- **Icono de engranaje ⚙ en la página Mercados**: cada usuario puede elegir qué
+  mercados desea ver en los tabs de navegación. La configuración se guarda en el
+  navegador (`localStorage`) de forma independiente por usuario.
+- **Modal de selección**: agrupa los mercados disponibles por tipo de activo
+  (Acciones, Fondos, ETFs, Cripto). Un checkbox por mercado permite activar o
+  desactivar su visibilidad. Los cambios se aplican al pulsar «Guardar».
+- **Comportamiento inteligente**: si al guardar el mercado activo queda oculto,
+  la página salta automáticamente al primer mercado visible del mismo tipo; si
+  todo el tipo queda vacío, selecciona el primer tipo con mercados visibles.
+- **Nuevos mercados siempre visibles por defecto**: los mercados que añada el
+  administrador en el futuro aparecen visibles para todos los usuarios sin
+  necesidad de reconfigurar.
+- La pestaña **Favoritos** siempre se muestra y no puede ocultarse.
+
+---
+
 ## [1.17.1] — 2026-06-11
 
 ### Corregido

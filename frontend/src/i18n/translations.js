@@ -80,6 +80,8 @@ export const translations = {
     'markets.not_found_add':      'Agréguelo aquí usando el ticker',
     'markets.not_found_or':       'o',
     'markets.not_found_contact':  'contacte con el administrador',
+    'markets.configure':              'Configurar mercados',
+    'markets.config_visible_markets': 'Mercados visibles',
 
     // ── Solicitudes de catálogo ──────────────────────────────────────────
     'requests.modal_title':       'Agregar producto de inversión',
@@ -730,6 +732,8 @@ export const translations = {
     'markets.not_found_add':      'Add it here using the ticker',
     'markets.not_found_or':       'or',
     'markets.not_found_contact':  'contact the administrator',
+    'markets.configure':              'Configure markets',
+    'markets.config_visible_markets': 'Visible markets',
 
     // ── Catalog requests ─────────────────────────────────────────────────
     'requests.modal_title':       'Add Investment Product',

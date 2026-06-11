@@ -8,6 +8,7 @@ import { ASSET_TYPE_ORDER } from '../components/AssetTypeFilter'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import AddProductModal from '../components/AddProductModal'
 import CatalogMessageModal from '../components/CatalogMessageModal'
+import './Dashboard.css'
 
 function fmtDateTime(dt) {
   if (!dt) return null
@@ -85,6 +86,93 @@ function IndexHeader({ market }) {
   )
 }
 
+// ─── Config de mercados visibles ──────────────────────────────────────────────
+
+function loadMarketsConfig() {
+  try {
+    const raw = localStorage.getItem('marketsConfig')
+    if (!raw) return { hiddenMarkets: [] }
+    const parsed = JSON.parse(raw)
+    return { hiddenMarkets: Array.isArray(parsed.hiddenMarkets) ? parsed.hiddenMarkets : [] }
+  } catch {
+    return { hiddenMarkets: [] }
+  }
+}
+
+function saveMarketsConfig(cfg) {
+  localStorage.setItem('marketsConfig', JSON.stringify(cfg))
+}
+
+// ─── Modal de configuración de mercados ───────────────────────────────────────
+
+function MarketsConfigModal({ allMarkets, hiddenMarkets, onSave, onClose, t }) {
+  const [hidden, setHidden] = useState(hiddenMarkets)
+
+  const typeOf = m => m.market_type || 'stock'
+  const typesPresent = ASSET_TYPE_ORDER.filter(tp => allMarkets.some(m => typeOf(m) === tp))
+
+  function toggleMarket(code) {
+    setHidden(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+    )
+  }
+
+  function handleSave() {
+    onSave(hidden)
+    onClose()
+  }
+
+  return (
+    <div className="db-modal-overlay" onClick={onClose}>
+      <div className="db-modal" onClick={e => e.stopPropagation()}>
+        <div className="db-modal-header">
+          <h2>{t('markets.configure')}</h2>
+          <button className="db-modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="db-modal-section">
+          <div className="db-modal-label">{t('markets.config_visible_markets')}</div>
+          {typesPresent.map(tp => {
+            const mksOfType = allMarkets.filter(m => typeOf(m) === tp)
+            return (
+              <div key={tp} style={{ marginBottom: 12 }}>
+                {typesPresent.length > 1 && (
+                  <div style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                    marginBottom: 6,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                  }}>
+                    {t(`seg.${tp}`)}
+                  </div>
+                )}
+                {mksOfType.map(m => (
+                  <label key={m.code} className="db-config-check" style={{ marginBottom: 6, display: 'flex', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={!hidden.includes(m.code)}
+                      onChange={() => toggleMarket(m.code)}
+                    />
+                    <span>{m.name}</span>
+                  </label>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="db-modal-footer">
+          <button className="btn-primary" onClick={handleSave}>{t('dashboard.config_save')}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
+
 export default function Markets() {
   const { t } = useAppConfig()
   const { user } = useAuth()
@@ -97,18 +185,25 @@ export default function Markets() {
   const [error, setError]           = useState(null)
   const [showAddModal, setShowAddModal]         = useState(false)
   const [showMessageModal, setShowMessageModal] = useState(false)
+  const [configOpen, setConfigOpen] = useState(false)
+  const [hiddenMarkets, setHiddenMarkets] = useState(() => loadMarketsConfig().hiddenMarkets)
   const isMobile = useMediaQuery('(max-width: 767px)')
 
   const typeOf = m => m.market_type || 'stock'
 
+  // Mercados visibles según la configuración del usuario
+  const visibleMarketsList = marketsList.filter(m => !hiddenMarkets.includes(m.code))
+
   // Cargar mercados al montar y elegir el primer tipo/mercado disponible
   useEffect(() => {
+    const initHidden = loadMarketsConfig().hiddenMarkets
     api.get('/markets/list').then(mks => {
       setMarketsList(mks)
-      const present = ASSET_TYPE_ORDER.filter(tp => mks.some(m => typeOf(m) === tp))
+      const visible = mks.filter(m => !initHidden.includes(m.code))
+      const present = ASSET_TYPE_ORDER.filter(tp => visible.some(m => typeOf(m) === tp))
       if (present.length) {
         setActiveType(present[0])
-        setActiveMarket(mks.find(m => typeOf(m) === present[0])?.code ?? null)
+        setActiveMarket(visible.find(m => typeOf(m) === present[0])?.code ?? null)
       } else {
         setActiveType('favoritos')
       }
@@ -130,22 +225,47 @@ export default function Markets() {
   }, [activeType, activeMarket])
 
   // Tipos presentes (primer nivel) y mercados del tipo activo (segundo nivel)
-  const typesPresent = ASSET_TYPE_ORDER.filter(tp => marketsList.some(m => typeOf(m) === tp))
+  const typesPresent = ASSET_TYPE_ORDER.filter(tp => visibleMarketsList.some(m => typeOf(m) === tp))
   const marketsOfType = activeType && activeType !== 'favoritos'
-    ? marketsList.filter(m => typeOf(m) === activeType)
+    ? visibleMarketsList.filter(m => typeOf(m) === activeType)
     : []
 
   function handleTypeChange(type) {
     setActiveType(type)
     setSearch('')
     if (type !== 'favoritos') {
-      setActiveMarket(marketsList.find(m => typeOf(m) === type)?.code ?? null)
+      setActiveMarket(visibleMarketsList.find(m => typeOf(m) === type)?.code ?? null)
     }
   }
 
   function handleMarketChange(code) {
     setActiveMarket(code)
     setSearch('')
+  }
+
+  function handleConfigSave(newHidden) {
+    saveMarketsConfig({ hiddenMarkets: newHidden })
+    setHiddenMarkets(newHidden)
+
+    // Auto-fix la selección activa si el mercado/tipo activo queda oculto
+    const visible = marketsList.filter(m => !newHidden.includes(m.code))
+    if (activeType && activeType !== 'favoritos') {
+      const typeVisible = visible.filter(m => typeOf(m) === activeType)
+      if (typeVisible.length === 0) {
+        // El tipo activo ya no tiene mercados visibles → saltar al primer tipo visible
+        const firstType = ASSET_TYPE_ORDER.find(tp => visible.some(m => typeOf(m) === tp))
+        if (firstType) {
+          setActiveType(firstType)
+          setActiveMarket(visible.find(m => typeOf(m) === firstType)?.code ?? null)
+        } else {
+          setActiveType('favoritos')
+          setActiveMarket(null)
+        }
+      } else if (activeMarket && newHidden.includes(activeMarket)) {
+        // El mercado activo queda oculto → primer visible del mismo tipo
+        setActiveMarket(typeVisible[0].code)
+      }
+    }
   }
 
   // Filtro local: ticker o nombre, case-insensitive
@@ -193,7 +313,19 @@ export default function Markets() {
 
   return (
     <div>
-      <h1>{t('markets.title')}</h1>
+      {/* Cabecera con título y botón de configuración */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <h1 style={{ margin: 0 }}>{t('markets.title')}</h1>
+        {marketsList.length > 0 && (
+          <button
+            className="btn-ghost btn-sm"
+            onClick={() => setConfigOpen(true)}
+            title={t('markets.configure')}
+          >
+            ⚙
+          </button>
+        )}
+      </div>
 
       {/* Primer nivel: tipo de producto + Favoritos */}
       <div className="tabs">
@@ -364,6 +496,17 @@ export default function Markets() {
         <CatalogMessageModal
           subject="Mercados"
           onClose={() => setShowMessageModal(false)}
+        />
+      )}
+
+      {/* Modal de configuración de mercados visibles */}
+      {configOpen && (
+        <MarketsConfigModal
+          allMarkets={marketsList}
+          hiddenMarkets={hiddenMarkets}
+          onSave={handleConfigSave}
+          onClose={() => setConfigOpen(false)}
+          t={t}
         />
       )}
     </div>
