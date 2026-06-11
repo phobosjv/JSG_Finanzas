@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.17.1** · **Tests: 558 en verde** · Aplicación web personal
+> **Versión actual: 1.18.0** · **Tests: 558 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -491,6 +491,13 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
     Al cambiar el rango: (1) el gráfico muestra el periodo seleccionado y (2)
     las tarjetas Mín./Máx. muestran solo el par correspondiente al rango activo.
     Histórico almacenado en estado ampliado a 5 años (`slice(-1825)`).
+- **Selector de mercados visibles en Mercados** (v1.18.0): icono ⚙ arriba a la
+  derecha abre un modal con checkboxes agrupados por tipo de activo. Config
+  guardada en `localStorage('marketsConfig')` como `{hiddenMarkets: string[]}`.
+  Si al guardar el mercado activo queda oculto, salta al primero visible del mismo
+  tipo; si todo el tipo queda oculto, cambia al primer tipo con mercados visibles.
+  Nuevos mercados añadidos por el admin aparecen visibles por defecto (lista
+  `hiddenMarkets` vacía = mostrar todo). Favoritos siempre visible.
 
 ---
 
@@ -547,6 +554,9 @@ Qué puede hacer la app hoy (visión de producto):
 - **Rangos de precio en detalle de valor**: selector 1A/2A/5A vinculado al gráfico
   histórico y a las tarjetas Mín./Máx. — al cambiar el rango se muestra el gráfico
   del periodo y el par de tarjetas correspondiente (solo 2 tarjetas visibles a la vez).
+- **Configuración de mercados visibles**: icono ⚙ en la página Mercados permite
+  ocultar/mostrar mercados individualmente. Config persistida en `localStorage`;
+  los mercados nuevos aparecen visibles por defecto. Favoritos siempre visible.
 - **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
   global (un fallo de UI no deja la pantalla en negro).
 
@@ -554,7 +564,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.17.1 · 558 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.18.0 · 558 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
