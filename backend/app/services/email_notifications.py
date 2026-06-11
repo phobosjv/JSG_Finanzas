@@ -25,6 +25,12 @@ log = logging.getLogger(__name__)
 EMAIL_CONFIG_KEY = "email_config"
 
 
+def get_app_name(db: Session) -> str:
+    """Devuelve el nombre de la aplicación guardado en app_config, o 'Finanzas' si no hay."""
+    row = db.get(AppConfig, "app_name")
+    return row.value if (row and row.value) else "Finanzas"
+
+
 def load_email_config(db: Session) -> EmailConfig | None:
     """Carga la configuración de email almacenada en app_config. None si no hay."""
     row = db.get(AppConfig, EMAIL_CONFIG_KEY)

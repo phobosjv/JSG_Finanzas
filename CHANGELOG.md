@@ -5,6 +5,52 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.16.0] — 2026-06-11
+
+### Corregido — Auditoría de código: bugs críticos, eficiencia y limpieza
+
+#### Bugs críticos (pérdida de datos silenciosa)
+
+- **`api/auth.py`** — `db.commit()` en `request_renewal` se movió a **antes**
+  de `notify_admins()`. Antes, si el envío de email fallaba (SMTP caído,
+  credenciales incorrectas), la notificación in-app y el `CatalogMessageRow`
+  se descartaban silenciosamente y el admin no veía nada a pesar de que el
+  usuario recibía `{"ok": true}`.
+- **`api/auth.py`** — `db.commit()` en `_notify_admins_user_expired` movido
+  igualmente antes de la llamada de email, por el mismo motivo.
+
+#### Bug de corrección
+
+- **`api/auth.py`** — `request_renewal` es ahora idempotente: si ya existe un
+  `CatalogMessageRow` sin resolver para ese usuario (solicitud pendiente),
+  llamadas repetidas son no-op. Evita que clics múltiples llenen el panel de
+  administración con mensajes duplicados idénticos.
+
+#### Mejoras de eficiencia (frontend)
+
+- **`components/Navigation.jsx`** — la campana de alertas ya no recarga
+  `/portfolio` y `/favorites` al abrirse: se añadió `refreshNotifs()` que
+  solo consulta `/notifications` (1 llamada en lugar de 3). `loadAlerts()`
+  (las 3 llamadas completas) sigue ejecutándose al navegar y cada 5 minutos.
+- **`components/Navigation.jsx`** — `loadAlerts` y `refreshNotifs` están
+  envueltas en `useCallback` con referencias estables; `loadingRef` y
+  `notifLoadingRef` evitan llamadas concurrentes en vuelo (race condition
+  cuando el usuario abre la campana rápidamente).
+
+#### Limpieza y diseño
+
+- **`components/Navigation.jsx`** — la lógica de refresco al abrir la campana
+  vive en `useEffect([open, onRefresh])` dentro de `AlertBell` (patrón React
+  idiomático). `onClick` vuelve a la forma funcional `setOpen(v => !v)`.
+  Eliminado el wrapper vacío `handleReply()`.
+- **`services/email_notifications.py`** — nueva función `get_app_name(db)`
+  que lee `app_config.app_name` (fallback `"Finanzas"`).
+- **`api/auth.py`** y **`scheduler/jobs.py`** — los asuntos de email
+  (`[Finanzas] Cuenta caducada`, `[Finanzas] Solicitud de renovación`) usan
+  ahora el nombre configurable de la app en lugar del literal hardcodeado.
+
+---
+
 ## [1.15.2] — 2026-06-11
 
 ### Corregido — Solicitudes de renovación no aparecían en «Mensajes de usuarios»

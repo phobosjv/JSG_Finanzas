@@ -22,7 +22,7 @@ from app.auth.session import clear_session_cookie, create_session_cookie
 from app.models import User, UserStatusLog
 from app.models.catalog_requests import CatalogMessageRow
 from app.schemas.auth import LoginRequest, RenewalRequest, SelfChangePasswordRequest, UserOut
-from app.services.email_notifications import notify_admins, notify_admins_inapp
+from app.services.email_notifications import get_app_name, notify_admins, notify_admins_inapp
 
 log = logging.getLogger(__name__)
 
@@ -126,32 +126,42 @@ def request_renewal(body: RenewalRequest, db: Session = Depends(get_db)):
         and user.expires_at is not None
         and user.expires_at <= now
     ):
-        exp_str = user.expires_at.strftime("%d/%m/%Y")
-        title = f"Solicitud de renovación: {user.username}"
-        body_text = (
-            f"El usuario '{user.username}' solicita renovar su acceso "
-            f"(cuenta caducada el {exp_str}). "
-            f"Puedes actualizar su fecha de caducidad desde el panel de administración."
-        )
-        try:
-            notify_admins_inapp(db, type_="renewal_request", title=title, body=body_text)
-            db.add(CatalogMessageRow(
-                user_id=user.id,
-                subject="Solicitud de renovación de acceso",
-                message=body_text,
-            ))
-            notify_admins(
-                db,
-                subject=f"[Finanzas] Solicitud de renovación: {user.username}",
-                body_html=(
-                    f"<p>El usuario <strong>{user.username}</strong> solicita renovar su "
-                    f"acceso. Su cuenta caducó el {exp_str}.</p>"
-                    f"<p>Puedes renovar el acceso desde el panel de administración → Usuarios.</p>"
-                ),
+        # Idempotencia: ignorar si ya hay una solicitud pendiente sin resolver
+        already_pending = db.scalar(
+            select(CatalogMessageRow).where(
+                CatalogMessageRow.user_id == user.id,
+                CatalogMessageRow.subject == "Solicitud de renovación de acceso",
+                CatalogMessageRow.is_resolved == False,  # noqa: E712
             )
-            db.commit()
-        except Exception:
-            log.exception("Error notificando renovación de %s", user.username)
+        )
+        if not already_pending:
+            exp_str = user.expires_at.strftime("%d/%m/%Y")
+            title = f"Solicitud de renovación: {user.username}"
+            body_text = (
+                f"El usuario '{user.username}' solicita renovar su acceso "
+                f"(cuenta caducada el {exp_str}). "
+                f"Puedes actualizar su fecha de caducidad desde el panel de administración."
+            )
+            app_label = get_app_name(db)
+            try:
+                notify_admins_inapp(db, type_="renewal_request", title=title, body=body_text)
+                db.add(CatalogMessageRow(
+                    user_id=user.id,
+                    subject="Solicitud de renovación de acceso",
+                    message=body_text,
+                ))
+                db.commit()  # Persistir antes de la llamada remota (email puede fallar)
+                notify_admins(
+                    db,
+                    subject=f"[{app_label}] Solicitud de renovación: {user.username}",
+                    body_html=(
+                        f"<p>El usuario <strong>{user.username}</strong> solicita renovar su "
+                        f"acceso. Su cuenta caducó el {exp_str}.</p>"
+                        f"<p>Puedes renovar el acceso desde el panel de administración → Usuarios.</p>"
+                    ),
+                )
+            except Exception:
+                log.exception("Error notificando renovación de %s", user.username)
 
     return {"ok": True}
 
@@ -169,17 +179,18 @@ def _notify_admins_user_expired(db: Session, user: User) -> None:
         f"(fecha límite: {exp_str}). "
         f"Puedes renovar el acceso desde el panel de administración."
     )
+    app_label = get_app_name(db)
     try:
         notify_admins_inapp(db, type_="user_expired", title=title, body=body_text)
+        db.commit()  # Persistir antes de la llamada remota (email puede fallar)
         notify_admins(
             db,
-            subject=f"[Finanzas] Cuenta caducada: {user.username}",
+            subject=f"[{app_label}] Cuenta caducada: {user.username}",
             body_html=(
                 f"<p>La cuenta del usuario <strong>{user.username}</strong> "
                 f"ha caducado el {exp_str}.</p>"
                 f"<p>Puedes renovar el acceso desde el panel de administración → Usuarios.</p>"
             ),
         )
-        db.commit()
     except Exception:
         log.exception("Error notificando caducidad de %s a los admins", user.username)

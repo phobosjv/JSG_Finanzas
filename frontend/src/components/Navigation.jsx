@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAppConfig } from '../context/AppContext'
@@ -126,11 +126,14 @@ function NotificationDetail({ notif, t, onDismiss, onReply }) {
 // Componente campana con popup de alertas y notificaciones de servidor.
 // placement='up': el popup abre hacia arriba (sidebar-footer).
 // placement='down': el popup abre hacia abajo (mobile-header).
-function AlertBell({ alerts, serverNotifs, t, placement, onNotifsChanged }) {
+// onRefresh: refresca solo /notifications al abrirse (ligero).
+// onNotifsChanged: refresca /notifications tras dismiss o reply.
+function AlertBell({ alerts, serverNotifs, t, placement, onRefresh, onNotifsChanged }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
+  // Cerrar al hacer click fuera
   useEffect(() => {
     if (!open) return
     function handler(e) {
@@ -140,6 +143,11 @@ function AlertBell({ alerts, serverNotifs, t, placement, onNotifsChanged }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  // Refresca las notificaciones de servidor cada vez que se abre la campana
+  useEffect(() => {
+    if (open) onRefresh()
+  }, [open, onRefresh])
+
   const totalCount = alerts.length + serverNotifs.length
   const hasAlerts  = totalCount > 0
 
@@ -148,10 +156,6 @@ function AlertBell({ alerts, serverNotifs, t, placement, onNotifsChanged }) {
       await api.delete(`/notifications/${notifId}`)
       onNotifsChanged()
     } catch { /* ignorar */ }
-  }
-
-  function handleReply() {
-    onNotifsChanged()
   }
 
   // Icono de badge según tipo de notificación de solicitud
@@ -168,11 +172,7 @@ function AlertBell({ alerts, serverNotifs, t, placement, onNotifsChanged }) {
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         className="btn-ghost btn-sm"
-        onClick={() => {
-          const nowOpen = !open
-          setOpen(nowOpen)
-          if (nowOpen) onNotifsChanged()
-        }}
+        onClick={() => setOpen(v => !v)}
         title={t('nav.alerts_title')}
         style={{ fontSize: '1rem', padding: '4px 8px', opacity: hasAlerts ? 1 : 0.35 }}
       >
@@ -214,7 +214,7 @@ function AlertBell({ alerts, serverNotifs, t, placement, onNotifsChanged }) {
                   notif={n}
                   t={t}
                   onDismiss={() => { handleDismiss(n.id); setOpen(false) }}
-                  onReply={() => { handleReply(); setOpen(false) }}
+                  onReply={() => { onNotifsChanged(); setOpen(false) }}
                 />
               ))}
 
@@ -245,11 +245,17 @@ function AlertBell({ alerts, serverNotifs, t, placement, onNotifsChanged }) {
 export default function Navigation() {
   const { user, logout } = useAuth()
   const { appName, logoUrl, theme, toggleTheme, t } = useAppConfig()
-  const [alerts, setAlerts]           = useState([])
+  const [alerts, setAlerts]             = useState([])
   const [serverNotifs, setServerNotifs] = useState([])
   const location = useLocation()
+  const loadingRef      = useRef(false)
+  const notifLoadingRef = useRef(false)
 
-  async function loadAlerts() {
+  // Refresco completo: alertas de precio (/portfolio + /favorites) + notificaciones (/notifications).
+  // Se llama al navegar y cada 5 minutos. useCallback garantiza referencia estable.
+  const loadAlerts = useCallback(async () => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     try {
       const [portfolio, favorites, notifs] = await Promise.all([
         api.get('/portfolio'),
@@ -269,8 +275,23 @@ export default function Navigation() {
       }
       setAlerts(combined)
       setServerNotifs(Array.isArray(notifs) ? notifs : [])
-    } catch { /* silencioso */ }
-  }
+    } catch { /* silencioso */ } finally {
+      loadingRef.current = false
+    }
+  }, [])
+
+  // Refresco ligero: solo notificaciones de servidor (/notifications).
+  // Se llama al abrir la campana, dismiss o reply para no recargar /portfolio y /favorites.
+  const refreshNotifs = useCallback(async () => {
+    if (notifLoadingRef.current) return
+    notifLoadingRef.current = true
+    try {
+      const notifs = await api.get('/notifications')
+      setServerNotifs(Array.isArray(notifs) ? notifs : [])
+    } catch { /* silencioso */ } finally {
+      notifLoadingRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -282,7 +303,7 @@ export default function Navigation() {
     load()
     const id = setInterval(load, 5 * 60 * 1000)
     return () => { cancelled = true; clearInterval(id) }
-  }, [user, location.pathname])
+  }, [user, location.pathname, loadAlerts])
 
   return (
     <>
@@ -299,7 +320,8 @@ export default function Navigation() {
             serverNotifs={serverNotifs}
             t={t}
             placement="down"
-            onNotifsChanged={loadAlerts}
+            onRefresh={refreshNotifs}
+            onNotifsChanged={refreshNotifs}
           />
           <button className="btn-ghost btn-sm" onClick={logout} style={{ fontSize: '0.8rem' }}>
             {t('nav.logout')}
@@ -331,7 +353,8 @@ export default function Navigation() {
                 serverNotifs={serverNotifs}
                 t={t}
                 placement="up"
-                onNotifsChanged={loadAlerts}
+                onRefresh={refreshNotifs}
+                onNotifsChanged={refreshNotifs}
               />
               <button
                 className="btn-ghost btn-sm"

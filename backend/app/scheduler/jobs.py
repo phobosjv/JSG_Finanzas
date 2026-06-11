@@ -85,7 +85,7 @@ def check_expired_users(db: Session) -> int:
     El job nocturno cubre el caso de usuarios que caducan sin haber intentado
     hacer login (el login ya gestiona el primer acceso tras la caducidad).
     """
-    from app.services.email_notifications import notify_admins, notify_admins_inapp
+    from app.services.email_notifications import get_app_name, notify_admins, notify_admins_inapp
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -113,6 +113,7 @@ def check_expired_users(db: Session) -> int:
 
     db.flush()
 
+    app_label = get_app_name(db)
     for user in expired:
         exp_str = user.expires_at.strftime("%d/%m/%Y") if user.expires_at else "—"
         title = f"Cuenta caducada: {user.username}"
@@ -125,7 +126,7 @@ def check_expired_users(db: Session) -> int:
             notify_admins_inapp(db, type_="user_expired", title=title, body=body_text)
             notify_admins(
                 db,
-                subject=f"[Finanzas] Cuenta caducada: {user.username}",
+                subject=f"[{app_label}] Cuenta caducada: {user.username}",
                 body_html=(
                     f"<p>La cuenta del usuario <strong>{user.username}</strong> "
                     f"ha caducado el {exp_str}.</p>"
