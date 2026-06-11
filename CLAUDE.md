@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.15.2** · **Tests: 558 en verde** · Aplicación web personal
+> **Versión actual: 1.16.0** · **Tests: 558 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -471,6 +471,18 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   La solicitud de renovación también crea un `CatalogMessageRow` visible en AdminPanel →
   Usuarios → «Mensajes de usuarios», donde el admin puede responder o resolver (v1.15.2).
   La campana refresca notificaciones al abrirse, no solo al navegar (v1.15.1).
+- **Auditoría de código y correcciones críticas** (v1.16.0):
+  - `db.commit()` movido antes de `notify_admins()` en `request_renewal` y
+    `_notify_admins_user_expired`: antes un fallo de email descartaba
+    silenciosamente notificaciones in-app y `CatalogMessageRow`.
+  - `request_renewal` es idempotente: clics repetidos no crean mensajes
+    duplicados en AdminPanel.
+  - `Navigation.jsx`: split `loadAlerts` (completo, en navigate+intervalo) /
+    `refreshNotifs` (solo `/notifications`, al abrir campana); guards
+    `loadingRef`/`notifLoadingRef` evitan race conditions; `useEffect([open])`
+    en `AlertBell`; `onClick` vuelve a forma funcional.
+  - `email_notifications.py`: nueva función `get_app_name(db)` → sujetos de
+    email usan el nombre configurable de la app en lugar de `"[Finanzas]"`.
 
 ---
 
@@ -531,7 +543,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.15.2 · 558 tests en verde** (pytest, SQLite en memoria). 22 migraciones
+**v1.16.0 · 558 tests en verde** (pytest, SQLite en memoria). 22 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
@@ -556,8 +568,8 @@ notificaciones, mensajes, protección auth/admin).
 campos nativos USD en PositionSummary, notificaciones personalizadas del admin).
 `test_email.py` (v1.14.0: campo email en usuarios, config de email, test endpoint,
 triggers en solicitudes/mensajes/reply — mock `app.api.admin_markets.send_email`).
-`test_user_expiry.py` (v1.15.0–v1.15.2: login caducado → account_expired + notifs a admins,
-POST /auth/request-renewal crea CatalogMessageRow + notif + email, job check_expired_users — mock `app.api.auth.notify_admins`).
+`test_user_expiry.py` (v1.15.0–v1.16.0: login caducado → account_expired + notifs a admins,
+POST /auth/request-renewal crea CatalogMessageRow + notif + email, idempotencia (doble llamada no duplica), job check_expired_users — mock `app.api.auth.notify_admins`).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
@@ -989,6 +1001,15 @@ docker compose up --build
   causa es difícil de depurar porque no hay error visible. Regla: **en componentes
   que reciben posiciones del API, usar siempre `p.position_id`** como clave,
   filtro y argumento de llamadas al backend.
+- **`db.commit()` debe ir ANTES de cualquier llamada remota** (email, HTTP externo).
+  El patrón `notify_admins_inapp → db.add → notify_admins → db.commit` dentro de un
+  `try/except Exception` es silenciosamente destructivo: si `notify_admins` lanza
+  (fallo SMTP, DNS, config), el `except` lo traga y `db.commit()` nunca ejecuta.
+  SQLAlchemy hace rollback al cerrar la sesión → notificaciones y mensajes
+  desaparecen aunque el endpoint devuelva 200. **Regla**: `db.commit()` justo después
+  del último `db.add()`, antes de cualquier I/O externo. El email fallido es tolerable;
+  la pérdida silenciosa de datos in-app no lo es. (Incidente detectado en auditoría
+  v1.16.0; mismo patrón que v1.15.0 pero re-introducido al añadir `CatalogMessageRow`.)
 - **`auth_client` y `admin_client` comparten la misma instancia `client`** (StaticPool).
   En pytest, si un test recibe ambas fixtures, el último login (adminuser) gana.
   Para tests que necesitan acciones de usuario Y admin: usar el mismo `client` con
