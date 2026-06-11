@@ -30,7 +30,7 @@ from app.schemas.market_admin import (
     SnapshotIntervalUpdate,
 )
 from app.repositories.portfolio_repository import DUST_THRESHOLD_KEY, get_dust_threshold
-from app.schemas.tax_bracket import TaxBracketCreate, TaxBracketOut, TaxBracketUpdate
+from app.schemas.tax_bracket import TaxBracketCreate, TaxBracketOut
 from app.services.email_notifications import EMAIL_CONFIG_KEY, load_email_config
 from app.services.email_service import EmailConfig, send_email
 

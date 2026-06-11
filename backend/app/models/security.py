@@ -23,7 +23,6 @@ from app.models.base import Base
 if TYPE_CHECKING:
     from app.models.price import PriceHistory, PriceSnapshot
     from app.models.portfolio import Position, Favorite
-    from app.models.security import SecuritySplit
 
 CURRENCIES = ("EUR", "USD")
 

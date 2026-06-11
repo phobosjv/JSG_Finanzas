@@ -28,7 +28,6 @@ from app.models.catalog_requests import (
     UserNotificationRow,
 )
 from app.schemas.catalog_requests import (
-    AdminMessageReply,
     CatalogMessageCreate,
     CatalogMessageOut,
     SecurityRequestCreate,

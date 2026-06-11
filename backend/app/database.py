@@ -21,7 +21,7 @@ y garantiza que cada sesion usa su propia conexion.
 
 from collections.abc import Generator
 
-from sqlalchemy import Engine, create_engine, event, text
+from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings

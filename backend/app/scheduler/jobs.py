@@ -39,7 +39,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from app.models import (
     AppConfig, EcbRate, Favorite, Position, PriceHistory, PriceSnapshot,
     PushSubscription, RecurringPlanRow, Security, TransactionRow,
-    User, UserStatusLog, UserNotificationRow,
+    User, UserStatusLog,
 )
 from app.models.market import MarketRow
 from app.providers.yahoo import YahooProvider
@@ -662,7 +662,7 @@ def _compute_user_alert_keys(db: Session, user_id: int) -> list[str]:
 
 def _build_push_payload(db: Session, alert_keys: list[str]) -> dict:
     """Construye el payload JSON de la notificación push."""
-    import json
+    from app.services.email_notifications import get_app_name
 
     lines: list[str] = []
     for key in alert_keys[:5]:            # máximo 5 en el texto
@@ -676,7 +676,7 @@ def _build_push_payload(db: Session, alert_keys: list[str]) -> dict:
         lines.append(f"{tipo}: {name}{price_str}")
 
     n = len(alert_keys)
-    title = f"JSG Portfolio — {'alerta' if n == 1 else f'{n} alertas'} de precio"
+    title = f"{get_app_name(db)} — {'alerta' if n == 1 else f'{n} alertas'} de precio"
     body  = "\n".join(lines)
     if n > 5:
         body += f"\n(+{n - 5} más)"

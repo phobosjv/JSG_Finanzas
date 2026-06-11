@@ -1002,8 +1002,17 @@ export default function SecurityDetail() {
   // valores iniciales seguros de snapshot/history/transactions/dividends.
   const pct    = snapshot?.daily_change_pct != null ? Number(snapshot.daily_change_pct) : null
   const pctCls = pct == null ? 'neu' : pct > 0 ? 'pos' : pct < 0 ? 'neg' : 'neu'
+  // El histórico solo contiene días de cotización (~252/año): recortar por
+  // FECHA natural, no por número de filas, para que 1A/2A/5A sean años reales
+  // y coincidan con las tarjetas Mín./Máx. (compute_ranges usa el mismo corte).
   const chartDays = chartRange === '5y' ? 1825 : chartRange === '2y' ? 730 : 365
-  const chartData = history.slice(-chartDays).map(h => ({ date: h.date, close: Number(h.close) }))
+  const lastDate = history.length ? new Date(history[history.length - 1].date) : null
+  const chartCutoff = lastDate
+    ? new Date(lastDate.getTime() - chartDays * 86400000).toISOString().slice(0, 10)
+    : null
+  const chartData = history
+    .filter(h => chartCutoff == null || h.date >= chartCutoff)
+    .map(h => ({ date: h.date, close: Number(h.close) }))
 
   const buys  = transactions.filter(t => t.type === 'buy')
   const sells = transactions.filter(t => t.type === 'sell')

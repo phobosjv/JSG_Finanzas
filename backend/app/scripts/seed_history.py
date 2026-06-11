@@ -14,7 +14,7 @@ puede relanzar sin riesgo si se interrumpe a mitad.
 
 import logging
 import sys
-from datetime import date, timedelta
+from datetime import date
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)

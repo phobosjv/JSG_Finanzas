@@ -88,6 +88,8 @@ function IndexHeader({ market }) {
 
 // ─── Config de mercados visibles ──────────────────────────────────────────────
 
+const typeOf = m => m.market_type || 'stock'
+
 function loadMarketsConfig() {
   try {
     const raw = localStorage.getItem('marketsConfig')
@@ -108,7 +110,6 @@ function saveMarketsConfig(cfg) {
 function MarketsConfigModal({ allMarkets, hiddenMarkets, onSave, onClose, t }) {
   const [hidden, setHidden] = useState(hiddenMarkets)
 
-  const typeOf = m => m.market_type || 'stock'
   const typesPresent = ASSET_TYPE_ORDER.filter(tp => allMarkets.some(m => typeOf(m) === tp))
 
   function toggleMarket(code) {
@@ -189,17 +190,14 @@ export default function Markets() {
   const [hiddenMarkets, setHiddenMarkets] = useState(() => loadMarketsConfig().hiddenMarkets)
   const isMobile = useMediaQuery('(max-width: 767px)')
 
-  const typeOf = m => m.market_type || 'stock'
-
   // Mercados visibles según la configuración del usuario
   const visibleMarketsList = marketsList.filter(m => !hiddenMarkets.includes(m.code))
 
   // Cargar mercados al montar y elegir el primer tipo/mercado disponible
   useEffect(() => {
-    const initHidden = loadMarketsConfig().hiddenMarkets
     api.get('/markets/list').then(mks => {
       setMarketsList(mks)
-      const visible = mks.filter(m => !initHidden.includes(m.code))
+      const visible = mks.filter(m => !hiddenMarkets.includes(m.code))
       const present = ASSET_TYPE_ORDER.filter(tp => visible.some(m => typeOf(m) === tp))
       if (present.length) {
         setActiveType(present[0])
@@ -261,9 +259,11 @@ export default function Markets() {
           setActiveType('favoritos')
           setActiveMarket(null)
         }
+        setSearch('')  // mismo comportamiento que handleTypeChange
       } else if (activeMarket && newHidden.includes(activeMarket)) {
         // El mercado activo queda oculto → primer visible del mismo tipo
         setActiveMarket(typeVisible[0].code)
+        setSearch('')  // mismo comportamiento que handleMarketChange
       }
     }
   }

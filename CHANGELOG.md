@@ -5,6 +5,34 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.18.1] — 2026-06-12
+
+### Corregido
+
+- **Detalle de valor — rango del gráfico en años reales**: el selector 1A/2A/5A
+  recortaba el histórico por número de filas, pero la serie solo contiene días
+  de cotización (~252/año), por lo que «1A» mostraba ~17 meses y «5A» podía
+  superar los 7 años. Ahora el recorte se hace por fecha natural (mismo criterio
+  que las tarjetas Mín./Máx.), de modo que el gráfico y las tarjetas del rango
+  activo son coherentes entre sí.
+- **Notificaciones push — nombre de la app en el título**: el título llevaba
+  «JSG Portfolio» fijo en el código; ahora usa el nombre configurable de la
+  aplicación (`app_config.app_name`), igual que los asuntos de email desde
+  v1.16.0. Con test de regresión.
+- **Mercados — buscador tras auto-ajuste**: al ocultar desde el modal de
+  configuración el mercado o tipo activo, el salto automático al siguiente
+  mercado visible no limpiaba el texto del buscador y la nueva lista aparecía
+  filtrada por la búsqueda anterior.
+
+### Mantenimiento
+
+- Eliminados 12 imports sin uso en el backend (detectados con pyflakes) y dos
+  f-strings sin placeholders; deduplicado el helper `typeOf` en `Markets.jsx` y
+  eliminada una doble lectura de `localStorage` al montar la página Mercados.
+  Sin cambios de comportamiento.
+
+---
+
 ## [1.18.0] — 2026-06-11
 
 ### Añadido — Configuración de mercados visibles en Mercados

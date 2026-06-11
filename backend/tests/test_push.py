@@ -211,3 +211,33 @@ def test_check_push_alerts_solo_notifica_nuevas(admin_client, seed_markets, engi
         # Segunda pasada sin cambios → no reenvía
         jobs.check_push_alerts(s)
         assert len(sent) == 1, "Una alerta ya notificada no debe reenviarse"
+
+
+# ---------------------------------------------------------------------------
+#  _build_push_payload — título con el nombre configurable de la app
+# ---------------------------------------------------------------------------
+
+def test_push_payload_usa_app_name_configurable(admin_client, seed_markets, engine):
+    """
+    Bug v1.18.1: el título del push llevaba "JSG Portfolio" hardcodeado.
+    Debe usar app_config.app_name (regla de oro 4: nada configurable se
+    hardcodea), igual que los sujetos de email desde v1.16.0.
+
+    Con app_name="Mi Cartera" y 1 alerta, el título esperado es exactamente
+    "Mi Cartera — alerta de precio" y la URL apunta al detalle del valor.
+    """
+    from app.scheduler.jobs import _build_push_payload
+
+    sec = admin_client.post("/api/securities", json={
+        "name": "TitleCo", "yahoo_ticker": "TITLE.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+
+    with Session(engine) as s:
+        _snap(s, sec, 12)
+        s.merge(AppConfig(key="app_name", value="Mi Cartera"))
+        s.commit()
+        payload = _build_push_payload(s, [f"buy:{sec}"])
+
+    assert payload["title"] == "Mi Cartera — alerta de precio"
+    assert "JSG Portfolio" not in payload["title"]
+    assert payload["url"] == f"/securities/{sec}"

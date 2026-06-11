@@ -10,7 +10,6 @@ DELETE /api/push/subscribe — elimina la suscripción del dispositivo actual
 from __future__ import annotations
 
 import base64
-import json
 import logging
 
 from fastapi import APIRouter, Depends, status

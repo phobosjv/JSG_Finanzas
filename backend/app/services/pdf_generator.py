@@ -15,7 +15,6 @@ la plantilla recibe texto listo y no hace aritmética.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path

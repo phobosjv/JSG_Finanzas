@@ -33,7 +33,7 @@ Seguridad de la cookie
 from __future__ import annotations
 
 from itsdangerous import BadSignature, SignatureExpired, TimestampSigner
-from fastapi import Cookie, HTTPException, Request, Response, status
+from fastapi import HTTPException, Request, Response, status
 
 from app.config import get_settings
 

@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import threading as _threading
-from datetime import date as date_type, datetime, timezone
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status

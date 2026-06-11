@@ -410,12 +410,12 @@ def report_summary(report: TaxReport) -> str:
     """Genera un resumen legible del informe. Para logs y depuracion."""
     lines = [
         f"Informe fiscal {report.year}",
-        f"  Ganancias patrimoniales:",
+        "  Ganancias patrimoniales:",
         f"    Ganancias .................. {report.total_gains_eur:>12.2f} EUR",
         f"    Perdidas computables ....... {report.total_losses_computable_eur:>12.2f} EUR",
         f"    Perdidas NO computables .... {report.total_losses_disallowed_eur:>12.2f} EUR",
         f"    Saldo computable ........... {report.net_capital_result_eur:>12.2f} EUR",
-        f"  Dividendos:",
+        "  Dividendos:",
         f"    Bruto ...................... {report.total_dividends_gross_eur:>12.2f} EUR",
         f"    Retencion en origen ........ {report.total_dividends_withholding_eur:>12.2f} EUR",
         f"    Neto ....................... {report.total_dividends_net_eur:>12.2f} EUR",
