@@ -845,6 +845,7 @@ export default function SecurityDetail() {
   const [opError, setOpError]       = useState(null)
   const [isFav, setIsFav]           = useState(false)
   const [showEditSec, setShowEditSec] = useState(false)
+  const [chartRange, setChartRange] = useState('1y')
 
   async function loadAll() {
     setPosResult(null)
@@ -861,7 +862,7 @@ export default function SecurityDetail() {
       ])
       setSecurity(sec)
       setSnapshot(snap)
-      setHistory(hist.slice(-365))
+      setHistory(hist.slice(-1825))
       setIsFav(favs.some(f => f.security_id === secId))
       // target_buy_price: fuente única = favorites (compartido con la lista de mercados)
       const fav = favs.find(f => f.security_id === secId)
@@ -1001,7 +1002,8 @@ export default function SecurityDetail() {
   // valores iniciales seguros de snapshot/history/transactions/dividends.
   const pct    = snapshot?.daily_change_pct != null ? Number(snapshot.daily_change_pct) : null
   const pctCls = pct == null ? 'neu' : pct > 0 ? 'pos' : pct < 0 ? 'neg' : 'neu'
-  const chartData = history.map(h => ({ date: h.date, close: Number(h.close) }))
+  const chartDays = chartRange === '5y' ? 1825 : chartRange === '2y' ? 730 : 365
+  const chartData = history.slice(-chartDays).map(h => ({ date: h.date, close: Number(h.close) }))
 
   const buys  = transactions.filter(t => t.type === 'buy')
   const sells = transactions.filter(t => t.type === 'sell')
@@ -1166,6 +1168,30 @@ export default function SecurityDetail() {
             <div className="value">{fmt(snapshot.max_1y)} {security.currency}</div>
             <div className="label">{t('sd.max_1y')}</div>
           </div>
+          {snapshot.min_2y != null && (
+            <div className="card small">
+              <div className="value">{fmt(snapshot.min_2y)} {security.currency}</div>
+              <div className="label">{t('sd.min_2y')}</div>
+            </div>
+          )}
+          {snapshot.max_2y != null && (
+            <div className="card small">
+              <div className="value">{fmt(snapshot.max_2y)} {security.currency}</div>
+              <div className="label">{t('sd.max_2y')}</div>
+            </div>
+          )}
+          {snapshot.min_5y != null && (
+            <div className="card small">
+              <div className="value">{fmt(snapshot.min_5y)} {security.currency}</div>
+              <div className="label">{t('sd.min_5y')}</div>
+            </div>
+          )}
+          {snapshot.max_5y != null && (
+            <div className="card small">
+              <div className="value">{fmt(snapshot.max_5y)} {security.currency}</div>
+              <div className="label">{t('sd.max_5y')}</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1343,7 +1369,21 @@ export default function SecurityDetail() {
       {/* Gráfico */}
       {chartData.length > 0 && (
         <div className="card">
-          <h2>{t('sd.chart_history')}</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h2 style={{ marginBottom: 0 }}>{t('sd.chart_history')}</h2>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['1y', '2y', '5y'].map(r => (
+                <button
+                  key={r}
+                  className={chartRange === r ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
+                  onClick={() => setChartRange(r)}
+                  style={{ padding: '2px 10px', fontSize: '0.78rem' }}
+                >
+                  {t(`sd.range_${r}`)}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>

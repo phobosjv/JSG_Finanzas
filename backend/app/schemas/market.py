@@ -21,7 +21,9 @@ class SnapshotOut(BaseModel):
     min_1y: Decimal | None
     max_1y: Decimal | None
     min_2y: Decimal | None
+    max_2y: Decimal | None
     min_5y: Decimal | None
+    max_5y: Decimal | None
     last_dividend: Decimal | None
     updated_at: str | None
 

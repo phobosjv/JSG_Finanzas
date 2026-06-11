@@ -5,13 +5,13 @@ Tests unitarios de services/indicators.py (compute_ranges).
 
 Semantica de compute_ranges:
   - min_1y / max_1y : extremos de los ultimos 365 dias naturales desde ref.
-  - min_2y          : minimo de los ultimos 730 dias desde ref.
-  - min_5y          : minimo de los ultimos 1825 dias desde ref.
+  - min_2y / max_2y : extremos de los ultimos 730 dias desde ref.
+  - min_5y / max_5y : extremos de los ultimos 1825 dias desde ref.
 
   Si hay algun precio dentro de la ventana → campo poblado.
   Si no hay ningun precio dentro de la ventana → None.
   Una serie de 180 dias tiene TODOS los precios dentro de cualquier ventana
-  (1a, 2a, 5a), por lo que los tres campos salen poblados e iguales.
+  (1a, 2a, 5a), por lo que todos los campos salen poblados e iguales.
 """
 
 from datetime import date, timedelta
@@ -39,7 +39,7 @@ def day(n: int) -> date:
 def test_serie_vacia():
     """Sin datos, todos los campos son None."""
     result = compute_ranges([])
-    assert result == RangeStats(None, None, None, None)
+    assert result == RangeStats(None, None, None, None, None, None)
 
 
 # --------------------------------------------------------------------------
@@ -47,13 +47,15 @@ def test_serie_vacia():
 # --------------------------------------------------------------------------
 
 def test_un_solo_punto():
-    """Un solo precio: min_1y == max_1y == ese precio. min_2y y min_5y iguales."""
+    """Un solo precio: min_1y == max_1y == ese precio. min/max 2a y 5a iguales."""
     result = compute_ranges([(day(0), D("55.50"))], reference_date=REF)
     assert result.min_1y == D("55.50")
     assert result.max_1y == D("55.50")
     # El mismo precio cae en la ventana de 2a y 5a tambien
     assert result.min_2y == D("55.50")
+    assert result.max_2y == D("55.50")
     assert result.min_5y == D("55.50")
+    assert result.max_5y == D("55.50")
 
 
 # --------------------------------------------------------------------------
@@ -76,7 +78,9 @@ def test_serie_corta_todos_dentro_del_primer_ano():
     assert result.max_1y == D("279")
     # 2a y 5a incluyen los mismos precios
     assert result.min_2y == D("100")
+    assert result.max_2y == D("279")
     assert result.min_5y == D("100")
+    assert result.max_5y == D("279")
 
 
 # --------------------------------------------------------------------------
@@ -100,8 +104,10 @@ def test_serie_dos_anos():
     assert result.max_1y == D("829")   # 100 + 729
     # Ventana 2a: incluye toda la serie
     assert result.min_2y == D("100")
+    assert result.max_2y == D("829")
     # Ventana 5a: incluye toda la serie
     assert result.min_5y == D("100")
+    assert result.max_5y == D("829")
     # El minimo de la ventana mas amplia es siempre menor o igual
     assert result.min_2y <= result.min_1y
 
@@ -130,10 +136,14 @@ def test_serie_cinco_anos():
     assert result.min_1y == D("1560")
     assert result.max_1y == D("1925")   # 100 + 1825
     assert result.min_2y == D("1195")
+    assert result.max_2y == D("1925")
     assert result.min_5y == D("100")    # precio del borde mas antiguo (incluido)
+    assert result.max_5y == D("1925")
 
     # Orden invariante: mas amplio → minimo mas bajo o igual
     assert result.min_5y <= result.min_2y <= result.min_1y
+    # El maximo es el mismo en todos los rangos (el precio mas alto es reciente)
+    assert result.max_1y == result.max_2y == result.max_5y
 
 
 # --------------------------------------------------------------------------
@@ -149,7 +159,9 @@ def test_precio_fuera_de_5_anos_da_none_en_5a():
     assert result.min_1y  is None
     assert result.max_1y  is None
     assert result.min_2y  is None
+    assert result.max_2y  is None
     assert result.min_5y  is None
+    assert result.max_5y  is None
 
 
 # --------------------------------------------------------------------------
@@ -169,7 +181,10 @@ def test_datos_solo_en_ventana_2_a_5a():
     assert result.max_1y is None
     assert result.min_2y is not None   # hay datos entre 366-400 dias
     assert result.min_2y == D("200")   # precio del dia mas antiguo (day 400)
+    # max_2y = precio mas alto de la serie (day 366 → 200+34=234)
+    assert result.max_2y == D("234")
     assert result.min_5y == D("200")   # mismos datos
+    assert result.max_5y == D("234")
 
 
 # --------------------------------------------------------------------------
@@ -194,7 +209,9 @@ def test_reference_date_explicito():
     assert result.min_1y == D("8")
     assert result.max_1y == D("15")
     assert result.min_2y == D("8")
+    assert result.max_2y == D("15")
     assert result.min_5y == D("8")
+    assert result.max_5y == D("15")
 
 
 # --------------------------------------------------------------------------

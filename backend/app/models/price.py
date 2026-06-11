@@ -57,9 +57,11 @@ class PriceSnapshot(Base):
     prev_close: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     daily_change_pct: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     min_1y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
-    min_2y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
-    min_5y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     max_1y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    min_2y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    max_2y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    min_5y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    max_5y: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     last_dividend: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     updated_at: Mapped[str | None] = mapped_column(String, nullable=True)
 

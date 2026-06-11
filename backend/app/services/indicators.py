@@ -29,7 +29,9 @@ class RangeStats:
     min_1y: Decimal | None
     max_1y: Decimal | None
     min_2y: Decimal | None
+    max_2y: Decimal | None
     min_5y: Decimal | None
+    max_5y: Decimal | None
 
 
 def compute_ranges(
@@ -37,7 +39,7 @@ def compute_ranges(
     reference_date: date | None = None,
 ) -> RangeStats:
     """
-    Calcula minimos y maximo de 1/2/5 anos a partir de una lista de
+    Calcula minimos y maximos de 1/2/5 anos a partir de una lista de
     (fecha, cierre) ya ordenada cronologicamente.
 
     reference_date: fecha de referencia para calcular los plazos.
@@ -46,7 +48,7 @@ def compute_ranges(
     Devuelve None en cada campo si no hay datos en ese plazo.
     """
     if not closes:
-        return RangeStats(None, None, None, None)
+        return RangeStats(None, None, None, None, None, None)
 
     ref = reference_date or max(d for d, _ in closes)
     cut_1y = ref - timedelta(days=365)
@@ -61,5 +63,7 @@ def compute_ranges(
         min_1y=min(vals_1y) if vals_1y else None,
         max_1y=max(vals_1y) if vals_1y else None,
         min_2y=min(vals_2y) if vals_2y else None,
+        max_2y=max(vals_2y) if vals_2y else None,
         min_5y=min(vals_5y) if vals_5y else None,
+        max_5y=max(vals_5y) if vals_5y else None,
     )

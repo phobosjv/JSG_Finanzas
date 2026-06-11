@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.17.0] — 2026-06-11
+
+### Añadido — Rangos de precio 2/5 años y selector de rango en el gráfico
+
+- **Detalle de valor — tarjetas de rango extendidas**: además del mín./máx. de
+  1 año ya existente, se muestran ahora **Mín. 2 años**, **Máx. 2 años**,
+  **Mín. 5 años** y **Máx. 5 años** (solo cuando el snapshot dispone de
+  suficiente histórico). Las tarjetas se ocultan automáticamente si el dato
+  no está disponible aún.
+- **Gráfico de histórico — selector de rango**: tres botones **1A / 2A / 5A**
+  junto al título del gráfico permiten cambiar el periodo visualizado sin
+  recargar la página. El rango por defecto es 1 año.
+- **Backend — `compute_ranges`** (`services/indicators.py`): `RangeStats`
+  amplía con `max_2y` y `max_5y`; el scheduler los persiste en cada actualización.
+- **Modelo** (`models/price.py`): columnas `max_2y` y `max_5y` en
+  `price_snapshots`; migración Alembic `f3a4b5c6d7e8`.
+- **Schema** (`schemas/market.py`): `SnapshotOut` expone los nuevos campos.
+
+---
+
 ## [1.16.0] — 2026-06-11
 
 ### Corregido — Auditoría de código: bugs críticos, eficiencia y limpieza
