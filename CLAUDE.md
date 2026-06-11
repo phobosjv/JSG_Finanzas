@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.16.0** · **Tests: 558 en verde** · Aplicación web personal
+> **Versión actual: 1.17.1** · **Tests: 558 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -186,6 +186,7 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 20. `c0d1e2f3a4b5` — v1.12.0 `security_requests` + `user_notifications` + `catalog_messages`
 21. `d1e2f3a4b5c6` — v1.13.0 `catalog_messages`: añade `subject`, `admin_reply`, `admin_reply_at`
 22. `e2f3a4b5c6d7` — v1.14.0 `users.email` (TEXT nullable, solo admins)
+23. `f3a4b5c6d7e8` — v1.17.0 `price_snapshots.max_2y` + `max_5y` (rangos de precio 2/5 años)
 
 ---
 
@@ -483,6 +484,13 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
     en `AlertBell`; `onClick` vuelve a forma funcional.
   - `email_notifications.py`: nueva función `get_app_name(db)` → sujetos de
     email usan el nombre configurable de la app en lugar de `"[Finanzas]"`.
+- **Rangos de precio extendidos en detalle de valor** (v1.17.0/v1.17.1):
+  - `PriceSnapshot` añade `max_2y` y `max_5y` (migración 23ª). `compute_ranges()`
+    calcula min/max para 1, 2 y 5 años.
+  - `SecurityDetail`: selector **1A / 2A / 5A** junto al título del gráfico.
+    Al cambiar el rango: (1) el gráfico muestra el periodo seleccionado y (2)
+    las tarjetas Mín./Máx. muestran solo el par correspondiente al rango activo.
+    Histórico almacenado en estado ampliado a 5 años (`slice(-1825)`).
 
 ---
 
@@ -536,6 +544,9 @@ Qué puede hacer la app hoy (visión de producto):
 - **Notificaciones por caducidad y renovación**: cuando una cuenta caduca los admins
   reciben notificación in-app + email. El usuario caducado ve el motivo al login y puede
   pulsar «Solicitar renovación de acceso» para notificar al admin sin estar autenticado.
+- **Rangos de precio en detalle de valor**: selector 1A/2A/5A vinculado al gráfico
+  histórico y a las tarjetas Mín./Máx. — al cambiar el rango se muestra el gráfico
+  del periodo y el par de tarjetas correspondiente (solo 2 tarjetas visibles a la vez).
 - **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
   global (un fallo de UI no deja la pantalla en negro).
 
@@ -543,7 +554,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.16.0 · 558 tests en verde** (pytest, SQLite en memoria). 22 migraciones
+**v1.17.1 · 558 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
