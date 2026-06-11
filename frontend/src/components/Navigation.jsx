@@ -168,7 +168,11 @@ function AlertBell({ alerts, serverNotifs, t, placement, onNotifsChanged }) {
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         className="btn-ghost btn-sm"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => {
+          const nowOpen = !open
+          setOpen(nowOpen)
+          if (nowOpen) onNotifsChanged()
+        }}
         title={t('nav.alerts_title')}
         style={{ fontSize: '1rem', padding: '4px 8px', opacity: hasAlerts ? 1 : 0.35 }}
       >

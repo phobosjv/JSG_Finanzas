@@ -5,6 +5,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.15.1] — 2026-06-11
+
+### Corregido — Campana no actualizaba al abrirla
+
+- **`components/Navigation.jsx`** — la campana de alertas ahora llama a
+  `loadAlerts()` cada vez que se abre el popup, además de hacerlo al navegar
+  entre secciones o cada 5 minutos. Esto corrige que el admin no viera las
+  notificaciones nuevas (p. ej. solicitudes de renovación) si no había
+  navegado desde que se crearon.
+
+---
+
 ## [1.15.0] — 2026-06-11
 
 ### Añadido — Notificaciones por caducidad de cuenta y solicitud de renovación
