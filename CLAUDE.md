@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.15.1** · **Tests: 557 en verde** · Aplicación web personal
+> **Versión actual: 1.15.2** · **Tests: 558 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -468,6 +468,9 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   frontend, Login muestra mensaje específico + botón «Solicitar renovación de acceso».
   Nuevos tipos de notificación `user_expired` y `renewal_request` (solo «Entendido», sin
   botón de respuesta). Función `notify_admins_inapp` en `email_notifications.py`.
+  La solicitud de renovación también crea un `CatalogMessageRow` visible en AdminPanel →
+  Usuarios → «Mensajes de usuarios», donde el admin puede responder o resolver (v1.15.2).
+  La campana refresca notificaciones al abrirse, no solo al navegar (v1.15.1).
 
 ---
 
@@ -528,7 +531,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.15.1 · 557 tests en verde** (pytest, SQLite en memoria). 22 migraciones
+**v1.15.2 · 558 tests en verde** (pytest, SQLite en memoria). 22 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
@@ -553,8 +556,8 @@ notificaciones, mensajes, protección auth/admin).
 campos nativos USD en PositionSummary, notificaciones personalizadas del admin).
 `test_email.py` (v1.14.0: campo email en usuarios, config de email, test endpoint,
 triggers en solicitudes/mensajes/reply — mock `app.api.admin_markets.send_email`).
-`test_user_expiry.py` (v1.15.0: login caducado → account_expired + notifs a admins,
-POST /auth/request-renewal, job check_expired_users — mock `app.api.auth.notify_admins`).
+`test_user_expiry.py` (v1.15.0–v1.15.2: login caducado → account_expired + notifs a admins,
+POST /auth/request-renewal crea CatalogMessageRow + notif + email, job check_expired_users — mock `app.api.auth.notify_admins`).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
