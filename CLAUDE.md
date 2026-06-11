@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.14.0** · **Tests: 534 en verde** · Aplicación web personal
+> **Versión actual: 1.15.0** · **Tests: 557 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -459,6 +459,15 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   `"***"`. Servicio puro `email_service.py` + orquestador `email_notifications.py`.
   AdminPanel — Herramientas: sección «Configuración de correo» con selector de proveedor y
   textos de ayuda. AdminPanel — Usuarios: email visible + botón ✉ por fila.
+- **Notificaciones por caducidad y solicitud de renovación** (v1.15.0): cuando una cuenta
+  de usuario normal caduca, los admins reciben notificación in-app (campana) y copia por
+  email. El job nocturno `check_expired_users` detecta caducados proactivamente (sin esperar
+  al login). Login con cuenta caducada devuelve `detail="account_expired"` distinguible del
+  bloqueo manual. Nuevo endpoint `POST /api/auth/request-renewal` (sin auth): usuario
+  caducado solicita renovación → notificación in-app + email a todos los admins. En el
+  frontend, Login muestra mensaje específico + botón «Solicitar renovación de acceso».
+  Nuevos tipos de notificación `user_expired` y `renewal_request` (solo «Entendido», sin
+  botón de respuesta). Función `notify_admins_inapp` en `email_notifications.py`.
 
 ---
 
@@ -509,6 +518,9 @@ Qué puede hacer la app hoy (visión de producto):
   correo de eventos relevantes (nueva solicitud de catálogo, nuevo mensaje, respuesta de
   usuario). Proveedores: Gmail, Outlook, SMTP genérico, SendGrid, Mailgun. Configuración
   en AdminPanel → Herramientas → «Configuración de correo».
+- **Notificaciones por caducidad y renovación**: cuando una cuenta caduca los admins
+  reciben notificación in-app + email. El usuario caducado ve el motivo al login y puede
+  pulsar «Solicitar renovación de acceso» para notificar al admin sin estar autenticado.
 - **PWA** instalable, responsive, ES/EN, tema claro/oscuro. **Error Boundary**
   global (un fallo de UI no deja la pantalla en negro).
 
@@ -516,7 +528,7 @@ Qué puede hacer la app hoy (visión de producto):
 
 ## Estado actual
 
-**v1.14.0 · 534 tests en verde** (pytest, SQLite en memoria). 22 migraciones
+**v1.15.0 · 557 tests en verde** (pytest, SQLite en memoria). 22 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
@@ -541,6 +553,8 @@ notificaciones, mensajes, protección auth/admin).
 campos nativos USD en PositionSummary, notificaciones personalizadas del admin).
 `test_email.py` (v1.14.0: campo email en usuarios, config de email, test endpoint,
 triggers en solicitudes/mensajes/reply — mock `app.api.admin_markets.send_email`).
+`test_user_expiry.py` (v1.15.0: login caducado → account_expired + notifs a admins,
+POST /auth/request-renewal, job check_expired_users — mock `app.api.auth.notify_admins`).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
@@ -598,6 +612,7 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 - `GET /api/admin/config/email` — devuelve config de email con contraseña/api_key enmascaradas como `"***"` (404 si no hay config).
 - `PATCH /api/admin/config/email` body `EmailConfigIn` — guarda en `app_config["email_config"]`; si contraseña/api_key llegan como `"***"`, se conserva el valor guardado.
 - `POST /api/admin/config/email/test` — envía email de prueba al email del admin logueado (422 si sin email o sin config).
+- `POST /api/auth/request-renewal` (sin auth) body `{username: str}` — usuario caducado solicita renovación; notifica a admins in-app + email; siempre 200.
 - `GET /api/portfolio/history`, `/xirr`, `/period-returns` aceptan `?position_ids=id1,id2,…` como alternativa a `?types=…` para filtrar por subcartera.
 - `GET /api/admin/config` (incluye `dust_threshold`, `email_configured`, `email_provider`) · `PATCH
   /api/admin/config/dust-threshold` (admin) · `PATCH /api/admin/config/snapshot-interval`.
