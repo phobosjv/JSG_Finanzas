@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.19.0** · **Tests: 559 en verde** · Aplicación web personal
+> **Versión actual: 1.19.2** · **Tests: 561 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -459,6 +459,13 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 - **Auditorías de código** (v1.16.0 y v1.18.1): los incidentes encontrados y
   las reglas resultantes están en
   [Lecciones críticas](#lecciones-críticas-incidentes-reales-no-repetir).
+- **Historial limitado a 5 años en el servidor** (v1.19.1): `GET /markets/{id}/history`
+  filtra con `WHERE date >= hoy - 1825 días` en la consulta SQL. El frontend
+  ya no necesita `slice(-1825)`.
+- **Mercados sin valores ocultos en la UI** (v1.19.2): `GET /markets/list`
+  filtra con EXISTS y solo devuelve mercados que tienen al menos un valor en
+  el catálogo. Los mercados vacíos siguen visibles para el admin en
+  `GET /api/admin/markets`.
 
 ---
 
@@ -469,7 +476,8 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 - **Catálogo dinámico** de mercados y valores (IBEX 35, Mercado Continuo,
   Nasdaq, ETFs, cripto y fondos) con buscador por ticker/nombre/ISIN, screener
   de Yahoo, importación por catálogo y divisas configurables. Cada usuario
-  elige qué mercados ve (⚙, `localStorage`). Los usuarios normales pueden
+  elige qué mercados ve (⚙, `localStorage`); los mercados sin valores no se
+  muestran (filtro server-side desde v1.19.2). Los usuarios normales pueden
   solicitar el alta de productos (validación Yahoo + aprobación del admin).
 - **Cartera por usuario**: compras/ventas (FIFO), dividendos con retención,
   splits, traspasos de fondos fiscalmente neutros (crear/editar/borrar) y
@@ -507,7 +515,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.19.0 · 559 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.19.2 · 561 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
