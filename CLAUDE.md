@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.18.1** · **Tests: 559 en verde** · Aplicación web personal
+> **Versión actual: 1.19.0** · **Tests: 559 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -378,6 +378,14 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   `{hiddenMarkets: []}` (lista vacía = todo visible → los mercados nuevos del
   admin aparecen visibles por defecto). Si el mercado/tipo activo queda oculto
   al guardar, auto-salta al primer visible. Favoritos no se puede ocultar.
+- **Subcarteras en el detalle de valor y navegación bidireccional** (v1.19.0):
+  en la cabecera de `SecurityDetail`, entre el badge de mercado y el de divisa,
+  aparecen chips clicables con las subcarteras que contienen la posición →
+  navegan a Portfolio con esa subcartera activa (`location.state.subcartId`).
+  El badge de mercado es también clicable → navega a Mercados con el tipo de
+  producto correcto preseleccionado (`location.state.type`). Ambas páginas
+  leen `location.state` solo al montar; si no hay estado, conservan su
+  comportamiento por defecto.
 
 #### Fiscal
 
@@ -497,7 +505,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.18.1 · 559 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.19.0 · 559 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
