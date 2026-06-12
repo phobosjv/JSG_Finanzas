@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.19.0] — 2026-06-12
+
+### Añadido — Subcarteras en el detalle de valor y navegación bidireccional
+
+- **Subcarteras relacionadas en el detalle de valor**: si la posición del valor
+  pertenece a una o más subcarteras, sus nombres aparecen como chips clicables
+  entre el badge de mercado y el badge de divisa, en la cabecera del detalle.
+  Los chips navegan directamente a «Mi Cartera» con esa subcartera activa.
+- **Badge de mercado clicable**: el indicador de mercado/tipo de producto
+  (p. ej. «FONDOS_ES», «IBEX35») en el detalle de valor es ahora un enlace que
+  lleva a la página Mercados con el tipo de producto correcto ya seleccionado
+  (acciones/fondos/ETF/cripto).
+- **Navegación con estado desde Mercados y Cartera**: `Markets` acepta
+  `location.state.type` para preseleccionar el tipo al llegar; `Portfolio`
+  acepta `location.state.segMode` + `subcartId` para activar una subcartera
+  concreta al llegar. Ambas páginas conservan su comportamiento por defecto
+  cuando no reciben estado de navegación.
+
+---
+
 ## [1.18.1] — 2026-06-12
 
 ### Corregido

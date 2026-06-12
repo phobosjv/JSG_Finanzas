@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
 import {
@@ -144,10 +144,12 @@ export default function Portfolio() {
   const [searchOpen, setSearchOpen]       = useState('')
   const [searchClosed, setSearchClosed]   = useState('')
   const [subcarteras, setSubcarteras]     = useState([])
-  const [segMode, setSegMode]             = useState('type')       // 'type' | 'subcartera'
-  const [activeSubcartera, setActiveSubc] = useState(null)         // null = Todo
-  const [showScManager, setShowScManager] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
+  // Si se navega desde SecurityDetail con state, activar la subcartera indicada.
+  const [segMode, setSegMode]             = useState(location.state?.segMode ?? 'type')
+  const [activeSubcartera, setActiveSubc] = useState(location.state?.subcartId ?? null)
+  const [showScManager, setShowScManager] = useState(false)
 
   useEffect(() => {
     Promise.all([

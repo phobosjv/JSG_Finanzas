@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAppConfig } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -177,6 +178,7 @@ function MarketsConfigModal({ allMarkets, hiddenMarkets, onSave, onClose, t }) {
 export default function Markets() {
   const { t } = useAppConfig()
   const { user } = useAuth()
+  const location = useLocation()
   const [marketsList, setMarketsList] = useState([])
   const [activeType, setActiveType]     = useState(null)  // tipo de producto | 'favoritos'
   const [activeMarket, setActiveMarket] = useState(null)  // código de mercado (null en favoritos)
@@ -193,15 +195,18 @@ export default function Markets() {
   // Mercados visibles según la configuración del usuario
   const visibleMarketsList = marketsList.filter(m => !hiddenMarkets.includes(m.code))
 
-  // Cargar mercados al montar y elegir el primer tipo/mercado disponible
+  // Cargar mercados al montar y elegir el primer tipo/mercado disponible.
+  // Si se navega desde otra página con location.state.type se activa ese tipo.
   useEffect(() => {
+    const requestedType = location.state?.type ?? null
     api.get('/markets/list').then(mks => {
       setMarketsList(mks)
       const visible = mks.filter(m => !hiddenMarkets.includes(m.code))
       const present = ASSET_TYPE_ORDER.filter(tp => visible.some(m => typeOf(m) === tp))
-      if (present.length) {
-        setActiveType(present[0])
-        setActiveMarket(visible.find(m => typeOf(m) === present[0])?.code ?? null)
+      const target = requestedType && present.includes(requestedType) ? requestedType : (present[0] ?? null)
+      if (target) {
+        setActiveType(target)
+        setActiveMarket(visible.find(m => typeOf(m) === target)?.code ?? null)
       } else {
         setActiveType('favoritos')
       }

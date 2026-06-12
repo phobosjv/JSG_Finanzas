@@ -846,19 +846,22 @@ export default function SecurityDetail() {
   const [isFav, setIsFav]           = useState(false)
   const [showEditSec, setShowEditSec] = useState(false)
   const [chartRange, setChartRange] = useState('1y')
+  const [relatedSubcarteras, setRelatedSubcarteras] = useState([])
+  const [secMarket, setSecMarket] = useState(null)
 
   async function loadAll() {
     setPosResult(null)
     setIsClosed(false)
     setClosedSummary(null)
     try {
-      const [sec, snap, hist, posResult, favs, markets] = await Promise.all([
+      const [sec, snap, hist, posResult, favs, markets, scs] = await Promise.all([
         api.get(`/securities/${secId}`),
         api.get(`/markets/${secId}/snapshot`).catch(() => null),
         api.get(`/markets/${secId}/history`).catch(() => []),
         api.get(`/portfolio/by-security/${secId}`).catch(() => null),
         api.get('/favorites'),
         api.get('/markets/list').catch(() => []),
+        api.get('/subcarteras').catch(() => []),
       ])
       setSecurity(sec)
       setSnapshot(snap)
@@ -874,7 +877,9 @@ export default function SecurityDetail() {
       api.post(`/markets/${secId}/refresh-if-stale`)
         .then(r => { if (r?.refreshed) api.get(`/markets/${secId}/snapshot`).then(setSnapshot).catch(() => {}) })
         .catch(() => {})
-      setIsFundMarket(markets.some(m => m.code === sec.market && m.is_fund_market))
+      const mkt = markets.find(m => m.code === sec.market) ?? null
+      setSecMarket(mkt)
+      setIsFundMarket(mkt?.is_fund_market ?? false)
 
       // Planes de aportación periódica activos para este valor.
       const allPlans = await api.get('/portfolio/recurring-plans').catch(() => [])
@@ -887,6 +892,7 @@ export default function SecurityDetail() {
         setPositionId(ops.position_id)
         setTxs(ops.transactions || [])
         setDivs(ops.dividends || [])
+        setRelatedSubcarteras((scs || []).filter(sc => sc.position_ids.includes(ops.position_id)))
       }
 
       if (posResult) {
@@ -1109,7 +1115,23 @@ export default function SecurityDetail() {
             <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{security.name}</span>
           </h1>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="badge badge-market">{security.market}</span>
+            <span
+              className="badge badge-market"
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate('/markets', { state: { type: secMarket?.market_type || 'stock' } })}
+            >
+              {security.market}
+            </span>
+            {relatedSubcarteras.map(sc => (
+              <span
+                key={sc.id}
+                className="badge"
+                style={{ background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--accent)', cursor: 'pointer' }}
+                onClick={() => navigate('/portfolio', { state: { segMode: 'subcartera', subcartId: sc.id } })}
+              >
+                {sc.name}
+              </span>
+            ))}
             <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }}>{security.currency}</span>
             {security.isin && (
               <span style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
