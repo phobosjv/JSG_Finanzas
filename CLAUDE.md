@@ -482,7 +482,9 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
   totales y fiscal siempre en EUR.
 - **Detalle de valor**: gráfico histórico con selector 1A/2A/5A vinculado a
   las tarjetas Mín./Máx. del rango activo; precios objetivo de compra/venta
-  con «% hasta obj.» e indicador «Comprar»/«Vender».
+  con «% hasta obj.» e indicador «Comprar»/«Vender». Chips de subcarteras
+  relacionadas clicables (→ Cartera con subcartera activa); badge de mercado
+  clicable (→ Mercados con el tipo de producto preseleccionado).
 - **Informe fiscal IRPF** (HTML→PDF): ganancias/pérdidas con regla de
   recompra, dividendos, sección de fondos aparte, tramos configurables y
   cuota estimada. Resumen del año en curso en la sección fiscal.
