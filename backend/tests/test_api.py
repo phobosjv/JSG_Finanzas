@@ -1316,3 +1316,31 @@ def test_history_limitado_a_5_anos(admin_client, seed_markets, engine):
     fechas = [row["date"] for row in resp.json()]
     assert fecha_reciente in fechas
     assert fecha_antigua not in fechas
+
+
+# ---------------------------------------------------------------------------
+#  Mercados sin valores no se muestran (v1.19.2)
+# ---------------------------------------------------------------------------
+
+def test_markets_list_solo_con_valores(admin_client, seed_markets):
+    """
+    GET /markets/list devuelve solo mercados que tienen al menos un valor
+    en el catálogo. Los mercados vacíos (sin securities) quedan ocultos.
+
+    seed_markets crea 3 mercados (ibex35, continuo, nasdaq); ninguno tiene
+    values al inicio, así que la lista debe estar vacía. Al añadir un valor
+    a ibex35, solo ese mercado aparece.
+    """
+    # Sin valores: ningún mercado visible
+    resp = admin_client.get("/api/markets/list")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+    # Añadimos un valor a ibex35
+    _crear_security(admin_client, ticker="SAN.MC")
+
+    resp2 = admin_client.get("/api/markets/list")
+    codigos = [m["code"] for m in resp2.json()]
+    assert "ibex35" in codigos
+    assert "continuo" not in codigos
+    assert "nasdaq" not in codigos

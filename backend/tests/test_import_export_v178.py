@@ -132,6 +132,7 @@ def test_backup_admin_importa_mercados(admin_client):
     }
     r = admin_client.post("/api/admin/backup/import", json=payload)
     assert r.status_code == 200, r.text
-    mkts = {m["code"]: m for m in admin_client.get("/api/markets/list").json()}
+    # El admin ve todos los mercados aunque estén vacíos de valores
+    mkts = {m["code"]: m for m in admin_client.get("/api/admin/markets").json()}
     assert "nuevo_crypto" in mkts
     assert mkts["nuevo_crypto"]["market_type"] == "crypto"

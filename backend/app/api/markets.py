@@ -125,7 +125,14 @@ def list_markets(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    return db.scalars(select(MarketRow).order_by(MarketRow.sort_order, MarketRow.code)).all()
+    has_securities = (
+        select(Security.id).where(Security.market == MarketRow.code).exists()
+    )
+    return db.scalars(
+        select(MarketRow)
+        .where(has_securities)
+        .order_by(MarketRow.sort_order, MarketRow.code)
+    ).all()
 
 
 # ---------------------------------------------------------------------------

@@ -5,6 +5,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.19.2] — 2026-06-13
+
+### Mejorado
+
+- **Mercados sin valores no se muestran en la UI**: `GET /markets/list` (el
+  endpoint que alimenta las pestañas del explorador de mercados) ahora filtra
+  con EXISTS y solo devuelve mercados que tengan al menos un valor dado de alta
+  en el catálogo. Los mercados vacíos siguen siendo visibles en AdminPanel
+  (`GET /api/admin/markets`), donde el administrador puede añadirles valores.
+  Con test de regresión.
+
+---
+
 ## [1.19.1] — 2026-06-12
 
 ### Mejorado
