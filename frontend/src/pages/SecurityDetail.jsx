@@ -865,7 +865,7 @@ export default function SecurityDetail() {
       ])
       setSecurity(sec)
       setSnapshot(snap)
-      setHistory(hist.slice(-1825))
+      setHistory(hist)
       setIsFav(favs.some(f => f.security_id === secId))
       // target_buy_price: fuente única = favorites (compartido con la lista de mercados)
       const fav = favs.find(f => f.security_id === secId)

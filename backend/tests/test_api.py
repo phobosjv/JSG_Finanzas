@@ -18,6 +18,11 @@ Posición cerrada (test_portfolio_closed):
 """
 
 import pytest
+from datetime import date, timedelta
+from decimal import Decimal as D
+from sqlalchemy import select as _select
+from sqlalchemy.orm import Session as _Session
+from app.models import PriceHistory as _PriceHistory
 
 
 # ---------------------------------------------------------------------------
@@ -1281,3 +1286,33 @@ def test_reset_portfolio_conserva_favoritos(admin_client, seed_markets):
 def test_reset_portfolio_cartera_ya_vacia(admin_client, seed_markets):
     """DELETE /portfolio/reset sobre cartera vacía devuelve 204 sin errores."""
     assert admin_client.delete("/api/portfolio/reset").status_code == 204
+
+
+# ---------------------------------------------------------------------------
+#  Historial de precios — límite 5 años (v1.19.1)
+# ---------------------------------------------------------------------------
+
+def test_history_limitado_a_5_anos(admin_client, seed_markets, engine):
+    """
+    GET /markets/{id}/history devuelve solo los registros de los últimos
+    5 años (1825 días). Registros anteriores se omiten.
+
+    Configuración:
+      - fecha_antigua: hace 6 años (fuera del rango)
+      - fecha_reciente: hace 1 año (dentro del rango)
+    """
+    sec_id = _crear_security(admin_client)
+
+    fecha_antigua = (date.today() - timedelta(days=6 * 365)).isoformat()
+    fecha_reciente = (date.today() - timedelta(days=365)).isoformat()
+
+    with _Session(engine) as s:
+        s.add(_PriceHistory(security_id=sec_id, date=fecha_antigua, close=D("50")))
+        s.add(_PriceHistory(security_id=sec_id, date=fecha_reciente, close=D("100")))
+        s.commit()
+
+    resp = admin_client.get(f"/api/markets/{sec_id}/history")
+    assert resp.status_code == 200
+    fechas = [row["date"] for row in resp.json()]
+    assert fecha_reciente in fechas
+    assert fecha_antigua not in fechas

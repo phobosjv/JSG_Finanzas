@@ -5,6 +5,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.19.1] — 2026-06-12
+
+### Mejorado
+
+- **Historial de precios limitado a 5 años en el servidor**: el endpoint
+  `GET /markets/{id}/history` devolvía todo el histórico disponible en BD y
+  era el cliente quien recortaba con `slice(-1825)`. Ahora el filtro se aplica
+  en la consulta SQL (`date >= hoy - 1825 días`), reduciendo el payload
+  transferido y eliminando el recorte redundante en el frontend. Con test de
+  regresión.
+
+---
+
 ## [1.19.0] — 2026-06-12
 
 ### Añadido — Subcarteras en el detalle de valor y navegación bidireccional

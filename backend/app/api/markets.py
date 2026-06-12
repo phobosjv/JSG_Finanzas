@@ -250,9 +250,11 @@ def get_history(
     _user: User = Depends(get_current_user),
 ):
     _require_security(db, security_id)
+    cutoff = (date.today() - timedelta(days=5 * 365)).isoformat()
     rows = db.scalars(
         select(PriceHistory)
         .where(PriceHistory.security_id == security_id)
+        .where(PriceHistory.date >= cutoff)
         .order_by(PriceHistory.date)
     ).all()
     return rows
