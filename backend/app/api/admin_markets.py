@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
+import threading as _threading
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -24,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
 from app.models import AppConfig, MarketRow, Security, TaxBracketRow, User
+from app.providers.ecb import ECB_CURRENCIES
 from app.schemas.market_admin import (
     AppNameUpdate, CatalogImportBody, CurrenciesUpdate, DustThresholdUpdate, EmailConfigIn,
     EmailConfigOut, LogoUpdate, MarketCreate, MarketOut, MarketReorderItem, MarketUpdate,
@@ -35,6 +38,7 @@ from app.services.email_notifications import EMAIL_CONFIG_KEY, load_email_config
 from app.services.email_service import EmailConfig, send_email
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+log = logging.getLogger(__name__)
 
 _CONFIG_INTERVAL_KEY      = "snapshot_interval_minutes"
 _CONFIG_APP_NAME_KEY      = "app_name"
@@ -570,15 +574,42 @@ def set_app_name(
     return {"app_name": body.app_name}
 
 
+@router.get("/config/available-currencies")
+def available_currencies(_admin: User = Depends(require_admin)):
+    """Divisas que el BCE publica (las únicas que la app puede manejar). Alimenta
+    el buscador del AdminPanel y es la lista contra la que se valida el alta."""
+    return {"available_currencies": list(ECB_CURRENCIES)}
+
+
+def _backfill_currency_rates() -> None:
+    """Descarga los tipos del BCE (todas las divisas, idempotente) en un hilo,
+    para que una divisa recién añadida quede operativa al instante incluso si la
+    BD solo tenía USD. Reutiliza el job nocturno; los huecos se rellenan solos."""
+    def _run() -> None:
+        from app.database import SessionLocal
+        from app.scheduler.jobs import update_ecb_rates
+        db = SessionLocal()
+        try:
+            update_ecb_rates(db)
+        except Exception:
+            log.exception("Error en backfill de tipos BCE tras añadir divisa")
+        finally:
+            db.close()
+
+    _threading.Thread(target=_run, daemon=True, name="currency-backfill").start()
+
+
 @router.patch("/config/currencies")
 def set_currencies(
     body: CurrenciesUpdate,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    """Actualiza la lista de divisas soportadas. EUR siempre es válida (no se almacena)."""
-    # Validar formatos (3 letras) y filtrar EUR (es implícita)
-    codes = []
+    """Actualiza la lista de divisas soportadas. EUR siempre es válida (no se almacena).
+    Solo se aceptan divisas que el BCE publica (ECB_CURRENCIES); cualquier otra se
+    rechaza con 422. Al añadir divisas nuevas se dispara el backfill de tipos BCE."""
+    previous = set(_get_supported_currencies(db)) - {"EUR"}
+    codes: list[str] = []
     for code in body.currencies:
         c = code.strip().upper()
         if len(c) != 3 or not c.isalpha():
@@ -586,11 +617,23 @@ def set_currencies(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Código de divisa inválido: '{code}' (debe ser 3 letras)"
             )
-        if c != "EUR" and c not in codes:
+        if c == "EUR":
+            continue
+        if c not in ECB_CURRENCIES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"El BCE no publica la divisa '{c}'; no puede usarse en la app"
+            )
+        if c not in codes:
             codes.append(c)
     value = ",".join(codes) if codes else ""
     _upsert_config(db, _CONFIG_CURRENCIES_KEY, value)
     db.commit()
+
+    # Backfill solo si hay divisas nuevas respecto a las ya soportadas.
+    if set(codes) - previous:
+        _backfill_currency_rates()
+
     return {"supported_currencies": ["EUR"] + codes}
 
 

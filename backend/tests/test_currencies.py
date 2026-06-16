@@ -64,9 +64,65 @@ def test_codigo_invalido_da_error(admin_client):
     assert r.status_code == 422
 
 
+def test_divisa_no_publicada_por_bce_rechazada(admin_client):
+    """Un código de 3 letras válido en formato pero que el BCE no publica
+    (p. ej. 'ABC') se rechaza con 422 y mensaje claro (v1.20.0)."""
+    r = _patch_currencies(admin_client, ["USD", "ABC"])
+    assert r.status_code == 422
+    assert "ABC" in r.json()["detail"]
+
+
 def test_no_admin_no_puede_cambiar_divisas(auth_client):
     r = _patch_currencies(auth_client, ["GBP"])
     assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+#  Divisas disponibles (lista canónica del BCE) — v1.20.0
+# ---------------------------------------------------------------------------
+
+def test_available_currencies_endpoint(admin_client):
+    r = admin_client.get("/api/admin/config/available-currencies")
+    assert r.status_code == 200
+    lst = r.json()["available_currencies"]
+    # Incluye divisas conocidas del BCE y NO incluye EUR (es la base implícita).
+    assert "USD" in lst and "GBP" in lst and "JPY" in lst
+    assert "EUR" not in lst
+    assert len(lst) >= 25
+
+
+def test_available_currencies_no_admin(auth_client):
+    r = auth_client.get("/api/admin/config/available-currencies")
+    assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+#  Backfill de tipos BCE al añadir una divisa nueva — v1.20.0
+# ---------------------------------------------------------------------------
+
+def test_backfill_disparado_al_anadir_divisa_nueva(admin_client, monkeypatch):
+    """Añadir una divisa nueva (GBP, respecto al default USD) dispara el
+    backfill de tipos del BCE."""
+    calls = []
+    monkeypatch.setattr(
+        "app.api.admin_markets._backfill_currency_rates",
+        lambda: calls.append(1),
+    )
+    r = _patch_currencies(admin_client, ["USD", "GBP"])
+    assert r.status_code == 200
+    assert calls == [1]
+
+
+def test_backfill_no_disparado_si_sin_novedades(admin_client, monkeypatch):
+    """Guardar la misma lista que el default (solo USD) NO dispara backfill."""
+    calls = []
+    monkeypatch.setattr(
+        "app.api.admin_markets._backfill_currency_rates",
+        lambda: calls.append(1),
+    )
+    r = _patch_currencies(admin_client, ["USD"])
+    assert r.status_code == 200
+    assert calls == []
 
 
 # ---------------------------------------------------------------------------

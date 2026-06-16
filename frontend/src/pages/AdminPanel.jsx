@@ -702,8 +702,38 @@ function TaxBracketsSubsection() {
 //  Configuración del sistema
 // ---------------------------------------------------------------------------
 
+// Nombres localizados de las divisas que publica el BCE (ES/EN). Solo para el
+// buscador del AdminPanel: la lista de códigos válidos vive en el backend
+// (providers/ecb.py → ECB_CURRENCIES) y es la que se valida al guardar.
+const CURRENCY_NAMES = {
+  es: {
+    USD: 'Dólar estadounidense', JPY: 'Yen japonés', BGN: 'Lev búlgaro',
+    CZK: 'Corona checa', DKK: 'Corona danesa', GBP: 'Libra esterlina',
+    HUF: 'Forinto húngaro', PLN: 'Esloti polaco', RON: 'Leu rumano',
+    SEK: 'Corona sueca', CHF: 'Franco suizo', ISK: 'Corona islandesa',
+    NOK: 'Corona noruega', TRY: 'Lira turca', AUD: 'Dólar australiano',
+    BRL: 'Real brasileño', CAD: 'Dólar canadiense', CNY: 'Yuan chino',
+    HKD: 'Dólar de Hong Kong', IDR: 'Rupia indonesia', ILS: 'Nuevo séquel israelí',
+    INR: 'Rupia india', KRW: 'Won surcoreano', MXN: 'Peso mexicano',
+    MYR: 'Ringgit malayo', NZD: 'Dólar neozelandés', PHP: 'Peso filipino',
+    SGD: 'Dólar de Singapur', THB: 'Baht tailandés', ZAR: 'Rand sudafricano',
+  },
+  en: {
+    USD: 'US dollar', JPY: 'Japanese yen', BGN: 'Bulgarian lev',
+    CZK: 'Czech koruna', DKK: 'Danish krone', GBP: 'Pound sterling',
+    HUF: 'Hungarian forint', PLN: 'Polish zloty', RON: 'Romanian leu',
+    SEK: 'Swedish krona', CHF: 'Swiss franc', ISK: 'Icelandic króna',
+    NOK: 'Norwegian krone', TRY: 'Turkish lira', AUD: 'Australian dollar',
+    BRL: 'Brazilian real', CAD: 'Canadian dollar', CNY: 'Chinese yuan renminbi',
+    HKD: 'Hong Kong dollar', IDR: 'Indonesian rupiah', ILS: 'Israeli shekel',
+    INR: 'Indian rupee', KRW: 'South Korean won', MXN: 'Mexican peso',
+    MYR: 'Malaysian ringgit', NZD: 'New Zealand dollar', PHP: 'Philippine peso',
+    SGD: 'Singapore dollar', THB: 'Thai baht', ZAR: 'South African rand',
+  },
+}
+
 function ConfigSection() {
-  const { setAppName, logoUrl, refreshLogo, currencies: ctxCurrencies, t } = useAppConfig()
+  const { setAppName, logoUrl, refreshLogo, currencies: ctxCurrencies, locale, t } = useAppConfig()
   const [interval, setInterval]     = useState(null)
   const [inputVal, setInputVal]     = useState(5)
   const [appNameVal, setAppNameVal] = useState('')
@@ -713,7 +743,9 @@ function ConfigSection() {
   const [logoBusy, setLogoBusy]     = useState(false)
   const logoFileRef                 = useRef(null)
   const [currencyList, setCurrencyList] = useState(ctxCurrencies.filter(c => c !== 'EUR'))
-  const [newCurrency, setNewCurrency]   = useState('')
+  const [availableCurrencies, setAvailableCurrencies] = useState([])
+  const [currencyQuery, setCurrencyQuery] = useState('')
+  const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false)
   const [currencyBusy, setCurrencyBusy] = useState(false)
   const [dustVal, setDustVal]       = useState('0.10')
   const [dustBusy, setDustBusy]     = useState(false)
@@ -759,12 +791,23 @@ function ConfigSection() {
     finally { setLogoBusy(false) }
   }
 
-  function addCurrency() {
-    const code = newCurrency.trim().toUpperCase()
-    if (code.length !== 3 || !/^[A-Z]{3}$/.test(code)) return
-    if (code === 'EUR' || currencyList.includes(code)) return
+  const curName = code => (CURRENCY_NAMES[locale] || CURRENCY_NAMES.es)[code] || code
+
+  // Opciones del buscador: divisas del BCE aún no seleccionadas que casan con
+  // la búsqueda por código o por nombre localizado.
+  const currencyMatches = (() => {
+    const q = currencyQuery.trim().toLowerCase()
+    const pool = availableCurrencies.filter(c => c !== 'EUR' && !currencyList.includes(c))
+    if (!q) return pool
+    return pool.filter(c => c.toLowerCase().includes(q) || curName(c).toLowerCase().includes(q))
+  })()
+
+  function addCurrency(code) {
+    if (!code || code === 'EUR' || currencyList.includes(code)) return
+    if (!availableCurrencies.includes(code)) return  // solo divisas del BCE
     setCurrencyList(prev => [...prev, code])
-    setNewCurrency('')
+    setCurrencyQuery('')
+    setCurrencyMenuOpen(false)
   }
 
   function removeCurrency(code) {
@@ -792,6 +835,9 @@ function ConfigSection() {
       setAppNameVal(d.app_name ?? 'JSG Soft.')
       if (d.dust_threshold != null) setDustVal(String(d.dust_threshold))
     }).catch(() => {})
+    api.get('/admin/config/available-currencies')
+      .then(d => setAvailableCurrencies(Array.isArray(d?.available_currencies) ? d.available_currencies : []))
+      .catch(() => {})
   }, [])
 
   async function saveDust(e) {
@@ -872,7 +918,7 @@ function ConfigSection() {
             border: '1px solid var(--border)',
           }}>EUR</span>
           {currencyList.map(c => (
-            <span key={c} style={{
+            <span key={c} title={curName(c)} style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '2px 8px', borderRadius: 4, fontSize: '0.85rem',
               background: 'var(--accent-dim)', color: 'var(--accent)',
@@ -881,25 +927,59 @@ function ConfigSection() {
               {c}
               <button
                 type="button"
+                title={t('admin.currencies_remove')}
                 onClick={() => removeCurrency(c)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, fontSize: '0.8rem' }}
               >×</button>
             </span>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            value={newCurrency}
-            onChange={e => setNewCurrency(e.target.value.toUpperCase())}
-            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCurrency())}
-            maxLength={3}
-            placeholder={t('admin.currencies_placeholder')}
-            style={{ width: 80, textTransform: 'uppercase' }}
-          />
-          <button type="button" className="btn-ghost btn-sm" onClick={addCurrency}>
-            + {t('admin.currencies_add')}
-          </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', width: 280 }}>
+            <input
+              type="text"
+              value={currencyQuery}
+              onChange={e => { setCurrencyQuery(e.target.value); setCurrencyMenuOpen(true) }}
+              onFocus={() => setCurrencyMenuOpen(true)}
+              onBlur={() => setTimeout(() => setCurrencyMenuOpen(false), 150)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && currencyMatches.length > 0) {
+                  e.preventDefault(); addCurrency(currencyMatches[0])
+                } else if (e.key === 'Escape') {
+                  setCurrencyMenuOpen(false)
+                }
+              }}
+              placeholder={t('admin.currencies_search_placeholder')}
+              style={{ width: '100%' }}
+            />
+            {currencyMenuOpen && currencyMatches.length > 0 && (
+              <ul style={{
+                position: 'absolute', zIndex: 10, top: '100%', left: 0, right: 0,
+                margin: 0, padding: 4, listStyle: 'none', maxHeight: 240, overflowY: 'auto',
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+              }}>
+                {currencyMatches.map(c => (
+                  <li key={c}>
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); addCurrency(c) }}
+                      style={{
+                        display: 'flex', gap: 8, width: '100%', textAlign: 'left',
+                        padding: '6px 8px', background: 'none', border: 'none',
+                        cursor: 'pointer', color: 'var(--text)', borderRadius: 4, fontSize: '0.85rem',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <strong style={{ minWidth: 38 }}>{c}</strong>
+                      <span style={{ color: 'var(--text-muted)' }}>{curName(c)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button type="button" className="btn-primary btn-sm" disabled={currencyBusy} onClick={saveCurrencies}>
             {currencyBusy ? '…' : t('common.save')}
           </button>

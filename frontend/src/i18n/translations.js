@@ -560,9 +560,10 @@ export const translations = {
       'Crea una cuenta en mailgun.com (plan gratuito: 1.000 emails/mes durante 3 meses). En el panel ve a Sending → Domains para ver tu dominio. Copia la API Key privada desde API Security. El dominio de envío suele ser de la forma "mg.tudominio.com" o el sandbox proporcionado.',
 
     'admin.currencies':           'Divisas soportadas',
-    'admin.currencies_note':      'EUR siempre está activa como divisa base y no se puede eliminar.',
+    'admin.currencies_note':      'EUR siempre está activa como divisa base y no se puede eliminar. Solo se pueden añadir divisas que publica el BCE; busca por código o nombre.',
     'admin.currencies_add':       'Añadir divisa',
     'admin.currencies_placeholder': 'Ej: GBP',
+    'admin.currencies_search_placeholder': 'Buscar divisa (p. ej. GBP o libra)…',
     'admin.currencies_remove':    'Eliminar',
     'admin.currencies_saved':     'Divisas actualizadas',
     'admin.filter_all':           'Todos',
@@ -1213,9 +1214,10 @@ export const translations = {
       'Create an account at mailgun.com (free plan: 1,000 emails/month for 3 months). Go to Sending → Domains to see your domain. Copy the private API Key from API Security. The sending domain is usually "mg.yourdomain.com" or the provided sandbox.',
 
     'admin.currencies':           'Supported currencies',
-    'admin.currencies_note':      'EUR is always active as the base currency and cannot be removed.',
+    'admin.currencies_note':      'EUR is always active as the base currency and cannot be removed. Only currencies published by the ECB can be added; search by code or name.',
     'admin.currencies_add':       'Add currency',
     'admin.currencies_placeholder': 'e.g. GBP',
+    'admin.currencies_search_placeholder': 'Search currency (e.g. GBP or pound)…',
     'admin.currencies_remove':    'Remove',
     'admin.currencies_saved':     'Currencies updated',
     'admin.filter_all':           'All',

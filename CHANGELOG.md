@@ -5,6 +5,41 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.20.0] — 2026-06-16
+
+### Nuevo
+
+- **Buscador de divisas en la gestión de admin**: el alta de divisas
+  soportadas (AdminPanel → Configuración) pasa de un campo de texto libre a un
+  **buscador con autocompletado** sobre el conjunto de divisas que publica el
+  BCE (las únicas con tipo de cambio real). El admin escribe por **código o
+  nombre** (`GBP`, `libra`, `yen`…) y selecciona de la lista; se añade el código
+  ISO correcto directamente. Elimina la confusión símbolo (`$`/`£`) vs código
+  ISO y el paso intermedio «+ Añadir» que hacía que el texto pendiente se
+  perdiera al guardar.
+- **Backfill de tipos BCE al añadir una divisa**: al guardar una divisa nueva
+  se dispara en segundo plano la descarga de sus tipos del BCE (job idempotente
+  reutilizado), dejándola operativa al instante incluso en instalaciones cuya
+  BD solo tenía USD.
+
+### Mejorado
+
+- **Validación de divisas en el servidor**: `PATCH /admin/config/currencies`
+  ya no acepta cualquier código de 3 letras; rechaza con 422 y mensaje claro
+  cualquier divisa que el BCE no publique. Nueva fuente única de verdad
+  `ECB_CURRENCIES` en `providers/ecb.py` y endpoint
+  `GET /admin/config/available-currencies` que la expone.
+
+### Corregido
+
+- **Tablas de movimientos ordenadas por fecha descendente por defecto**: las
+  tablas de compras, ventas, traspasos y dividendos del detalle de valor
+  mostraban los movimientos en el orden del API; ahora las más recientes
+  aparecen arriba (y es el orden al que vuelve el 3er clic de la cabecera
+  ordenable).
+
+---
+
 ## [1.19.3] — 2026-06-16
 
 ### Corregido

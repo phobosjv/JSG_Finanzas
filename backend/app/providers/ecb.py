@@ -36,6 +36,17 @@ import httpx
 
 from app.providers.base import RateProvider
 
+# Divisas que publica el BCE en sus tipos de referencia diarios (euro foreign
+# exchange reference rates). Es el conjunto CERRADO de divisas que la app puede
+# manejar de verdad: solo de estas existe tipo de cambio. Fuente única de verdad
+# para validar el alta de divisas y para alimentar el buscador del AdminPanel.
+# (RUB se retiró en 2022; no se incluye.)
+ECB_CURRENCIES: tuple[str, ...] = (
+    "USD", "JPY", "BGN", "CZK", "DKK", "GBP", "HUF", "PLN", "RON", "SEK",
+    "CHF", "ISK", "NOK", "TRY", "AUD", "BRL", "CAD", "CNY", "HKD", "IDR",
+    "ILS", "INR", "KRW", "MXN", "MYR", "NZD", "PHP", "SGD", "THB", "ZAR",
+)
+
 _ECB_URL = (
     "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A"
     "?format=csvdata"

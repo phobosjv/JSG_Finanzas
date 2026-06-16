@@ -130,6 +130,19 @@ def admin_client(client, test_admin):
     return client
 
 
+@pytest.fixture(autouse=True)
+def _no_currency_backfill(monkeypatch):
+    """Evita que PATCH /admin/config/currencies dispare el hilo de backfill de
+    tipos BCE (red real + SessionLocal de producción) durante los tests. Los
+    tests que necesiten comprobar el disparo lo re-patchean con su propio mock
+    dentro del cuerpo (el último setattr gana)."""
+    monkeypatch.setattr(
+        "app.api.admin_markets._backfill_currency_rates",
+        lambda: None,
+    )
+    yield
+
+
 @pytest.fixture()
 def seed_markets(engine):
     """Inserta los tres mercados por defecto en la BD de prueba."""

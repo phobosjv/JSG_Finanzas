@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fjs-finanzas"
-version = "1.19.3"
+version = "1.20.0"
 requires-python = ">=3.10"
 dependencies = [
     # API
