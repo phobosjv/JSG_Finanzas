@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.19.3** · **Tests: 561 en verde** · Aplicación web personal
+> **Versión actual: 1.20.0** · **Tests: 566 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -333,7 +333,12 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   el historial incluye `TransactionOut.transfer_partner_shares`.
 - **Multidivisa** (v1.8.0): divisas configurables por admin. Conversión a EUR
   con el tipo del BCE de cada fecha (`repositories/exchange_rates.py`:
-  `rate_on_date`, `latest_rate`).
+  `rate_on_date`, `latest_rate`). **Alta de divisas con buscador** (v1.20.0):
+  el AdminPanel usa un autocompletado sobre el conjunto cerrado de divisas del
+  BCE (`ECB_CURRENCIES` en `providers/ecb.py`, **fuente única de verdad**);
+  `PATCH /admin/config/currencies` valida contra esa lista (422 si el BCE no la
+  publica) y, al añadir una divisa nueva, dispara `update_ecb_rates` en segundo
+  plano (backfill idempotente). Endpoint `GET /admin/config/available-currencies`.
 - **TIR (XIRR) y retornos por periodo (Modified Dietz)** (v1.8.4–1.8.5):
   `services/returns.py` (puro). `GET /api/portfolio/xirr` y `/period-returns`
   (YTD/1a/3a/total). **Los traspasos no son flujos de caja.**
@@ -515,7 +520,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.19.3 · 561 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.20.0 · 566 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`).
 
