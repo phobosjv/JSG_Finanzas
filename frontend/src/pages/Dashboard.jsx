@@ -317,9 +317,15 @@ function TopPerformersSection({ positions, n = 5, t, navigate }) {
       <div style={{ color: 'var(--text-muted)', padding: '8px 0' }}>{t('dashboard.topperformers_empty')}</div>
     </div>
   )
-  const sorted    = [...valued].sort((a, b) => Number(b.daily_change_eur) - Number(a.daily_change_eur))
-  const topGains  = sorted.slice(0, n)
-  const topLosses = [...sorted].reverse().slice(0, n)
+  // Solo subidas reales en la columna de subidas y solo bajadas reales en la de
+  // bajadas: si hay menos de n de un signo, quedan huecos (NO se rellena con el
+  // signo contrario). Los movimientos de 0 € no entran en ninguna columna.
+  const topGains  = valued.filter(p => Number(p.daily_change_eur) > 0)
+                          .sort((a, b) => Number(b.daily_change_eur) - Number(a.daily_change_eur))
+                          .slice(0, n)
+  const topLosses = valued.filter(p => Number(p.daily_change_eur) < 0)
+                          .sort((a, b) => Number(a.daily_change_eur) - Number(b.daily_change_eur))
+                          .slice(0, n)
   return (
     <div className="card" style={{ marginTop: 16 }}>
       <h2>{t('dashboard.section_topperformers')}</h2>

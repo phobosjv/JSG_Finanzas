@@ -5,6 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.19.3] — 2026-06-16
+
+### Corregido
+
+- **Movimientos del día (Posiciones abiertas): columnas mezcladas por signo**.
+  En la sección «Posiciones Abiertas - Movimientos del día» del Dashboard, la
+  columna «Mayores bajadas» se rellenaba con subidas (y viceversa) cuando había
+  menos de N posiciones de un signo: se cogían los N primeros del orden y los N
+  últimos, sin filtrar por signo. Ahora «Mayores subidas» muestra solo
+  posiciones con cambio diario positivo y «Mayores bajadas» solo las de cambio
+  negativo; si hay menos de N de un signo, la columna queda con huecos en lugar
+  de rellenarse con el signo contrario. Mismo patrón de bug ya corregido en las
+  otras tablas de movimientos diarios.
+
+---
+
 ## [1.19.2] — 2026-06-13
 
 ### Mejorado

@@ -140,7 +140,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Finanzas",
         description="Seguimiento de cartera de inversion",
-        version="1.19.2",
+        version="1.19.3",
         lifespan=lifespan,
     )
 
