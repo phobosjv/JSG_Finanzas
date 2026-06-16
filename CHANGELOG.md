@@ -5,6 +5,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.20.1] — 2026-06-16
+
+### Corregido
+
+- **Valores muy ilíquidos sin tarjetas de precio (Mín./Máx. y precio actual)**:
+  en valores del Mercado Continuo extremadamente ilíquidos (p. ej. Nueva
+  Expresión Textil, `NXTE.XD`), Yahoo publica un **único cierre** y no una serie
+  diaria. `fetch_live_quote` exigía al menos 2 cierres para calcular la variación
+  del día y, al no tenerlos, lanzaba `ValueError`: el snapshot nunca se escribía
+  y la ficha del valor quedaba sin las tarjetas de precio, aunque el **gráfico
+  histórico sí** se mostraba (lee de `price_history`, no del live quote). Ahora,
+  cuando solo hay un cierre, la cotización se devuelve igualmente con
+  `prev_close` y `daily_change_pct` a `null` (la variación del día se muestra como
+  «—»), de modo que el snapshot se crea y aparecen el precio actual y los rangos
+  Mín./Máx. (que se calculan desde `price_history`). Afecta también al barrido por
+  lotes (`fetch_live_quotes`). Regresión cubierta en `test_bugs.py` (BUG 8).
+
+---
+
 ## [1.20.0] — 2026-06-16
 
 ### Nuevo

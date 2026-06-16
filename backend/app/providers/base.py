@@ -32,9 +32,12 @@ class PriceBar:
 class LiveQuote:
     """Cotizacion en tiempo real (o del ultimo cierre disponible)."""
     last_price: Decimal
-    prev_close: Decimal
-    # (last_price - prev_close) / prev_close * 100, redondeado a 2 decimales
-    daily_change_pct: Decimal
+    # None cuando Yahoo solo publica un cierre (valores muy iliquidos): no hay
+    # dia anterior con el que comparar.
+    prev_close: Decimal | None
+    # (last_price - prev_close) / prev_close * 100, redondeado a 2 decimales.
+    # None si no hay cierre anterior (ver prev_close).
+    daily_change_pct: Decimal | None
     # Ultimo dividendo por accion publicado; None si no hay datos.
     last_dividend: Decimal | None
     # Timestamp del último trade segun Yahoo (ISO 8601 UTC). None si no disponible.

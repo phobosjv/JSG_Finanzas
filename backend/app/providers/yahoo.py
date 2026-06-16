@@ -121,14 +121,19 @@ class YahooProvider(PriceProvider):
             try:
                 sub = data[tk] if multi else data
                 closes = sub["Close"].dropna()
-                if len(closes) < 2:
+                if len(closes) < 1:
                     continue
                 last = float(closes.iloc[-1])
-                prev = float(closes.iloc[-2])
-                if math.isnan(last) or math.isnan(prev):
+                if math.isnan(last):
                     continue
                 last_d = _to_decimal(last)
-                prev_d = _to_decimal(prev)
+                # Valor iliquido con un solo cierre: sin dia anterior,
+                # prev_close y pct quedan en None (ver fetch_live_quote).
+                prev_d: Decimal | None = None
+                if len(closes) >= 2:
+                    prev = float(closes.iloc[-2])
+                    if not math.isnan(prev):
+                        prev_d = _to_decimal(prev)
 
                 quote_time: str | None = None
                 try:
@@ -142,8 +147,9 @@ class YahooProvider(PriceProvider):
                 except Exception:
                     pass
 
-                if prev_d == 0:
-                    pct = Decimal("0.00")
+                pct: Decimal | None
+                if prev_d is None or prev_d == 0:
+                    pct = None if prev_d is None else Decimal("0.00")
                 else:
                     pct = ((last_d - prev_d) / prev_d * Decimal("100")).quantize(Decimal("0.01"))
 
@@ -176,12 +182,18 @@ class YahooProvider(PriceProvider):
         df = t.history(period="5d", auto_adjust=False)
         # Descartar filas con Close NaN (pre-mercado, festivos sin datos)
         df = df.dropna(subset=["Close"])
-        if len(df) < 2:
+        if len(df) < 1:
             raise ValueError(
-                f"No hay suficientes datos de cotizacion para '{ticker}'"
+                f"No hay datos de cotizacion para '{ticker}'"
             )
         last_price = _to_decimal(float(df["Close"].iloc[-1]))
-        prev_close = _to_decimal(float(df["Close"].iloc[-2]))
+        # Valores muy iliquidos (p. ej. NXTE.XD): Yahoo puede publicar un unico
+        # cierre. Sin dia anterior no hay variacion → se degrada con prev_close
+        # y daily_change_pct a None en lugar de descartar el snapshot por
+        # completo, para que el precio y los rangos Min./Max. si se muestren.
+        prev_close: Decimal | None = (
+            _to_decimal(float(df["Close"].iloc[-2])) if len(df) >= 2 else None
+        )
 
         # Timestamp del último trade según Yahoo (índice del DataFrame).
         # Para mercados intradia: contiene hora exacta del último tick.
@@ -199,8 +211,9 @@ class YahooProvider(PriceProvider):
         except Exception:
             pass
 
-        if prev_close == 0:
-            daily_change_pct = Decimal("0.00")
+        daily_change_pct: Decimal | None
+        if prev_close is None or prev_close == 0:
+            daily_change_pct = None if prev_close is None else Decimal("0.00")
         else:
             daily_change_pct = (
                 (last_price - prev_close) / prev_close * Decimal("100")

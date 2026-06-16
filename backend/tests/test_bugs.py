@@ -629,3 +629,87 @@ class TestBugCoherenciaDivisaCalculo:
         r = compute_position(txs, [])
         assert r.current_shares == D("10")
         assert r.invested_eur == D("1000")
+
+
+# ===========================================================================
+# BUG 8 — Valores muy ilíquidos sin snapshot (tarjetas vacías, gráfico OK).
+#   Yahoo solo publica UN cierre para algunos valores del Continuo (p. ej.
+#   NXTE.XD: una sola barra, 2026-06-15). fetch_live_quote exigía len(df) >= 2
+#   para poder calcular prev_close y la variación del día, y lanzaba ValueError
+#   si solo había una barra. Resultado: _update_snapshot_for_security fallaba,
+#   nunca se escribía price_snapshots y las tarjetas (precio, %, Mín./Máx.) no
+#   se mostraban — aunque el gráfico histórico sí, porque lee price_history.
+#   Corrección: con una sola barra se devuelve la cotización igualmente, con
+#   prev_close=None y daily_change_pct=None (variación "—" en la UI).
+# ===========================================================================
+
+class TestBugValorIliquidoUnaBarra:
+
+    def _single_row_df(self, close: float):
+        import pandas as pd
+        idx = pd.DatetimeIndex([pd.Timestamp("2026-06-15", tz="Europe/Madrid")])
+        return pd.DataFrame({"Close": [close], "Volume": [0]}, index=idx)
+
+    def test_fetch_live_quote_una_sola_barra(self, monkeypatch):
+        """Una única barra → LiveQuote con prev_close y pct None (no ValueError)."""
+        import pandas as pd
+        from app.providers import yahoo
+        from app.providers.yahoo import YahooProvider
+
+        df = self._single_row_df(1.024)
+
+        class FakeTicker:
+            def __init__(self, ticker): pass
+            def history(self, *a, **k): return df
+            @property
+            def dividends(self): return pd.Series(dtype="float64")
+
+        monkeypatch.setattr(yahoo.yf, "Ticker", FakeTicker)
+
+        quote = YahooProvider().fetch_live_quote("NXTE.XD")
+        # last_price = la única barra; sin día anterior no hay variación.
+        assert float(quote.last_price) == 1.024
+        assert quote.prev_close is None
+        assert quote.daily_change_pct is None
+
+    def test_update_snapshot_se_crea_con_una_barra(self, admin_client, seed_markets, engine, monkeypatch):
+        """
+        _update_snapshot_for_security crea el snapshot aunque el quote solo
+        tenga last_price (prev_close/pct None), tomando los rangos Mín./Máx. de
+        price_history. Antes no se escribía nada y la ficha quedaba sin tarjetas.
+        """
+        from sqlalchemy.orm import Session
+        from app.models import PriceHistory, PriceSnapshot, Security
+        from app.providers.base import LiveQuote
+        from app.scheduler import jobs
+
+        sec = admin_client.post("/api/securities", json={
+            "name": "Nueva Expresion Textil", "yahoo_ticker": "NXTE.XD",
+            "market": "continuo", "currency": "EUR",
+        }).json()["id"]
+        with Session(engine) as s:
+            # Histórico esparcido (el gráfico funciona con esto):
+            s.add(PriceHistory(security_id=sec, date="2026-06-04", close=D("0.977")))
+            s.add(PriceHistory(security_id=sec, date="2026-06-15", close=D("1.024")))
+            s.commit()
+
+        # Quote de un valor ilíquido: solo last_price.
+        def fake_quote(ticker, with_dividends=True):
+            return LiveQuote(
+                last_price=D("1.024"), prev_close=None,
+                daily_change_pct=None, last_dividend=None,
+                quote_time="2026-06-15T00:00:00+00:00",
+            )
+        monkeypatch.setattr(jobs._yahoo, "fetch_live_quote", fake_quote)
+
+        with Session(engine) as s:
+            secrow = s.get(Security, sec)
+            jobs._update_snapshot_for_security(s, secrow)
+            snap = s.get(PriceSnapshot, sec)
+            assert snap is not None, "El snapshot debe crearse aunque solo haya una barra"
+            assert float(snap.last_price) == 1.024
+            assert snap.prev_close is None
+            assert snap.daily_change_pct is None
+            # Rangos desde price_history: mín 0.977, máx 1.024
+            assert float(snap.min_1y) == 0.977
+            assert float(snap.max_1y) == 1.024
