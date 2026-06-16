@@ -1020,9 +1020,16 @@ export default function SecurityDetail() {
     .filter(h => chartCutoff == null || h.date >= chartCutoff)
     .map(h => ({ date: h.date, close: Number(h.close) }))
 
-  const buys  = transactions.filter(t => t.type === 'buy')
-  const sells = transactions.filter(t => t.type === 'sell')
-  const transfers = transactions.filter(t => t.type === 'transfer_in' || t.type === 'transfer_out')
+  // Orden por defecto de las tablas de movimientos: por fecha descendente
+  // (las más recientes arriba). Es también el orden al que vuelve el 3er clic
+  // de useSortableData. Date es string YYYY-MM-DD → comparación lexicográfica.
+  const byDateDesc = (a, b) => String(b.date || '').localeCompare(String(a.date || ''))
+  const buys  = transactions.filter(t => t.type === 'buy').sort(byDateDesc)
+  const sells = transactions.filter(t => t.type === 'sell').sort(byDateDesc)
+  const transfers = transactions
+    .filter(t => t.type === 'transfer_in' || t.type === 'transfer_out')
+    .sort(byDateDesc)
+  const dividendsByDate = [...dividends].sort(byDateDesc)
 
   // Ordenación de las tablas del detalle (cliente, no persistente).
   const numN = v => (v != null && v !== '' ? Number(v) : null)
@@ -1054,7 +1061,7 @@ export default function SecurityDetail() {
   const buysSort      = useSortableData(buys)
   const sellsSort     = useSortableData(sells)
   const transfersSort = useSortableData(transfers)
-  const divsSort      = useSortableData(dividends)
+  const divsSort      = useSortableData(dividendsByDate)
 
   // Guards DESPUÉS de todos los hooks (ver nota arriba).
   if (error)     return <div className="state-error">{error}</div>
