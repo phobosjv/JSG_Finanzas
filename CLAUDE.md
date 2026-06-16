@@ -996,6 +996,18 @@ docker compose up --build
   `auth_client` + `admin_client` en el mismo test**. Al insertar mercados directamente
   en BD (sin HTTP), pasar siempre `created_at` explícito — el `server_default` de
   SQLAlchemy no se aplica en inserts ORM directos con SQLite en memoria.
+- **Las tarjetas (snapshot) y el gráfico (histórico) son rutas de datos
+  INDEPENDIENTES.** El gráfico lee `price_history` de la BD; las tarjetas (precio,
+  variación, Mín./Máx.) leen `price_snapshots`, que solo se escribe si
+  `fetch_live_quote` tiene éxito. Pueden divergir: un valor puede tener gráfico y
+  NO tarjetas. **Valores muy ilíquidos del Continuo (p. ej. NXTE.XD) tienen un
+  único cierre en Yahoo, no una serie diaria** (`period="5d"` y `"1mo"` devuelven
+  1 fila). `fetch_live_quote`/`fetch_live_quotes` NO deben exigir ≥2 cierres: con
+  uno solo devuelven `last_price` y dejan `prev_close`/`daily_change_pct` en
+  `None` (la UI muestra «—»), para que el snapshot se cree igualmente. Exigir 2
+  lanzaba `ValueError`, el endpoint `refresh` daba 500 (que el front traga con
+  `.catch`) y la ficha quedaba sin tarjetas, sin error visible. (Incidente
+  v1.20.1; `LiveQuote.prev_close`/`daily_change_pct` son `Decimal | None`.)
 
 ---
 
