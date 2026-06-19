@@ -5,6 +5,35 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.20.3] — 2026-06-19
+
+### Despliegue
+
+- **Portainer detrás de Caddy por la red interna (no por `host.docker.internal`)**:
+  el bloque `portainer.{$DOMAIN}` del `Caddyfile` pasa de
+  `reverse_proxy https://host.docker.internal:9443` a
+  `reverse_proxy portainer:9000` con `header_up Host {host}`,
+  `X-Forwarded-Host {host}` y `X-Forwarded-Proto https`. La ruta por el puerto
+  publicado 9443 sufría doble TLS (lento) y, sobre todo, la protección CSRF de
+  Portainer 2.20+ rechazaba con **"Forbidden - origin invalid"** porque recibía
+  un `Host` interno en lugar del dominio público. Hablándole por HTTP al puerto
+  interno 9000 a través de la red de Caddy y reescribiendo el `Host`, el CSRF
+  ve `host=portainer.<dominio>` y acepta las operaciones.
+- **Requisito de despliegue (paso manual, una vez)**: conectar el contenedor
+  `portainer` (externo a este compose) a la red de Caddy —
+  `docker network connect <proyecto>_default portainer` (p. ej.
+  `jsg-portfolio_default`)— para que Caddy lo resuelva por nombre. Documentado
+  en `Caddyfile` y `docker-compose.yml`.
+- **Aplicar siempre con `docker restart` del contenedor de Caddy, no con
+  `caddy reload`**: en la práctica el reload informa "valid configuration" pero
+  no activa los cambios; solo el reinicio del contenedor los aplica.
+- **Webmin (host)**: documentados los ajustes idempotentes en
+  `/etc/webmin/miniserv.conf` (`redirect_ssl=1`) y `/etc/webmin/config`
+  (`referers=webmin.<dominio> host.docker.internal`, `tempdir=/var/webmin/tmp`)
+  que evitan el bucle de redirección y el error de referer tras el proxy.
+
+---
+
 ## [1.20.2] — 2026-06-19
 
 ### Despliegue

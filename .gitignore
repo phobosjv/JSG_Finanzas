@@ -35,3 +35,6 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Artefactos de distribución (zips de release)
+finanzas-v*.zip

@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.20.2** · **Tests: 568 en verde** · Aplicación web personal
+> **Versión actual: 1.20.3** · **Tests: 568 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -520,10 +520,11 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.20.2 · 568 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.20.3 · 568 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
-`webmin.{$DOMAIN}` (host:10000) y `portainer.{$DOMAIN}` (contenedor:9443) — ver
+`webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
+`portainer.{$DOMAIN}` (contenedor, vía red interna `portainer:9000`) — ver
 [Despliegue](#despliegue-en-vps-con-https-caddy).
 
 ### Tests (ficheros)
@@ -659,19 +660,41 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
   ```
   {$DOMAIN} www.{$DOMAIN}       → reverse_proxy finanzas:8000
   webmin.{$DOMAIN}             → reverse_proxy https://host.docker.internal:10000
-  portainer.{$DOMAIN}          → reverse_proxy https://host.docker.internal:9443
+  portainer.{$DOMAIN}          → reverse_proxy portainer:9000   (red interna)
   ```
-- **Webmin y Portainer detrás de Caddy** (v1.20.2): Webmin corre en el **host**
-  (puerto 10000) y Portainer en un **contenedor** (puerto 9443 publicado en el
-  host); ambos hablan HTTPS con certificado autofirmado, por eso el
-  `reverse_proxy` apunta a `https://…` con `tls_insecure_skip_verify`. Caddy los
-  alcanza vía `host.docker.internal`, habilitado con
-  `extra_hosts: ["host.docker.internal:host-gateway"]` en el servicio `caddy` del
-  `docker-compose.yml`. Para activarlos basta con crear los **DNS A** de
-  `webmin.*` y `portainer.*`. Tras verificar, conviene cerrar 10000/9443 en el
-  firewall público (la ruta host-gateway va por la interfaz interna de Docker).
-  Si Webmin da bucle de redirección: `redirect_ssl=1` en
-  `/etc/webmin/miniserv.conf` + `trust_unknown_referers=1` en `/etc/webmin/config`.
+- **Webmin detrás de Caddy** (v1.20.2): corre en el **host** (puerto 10000),
+  HTTPS con certificado autofirmado → `reverse_proxy https://host.docker.internal:10000`
+  con `tls_insecure_skip_verify`. Caddy alcanza el host con
+  `extra_hosts: ["host.docker.internal:host-gateway"]` (servicio `caddy` del
+  `docker-compose.yml`). **Ajustes en el host (una vez, idempotentes)**:
+  `redirect_ssl=1` en `/etc/webmin/miniserv.conf`;
+  `referers=webmin.<dominio> host.docker.internal` y `tempdir=/var/webmin/tmp`
+  (+ `mkdir -p /var/webmin/tmp`) en `/etc/webmin/config`; luego
+  `systemctl restart webmin`. (Fallback al bucle de redirección:
+  `trust_unknown_referers=1`.)
+- **Portainer detrás de Caddy** (v1.20.3): NO por `host.docker.internal:9443`
+  (doble TLS lento + CSRF 2.20+ rechaza con "Forbidden - origin invalid" al
+  recibir un Host interno). Se le habla por **HTTP al puerto interno 9000 vía la
+  red de Caddy** reescribiendo el Host:
+  ```
+  reverse_proxy portainer:9000 {
+      header_up Host {host}
+      header_up X-Forwarded-Host {host}
+      header_up X-Forwarded-Proto https
+  }
+  ```
+  **Paso manual (una vez)**: Portainer es externo a este compose, así que hay que
+  conectar su contenedor a la red de Caddy —
+  `docker network connect <proyecto>_default portainer` (p. ej.
+  `jsg-portfolio_default`)— para que Caddy lo resuelva por nombre.
+- **Activación**: crear los **DNS A** de `webmin.*` y `portainer.*` apuntando al
+  servidor. Tras verificar, conviene cerrar 10000/9443 en el firewall público.
+- **Aplicar cambios del Caddyfile con `docker restart` del contenedor de Caddy,
+  NO con `caddy reload`**: en la práctica el reload dice "valid configuration"
+  pero no activa los cambios; solo el reinicio del contenedor los aplica.
+  Si el CSRF de Portainer sigue fallando: `docker logs --tail 5 portainer` y
+  comprobar que `host=` de la línea `csrf.go` es el dominio público, no
+  `host.docker.internal` (cuidado con la hora si el VPS va en UTC).
 - Si el Caddyfile real del VPS tuviera config extra propia, incorporarla al del
   repo en vez de mantener una copia divergente.
 

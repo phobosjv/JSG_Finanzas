@@ -5,8 +5,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    # Permite que Caddy alcance servicios del host (Webmin:10000) y puertos
-    # publicados por otros contenedores (Portainer:9443) vía host.docker.internal.
+    # Permite que Caddy alcance servicios del HOST (Webmin:10000) vía
+    # host.docker.internal. Portainer NO usa esta ruta: se le habla por la red
+    # interna (portainer:9000); requiere conectar ese contenedor a la red de
+    # Caddy una vez: docker network connect <proyecto>_default portainer
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
