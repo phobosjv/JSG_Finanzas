@@ -1,3 +1,22 @@
 {$DOMAIN} www.{$DOMAIN} {
     reverse_proxy finanzas:8000
 }
+
+# Webmin (corre en el HOST, puerto 10000, HTTPS con certificado autofirmado).
+# Caddy alcanza el host vía host.docker.internal (extra_hosts en docker-compose).
+webmin.{$DOMAIN} {
+    reverse_proxy https://host.docker.internal:10000 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}
+
+# Portainer (contenedor, publica el puerto 9443 en el host, HTTPS autofirmado).
+portainer.{$DOMAIN} {
+    reverse_proxy https://host.docker.internal:9443 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}

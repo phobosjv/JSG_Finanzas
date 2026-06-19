@@ -5,6 +5,29 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.20.2] — 2026-06-19
+
+### Despliegue
+
+- **Proxy inverso HTTPS para Webmin y Portainer desde Caddy**: el `Caddyfile`
+  añade dos bloques de sitio parametrizados con `{$DOMAIN}` —
+  `webmin.{$DOMAIN}` → host:10000 (Webmin corre en el host) y
+  `portainer.{$DOMAIN}` → host:9443 (Portainer en contenedor, puerto publicado).
+  Ambos backends hablan HTTPS con certificado autofirmado, por lo que el
+  `reverse_proxy` apunta a `https://…` con `tls_insecure_skip_verify`. Caddy
+  sigue siendo el único proceso en 80/443 y gestiona los certificados Let's
+  Encrypt de cada subdominio; no hay conflicto con los puertos originales.
+- **`docker-compose.yml`**: el servicio `caddy` añade
+  `extra_hosts: ["host.docker.internal:host-gateway"]` para poder alcanzar el
+  host (Webmin) y los puertos publicados por otros contenedores (Portainer)
+  desde dentro del contenedor.
+- Como los subdominios derivan de `{$DOMAIN}`, **para activarlos en el VPS solo
+  hay que tener `DOMAIN` en `.env`** y crear los registros DNS A de
+  `webmin.*` y `portainer.*` apuntando al servidor (documentado en
+  `.env.example`). Sin cambios de código de la aplicación.
+
+---
+
 ## [1.20.1] — 2026-06-16
 
 ### Corregido

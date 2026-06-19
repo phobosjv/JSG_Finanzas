@@ -5,6 +5,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    # Permite que Caddy alcance servicios del host (Webmin:10000) y puertos
+    # publicados por otros contenedores (Portainer:9443) vía host.docker.internal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
