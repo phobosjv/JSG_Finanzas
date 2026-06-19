@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.20.1** · **Tests: 568 en verde** · Aplicación web personal
+> **Versión actual: 1.20.2** · **Tests: 568 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -520,9 +520,11 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.20.1 · 568 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.20.2 · 568 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
-(`jsg-portfolio.com`).
+(`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
+`webmin.{$DOMAIN}` (host:10000) y `portainer.{$DOMAIN}` (contenedor:9443) — ver
+[Despliegue](#despliegue-en-vps-con-https-caddy).
 
 ### Tests (ficheros)
 
@@ -651,15 +653,27 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 - Caddy obtiene y renueva certificados Let's Encrypt automáticamente.
 - Dominio en `.env` mediante `DOMAIN`.
 - Para pruebas locales sin dominio: `DOMAIN=localhost` (Caddy sirve HTTP).
-- `Caddyfile` típico en VPS:
+- **Caddyfile parametrizado con `{$DOMAIN}` (v1.20.2)**: el del zip es
+  funcional tal cual; **solo hay que tener `DOMAIN` en `.env`**, ya no es
+  necesario restaurar un Caddyfile manual. Sirve la app más dos subdominios:
   ```
-  jsg-portfolio.com www.jsg-portfolio.com {
-      reverse_proxy finanzas:8000
-  }
+  {$DOMAIN} www.{$DOMAIN}       → reverse_proxy finanzas:8000
+  webmin.{$DOMAIN}             → reverse_proxy https://host.docker.internal:10000
+  portainer.{$DOMAIN}          → reverse_proxy https://host.docker.internal:9443
   ```
-- **Importante**: tras descomprimir el zip en el VPS, restaurar el
-  `Caddyfile` real (el del zip usa `{$DOMAIN}` genérico) antes del
-  `docker compose up`.
+- **Webmin y Portainer detrás de Caddy** (v1.20.2): Webmin corre en el **host**
+  (puerto 10000) y Portainer en un **contenedor** (puerto 9443 publicado en el
+  host); ambos hablan HTTPS con certificado autofirmado, por eso el
+  `reverse_proxy` apunta a `https://…` con `tls_insecure_skip_verify`. Caddy los
+  alcanza vía `host.docker.internal`, habilitado con
+  `extra_hosts: ["host.docker.internal:host-gateway"]` en el servicio `caddy` del
+  `docker-compose.yml`. Para activarlos basta con crear los **DNS A** de
+  `webmin.*` y `portainer.*`. Tras verificar, conviene cerrar 10000/9443 en el
+  firewall público (la ruta host-gateway va por la interfaz interna de Docker).
+  Si Webmin da bucle de redirección: `redirect_ssl=1` en
+  `/etc/webmin/miniserv.conf` + `trust_unknown_referers=1` en `/etc/webmin/config`.
+- Si el Caddyfile real del VPS tuviera config extra propia, incorporarla al del
+  repo en vez de mantener una copia divergente.
 
 ---
 
