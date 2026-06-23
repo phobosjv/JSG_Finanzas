@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.20.4] — 2026-06-23
+
+### Despliegue
+
+- **Terminal de Webmin (WebSocket) operativo tras Caddy**: la consola web de
+  Webmin (Otros → Terminal) se quedaba en "CONNECTING…". Causa doble y
+  encadenada (había que resolver ambas):
+  1. Caddy no completaba el *upgrade* del WebSocket contra el upstream HTTPS de
+     Webmin (el WS quedaba en "Finished"/0 B en vez de **101**). Se fuerza
+     **HTTP/1.1** al upstream con `versions 1.1` dentro de `transport http` y se
+     reescriben `header_up Host {host}`, `X-Forwarded-Proto https` y
+     `X-Forwarded-Host {host}` en el bloque `webmin.{$DOMAIN}` del `Caddyfile`.
+  2. Webmin rechazaba el origen (`Invalid Websockets origin` en
+     `/var/webmin/miniserv.error`). Su lista de orígenes permitidos no se
+     alimenta de `Host` ni de `referers`, solo de host:puerto interno,
+     `X-Forwarded-*` (si `trust_real_ip=1`), `websocket_host` y
+     `websocket_extra_origins`. Ajuste idempotente en el **host**:
+     `websocket_extra_origins=https://webmin.<dominio>` en
+     `/etc/webmin/miniserv.conf` + `systemctl restart webmin`.
+- Aplicar el cambio del `Caddyfile` con `docker compose restart caddy` (no
+  `caddy reload`). Verificación: F12 → Network → filtro Socket → WS en **101**;
+  `tail /var/webmin/miniserv.error` sin `Invalid Websockets origin` posterior.
+
+---
+
 ## [1.20.3] — 2026-06-19
 
 ### Despliegue

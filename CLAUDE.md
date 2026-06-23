@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.20.3** · **Tests: 568 en verde** · Aplicación web personal
+> **Versión actual: 1.20.4** · **Tests: 568 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -520,7 +520,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.20.3 · 568 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.20.4 · 568 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -672,7 +672,7 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
   (+ `mkdir -p /var/webmin/tmp`) en `/etc/webmin/config`; luego
   `systemctl restart webmin`. (Fallback al bucle de redirección:
   `trust_unknown_referers=1`.)
-  - **Terminal de Webmin (WebSocket)** (hotfix sobre v1.20.3): la consola web (Otros →
+  - **Terminal de Webmin (WebSocket)** (v1.20.4): la consola web (Otros →
     Terminal) se queda en "CONNECTING…" por DOS motivos encadenados que hay que
     resolver JUNTOS. (1) Caddy no completa el upgrade del WS contra el upstream
     HTTPS (el WS sale "Finished"/0 B en vez de 101): hay que **forzar HTTP/1.1**
