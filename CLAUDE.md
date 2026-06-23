@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.20.4** · **Tests: 568 en verde** · Aplicación web personal
+> **Versión actual: 1.20.5** · **Tests: 568 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -406,7 +406,12 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   `favorites.target_buy_price` (**fuente única**); objetivo de venta =
   `positions.target_sell_price`. Campana de alertas en el menú con badge;
   indicador «Comprar»/«Vender» en la ficha. (`positions.target_buy_price`
-  quedó deprecada en BD, sin uso en código desde v1.10.6.)
+  quedó deprecada en BD, sin uso en código desde v1.10.6.) **El objetivo de
+  compra se puede fijar sin tener posición** (v1.20.5): la casilla aparece
+  siempre en `SecurityDetail`; al fijarla se sigue el valor (auto-favorito) y
+  guarda en `favorites`. El indicador «Comprar» de la cabecera ya no exige
+  posición. El objetivo de venta sigue ofreciéndose solo con posición (vive en
+  `positions`); las notas siguen ligadas a la posición.
 - **Notificaciones push (Web Push)** (v1.10.0): claves VAPID auto-generadas en
   `app_config`; tabla `push_subscriptions`; router `api/push.py` (`/vapid-key`
   público). `check_push_alerts` (job de snapshots) envía **solo las alertas
@@ -520,7 +525,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.20.4 · 568 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.20.5 · 568 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
