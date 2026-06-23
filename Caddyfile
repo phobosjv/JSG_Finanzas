@@ -4,11 +4,21 @@
 
 # Webmin (corre en el HOST, puerto 10000, HTTPS con certificado autofirmado).
 # Caddy alcanza el host vía host.docker.internal (extra_hosts en docker-compose).
+# El TERMINAL de Webmin usa un WebSocket: requiere forzar HTTP/1.1 al upstream
+# (versions 1.1) para que el upgrade complete (si no, el WS queda en "Finished"/0B
+# en vez de 101). Además, en el HOST hay que añadir en /etc/webmin/miniserv.conf:
+#   websocket_extra_origins=https://webmin.<DOMAIN>
+# porque Webmin valida el origen del WS solo desde host:puerto/X-Forwarded-*/
+# websocket_extra_origins, NO desde Host ni referers.
 webmin.{$DOMAIN} {
     reverse_proxy https://host.docker.internal:10000 {
         transport http {
             tls_insecure_skip_verify
+            versions 1.1
         }
+        header_up Host {host}
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Host {host}
     }
 }
 

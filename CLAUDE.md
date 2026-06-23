@@ -672,6 +672,21 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
   (+ `mkdir -p /var/webmin/tmp`) en `/etc/webmin/config`; luego
   `systemctl restart webmin`. (Fallback al bucle de redirección:
   `trust_unknown_referers=1`.)
+  - **Terminal de Webmin (WebSocket)** (hotfix sobre v1.20.3): la consola web (Otros →
+    Terminal) se queda en "CONNECTING…" por DOS motivos encadenados que hay que
+    resolver JUNTOS. (1) Caddy no completa el upgrade del WS contra el upstream
+    HTTPS (el WS sale "Finished"/0 B en vez de 101): hay que **forzar HTTP/1.1**
+    con `versions 1.1` dentro de `transport http`, y añadir `header_up Host
+    {host}` + `X-Forwarded-Proto https` + `X-Forwarded-Host {host}` (ya en el
+    Caddyfile del repo). (2) Webmin rechaza el origen
+    (`Invalid Websockets origin` en `/var/webmin/miniserv.error`): su lista de
+    orígenes permitidos NO se alimenta de Host ni `referers`, solo de host:puerto
+    interno, `X-Forwarded-*` (si `trust_real_ip=1`), `websocket_host` y
+    `websocket_extra_origins`. Solución idempotente en el host:
+    `echo 'websocket_extra_origins=https://webmin.<dominio>' >> /etc/webmin/miniserv.conf`
+    + `systemctl restart webmin`. Verificar: F12 → Network → filtro Socket → WS
+    en **101**, y `tail /var/webmin/miniserv.error` sin `Invalid Websockets
+    origin` posterior.
 - **Portainer detrás de Caddy** (v1.20.3): NO por `host.docker.internal:9443`
   (doble TLS lento + CSRF 2.20+ rechaza con "Forbidden - origin invalid" al
   recibir un Host interno). Se le habla por **HTTP al puerto interno 9000 vía la
