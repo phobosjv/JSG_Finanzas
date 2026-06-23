@@ -5,6 +5,29 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.20.5] — 2026-06-23
+
+### Mejoras
+
+- **Precio objetivo de compra sin necesidad de posición**: ahora la ficha de
+  cualquier valor muestra de inmediato la casilla «Precio objetivo de compra»,
+  aunque nunca se haya operado el valor. Antes la tarjeta de precios objetivo
+  estaba oculta tras la existencia de una posición, obligando al usuario a
+  «Empezar seguimiento» (crear una posición) o iniciar una compra y cancelarla
+  para poder fijar una alerta de precio.
+  - El objetivo de compra vive en `favorites.target_buy_price` (fuente única,
+    compartida con la lista de mercados): al fijarlo se sigue el valor
+    automáticamente, sin crear ninguna posición.
+  - El indicador «Comprar» de la cabecera ya no exige posición (basta con tener
+    precio de snapshot); la campana de alertas ya calculaba la alerta de compra
+    desde favoritos.
+  - El **objetivo de venta** sigue ofreciéndose solo cuando hay posición
+    (vive en `positions.target_sell_price` y vender presupone tener acciones).
+    Las **notas** siguen ligadas a la posición.
+  - Detalle: limpiar un campo de compra vacío ya no crea un favorito innecesario.
+
+---
+
 ## [1.20.4] — 2026-06-23
 
 ### Despliegue

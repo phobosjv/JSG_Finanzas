@@ -974,8 +974,11 @@ export default function SecurityDetail() {
     const num = val === '' ? null : parseFloat(val)
     if (num !== null && (isNaN(num) || num < 0)) return
     try {
-      // target_buy vive en favorites (fuente única, misma que la lista de mercados).
-      // Si el valor aún no es favorito, lo añadimos primero.
+      // target_buy vive en favorites (fuente única, misma que la lista de mercados);
+      // no requiere posición. Si el valor aún no es favorito, lo añadimos primero.
+      // Si se está limpiando (num=null) y ni siquiera es favorito, no hay nada que
+      // borrar: evitamos crear un favorito al vaciar el campo.
+      if (num === null && !isFav) return
       if (!isFav) {
         await api.post(`/favorites/${secId}`)
         setIsFav(true)
@@ -1154,7 +1157,10 @@ export default function SecurityDetail() {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {(() => {
-            if (!snapshot?.last_price || !positionId) return null
+            // La alerta de compra (favorites) no requiere posición; la de venta sí,
+            // pero targetSellVal solo se rellena con posición abierta, así que el
+            // guard de posición sobra: basta con tener precio de snapshot.
+            if (!snapshot?.last_price) return null
             const cur = Number(snapshot.last_price)
             const buy = targetBuyVal !== '' ? Number(targetBuyVal) : null
             const sell = targetSellVal !== '' ? Number(targetSellVal) : null
@@ -1325,10 +1331,11 @@ export default function SecurityDetail() {
         </div>
       )}
 
-      {/* Notas + Precios objetivo (flex-wrap: en ancho queda en fila, en móvil en columna) */}
-      {positionId && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {/* Notas */}
+      {/* Notas (solo con posición) + Precios objetivo (compra siempre; venta solo con
+          posición). flex-wrap: en ancho queda en fila, en móvil en columna. */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {/* Notas — ligadas a la posición (positions.notes) */}
+        {positionId && (
           <div className="card" style={{ padding: '10px 16px', flex: '2 1 260px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', minWidth: 48, paddingTop: 2 }}>{t('sd.notes')}</span>
@@ -1352,13 +1359,18 @@ export default function SecurityDetail() {
               )}
             </div>
           </div>
+        )}
 
-          {/* Precios objetivo */}
+          {/* Precios objetivo. El objetivo de compra vive en favorites y no requiere
+              posición (al fijarlo se sigue el valor automáticamente); el de venta vive
+              en positions, así que solo se ofrece cuando hay posición. */}
           <div className="card" style={{ padding: '10px 16px', flex: '1 1 200px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 { label: t('sd.target_buy'), val: targetBuyVal, set: setTargetBuyVal, save: saveTargetBuy },
-                { label: t('sd.target_sell'), val: targetSellVal, set: setTargetSellVal, save: saveTargetSell },
+                ...(positionId
+                  ? [{ label: t('sd.target_sell'), val: targetSellVal, set: setTargetSellVal, save: saveTargetSell }]
+                  : []),
               ].map(({ label, val, set, save }) => {
                 // % hasta objetivo: cuánto debe moverse el precio actual para alcanzar el objetivo.
                 const price = snapshot?.last_price != null ? Number(snapshot.last_price) : null
@@ -1399,8 +1411,7 @@ export default function SecurityDetail() {
               })}
             </div>
           </div>
-        </div>
-      )}
+      </div>
 
       {/* Gráfico */}
       {chartData.length > 0 && (
