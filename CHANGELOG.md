@@ -5,6 +5,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.21.0] — 2026-06-27
+
+### Nuevo
+
+- **Sección «Últimos movimientos» en Mi Cartera**: nueva tabla al final de la
+  página de cartera con los últimos movimientos realizados (compras, ventas y
+  dividendos) de todas las posiciones, ordenados de más reciente a más antiguo.
+  - **Paginación de 10 en 10** con controles Anteriores/Siguientes e indicador
+    de página. El backend devuelve como máximo **50** movimientos.
+  - Cada fila muestra fecha, tipo (badge Compra/Venta/Dividendo), valor
+    (ticker + nombre), participaciones, precio e importe en la divisa nativa.
+    Importe: compra = participaciones×precio + comisión; venta =
+    participaciones×precio − comisión; dividendo = neto (bruto − retención).
+  - Pulsar una fila navega al detalle del valor.
+  - Los **traspasos de fondos** (transfer_in/out) quedan fuera del listado.
+  - Nuevo endpoint `GET /api/portfolio/movements?limit=N` (N≤50).
+
+---
+
 ## [1.20.5] — 2026-06-23
 
 ### Mejoras

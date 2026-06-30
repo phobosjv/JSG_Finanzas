@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.20.5** · **Tests: 568 en verde** · Aplicación web personal
+> **Versión actual: 1.21.0** · **Tests: 574 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -476,6 +476,13 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   filtra con EXISTS y solo devuelve mercados que tienen al menos un valor en
   el catálogo. Los mercados vacíos siguen visibles para el admin en
   `GET /api/admin/markets`.
+- **Sección «Últimos movimientos» en Mi Cartera** (v1.21.0): tabla al final de
+  Portfolio con compras, ventas y dividendos de todas las posiciones, de más
+  reciente a más antiguo, **paginada de 10 en 10** (cliente) sobre un máximo de
+  **50** que devuelve el backend. `GET /api/portfolio/movements?limit=N` (N≤50)
+  fusiona el top-N de `transactions` (buy/sell, **sin traspasos**) y `dividends`
+  (importe = neto bruto−retención) y reordena por fecha desc. Cada fila navega
+  al detalle del valor. Solo frontend + un endpoint; sin migración.
 
 ---
 
@@ -525,7 +532,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.20.5 · 568 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.21.0 · 574 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -555,6 +562,8 @@ campos nativos USD en PositionSummary, notificaciones personalizadas del admin).
 triggers en solicitudes/mensajes/reply — mock `app.api.admin_markets.send_email`).
 `test_user_expiry.py` (v1.15.0–v1.16.0: login caducado → account_expired + notifs a admins,
 POST /auth/request-renewal crea CatalogMessageRow + notif + email, idempotencia (doble llamada no duplica), job check_expired_users — mock `app.api.auth.notify_admins`).
+`test_movements.py` (v1.21.0: GET /portfolio/movements — combina/ordena compras/ventas/dividendos,
+importes, excluye traspasos, tope 50, limit>50 → 422, auth requerido).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
@@ -590,6 +599,9 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 - `GET /api/portfolio/history` · `/closed-analytics` (scatter, con `still_open`) ·
   `/dividends-by-security` · `/xirr` · `/period-returns` · `/by-security/{id}` y
   `/by-security/{id}/operations` (historial aunque esté cerrada).
+- `GET /api/portfolio/movements?limit=N` (N≤50) — últimos movimientos (buy/sell +
+  dividendos, sin traspasos) de toda la cartera, fecha desc. Para la sección
+  «Últimos movimientos» de Portfolio (paginada 10/pág. en cliente).
 - `POST /api/portfolio/transfer`, `PATCH /api/portfolio/transfer/{group_id}` (editar) y `DELETE /api/portfolio/transfer/{group_id}`.
 - `DELETE /api/portfolio/reset` (borra la cartera del usuario; el frontend exporta
   backup antes). `PATCH /api/portfolio/{id}/target-sell`.

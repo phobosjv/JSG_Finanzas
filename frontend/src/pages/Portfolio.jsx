@@ -34,6 +34,12 @@ function AssetBadge({ marketCode, isFund, marketType, t }) {
   return <span className={`badge-asset ${type}`}>{t(`badge.${type}`)}</span>
 }
 
+/** Badge de tipo de movimiento (compra/venta/dividendo) con color por clase. */
+function MovementBadge({ kind, t }) {
+  const cls = kind === 'buy' ? 'pos' : kind === 'sell' ? 'neg' : 'neu'
+  return <span className={`badge-mov ${cls}`}>{t(`portfolio.mov_${kind}`)}</span>
+}
+
 function fmt(val, dec = 2) {
   if (val == null) return '—'
   return Number(val).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
@@ -136,6 +142,8 @@ export default function Portfolio() {
   const [history, setHistory]             = useState([])
   const [closedAnalytics, setClosedAn]    = useState([])
   const [dividendsBySec, setDivsBySec]    = useState([])
+  const [movements, setMovements]         = useState([])
+  const [movPage, setMovPage]             = useState(0)
   const [error, setError]                 = useState(null)
   const [deleting, setDeleting]           = useState(null)
   const [segTypes, setSegTypes]           = useState(() => loadSegTypes('portfolioSegTypes'))
@@ -158,13 +166,15 @@ export default function Portfolio() {
       api.get('/portfolio/closed-analytics').catch(() => []),
       api.get('/portfolio/dividends-by-security').catch(() => []),
       api.get('/subcarteras').catch(() => []),
+      api.get('/portfolio/movements').catch(() => []),
     ])
-      .then(([open, cls, analytics, divsBySec, scs]) => {
+      .then(([open, cls, analytics, divsBySec, scs, movs]) => {
         setPositions(open)
         setClosed(cls)
         setClosedAn(analytics || [])
         setDivsBySec(divsBySec || [])
         setSubcarteras(scs || [])
+        setMovements(movs || [])
         // Sanear selección persistida: descartar tipos que ya no existen en la
         // cartera (evita una vista vacía sin chip resaltado al haber vendido todo
         // de un tipo previamente seleccionado).
@@ -320,6 +330,12 @@ export default function Portfolio() {
                       + fClosed.reduce((s, p) => s + Number(p.fees_eur), 0)
   const grossRealized = realizedNet + totalFees
   const bpTotal       = totalPnL + realizedNet + totalDivs
+
+  // Últimos movimientos: paginación de 10 en 10 (cliente; el backend ya limita a 50).
+  const MOV_PAGE_SIZE = 10
+  const movTotalPages = Math.max(1, Math.ceil(movements.length / MOV_PAGE_SIZE))
+  const movSafePage   = Math.min(movPage, movTotalPages - 1)
+  const movPageItems  = movements.slice(movSafePage * MOV_PAGE_SIZE, movSafePage * MOV_PAGE_SIZE + MOV_PAGE_SIZE)
 
   return (
     <div>
@@ -612,6 +628,63 @@ export default function Portfolio() {
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16 }}>
           <DividendBarChart data={fDivsBySec} t={t} navigate={navigate} />
           <DividendScatterChart data={fDivsBySec} t={t} />
+        </div>
+      )}
+
+      {/* 9. Últimos movimientos (compras, ventas y dividendos), paginado 10/pág. */}
+      {movements.length > 0 && (
+        <div className="card" style={{ marginTop: 24 }}>
+          <h2>{t('portfolio.mov_title')}</h2>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('portfolio.mov_col_date')}</th>
+                  <th>{t('portfolio.mov_col_type')}</th>
+                  <th>{t('portfolio.col_security')}</th>
+                  <th className="num">{t('portfolio.col_shares')}</th>
+                  <th className="num">{t('portfolio.col_price')}</th>
+                  <th className="num">{t('portfolio.mov_col_amount')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movPageItems.map((m, i) => (
+                  <tr key={`${m.kind}-${m.security_id}-${m.date}-${i}`}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => navigate(`/securities/${m.security_id}`)}>
+                    <td>{m.date}</td>
+                    <td><MovementBadge kind={m.kind} t={t} /></td>
+                    <td>
+                      <div className="ticker">{m.yahoo_ticker}</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{m.name}</div>
+                    </td>
+                    <td className="num">{fmt(m.shares, 4)}</td>
+                    <td className="num">{fmtC(m.price, m.currency)}</td>
+                    <td className={`num ${m.kind === 'sell' ? 'pos' : m.kind === 'dividend' ? 'pos' : ''}`}>
+                      {fmtC(m.amount_native, m.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {movTotalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 12 }}>
+              <button className="btn-ghost btn-sm"
+                      disabled={movSafePage === 0}
+                      onClick={() => setMovPage(p => Math.max(0, p - 1))}>
+                {t('portfolio.mov_prev')}
+              </button>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {t('portfolio.mov_page').replace('{n}', movSafePage + 1).replace('{total}', movTotalPages)}
+              </span>
+              <button className="btn-ghost btn-sm"
+                      disabled={movSafePage >= movTotalPages - 1}
+                      onClick={() => setMovPage(p => Math.min(movTotalPages - 1, p + 1))}>
+                {t('portfolio.mov_next')}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

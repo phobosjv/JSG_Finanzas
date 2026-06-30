@@ -409,6 +409,21 @@ input:focus, select:focus { border-color: var(--accent); }
 .badge-asset.crypto { background: rgba(167,139,250,0.12); color: #a78bfa; }
 .badge-asset.fund   { background: rgba(251,191,36,0.12);  color: #f59e0b; }
 
+/* Badge de tipo de movimiento (compra/venta/dividendo) en "Últimos movimientos" */
+.badge-mov {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.badge-mov.pos { background: rgba(52,211,153,0.14); color: #34d399; }
+.badge-mov.neg { background: rgba(248,113,113,0.14); color: #f87171; }
+.badge-mov.neu { background: rgba(96,165,250,0.14);  color: #60a5fa; }
+
 /* Segmentador por tipo de producto (chips multiselección) */
 .seg-filter {
   display: flex;

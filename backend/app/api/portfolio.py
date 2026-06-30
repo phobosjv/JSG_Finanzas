@@ -39,6 +39,7 @@ from app.schemas.portfolio import (
     ClosedPositionAnalytics,
     ClosedPositionSummary,
     DividendCreate, DividendOut,
+    MovementOut,
     NotesUpdate, TargetSellUpdate,
     PositionCreate, PositionOut,
     PositionSummary,
@@ -960,6 +961,81 @@ def get_operations_by_security(
         "transactions": [_tx_out(t) for t in txs],
         "dividends": [DividendOut.model_validate(d) for d in divs],
     }
+
+
+@router.get("/movements", response_model=list[MovementOut])
+def get_recent_movements(
+    limit: int = Query(50, ge=1, le=50),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Últimos movimientos de la cartera del usuario (compras, ventas y dividendos),
+    de más reciente a más antiguo. Combina 'transactions' (buy/sell, excluyendo
+    los traspasos de fondos) y 'dividends' de todas las posiciones. Devuelve como
+    máximo 'limit' (≤50) movimientos; el frontend pagina de 10 en 10.
+
+    Se piden los 'limit' más recientes de cada tabla por separado y se fusionan:
+    el top-'limit' de la unión está garantizado dentro de esos dos conjuntos.
+    """
+    tx_rows = db.execute(
+        select(TransactionRow, Security.id, Security.yahoo_ticker, Security.name)
+        .join(Position, TransactionRow.position_id == Position.id)
+        .join(Security, Position.security_id == Security.id)
+        .where(
+            Position.user_id == user.id,
+            TransactionRow.type.in_(("buy", "sell")),
+        )
+        .order_by(TransactionRow.date.desc(), TransactionRow.id.desc())
+        .limit(limit)
+    ).all()
+
+    div_rows = db.execute(
+        select(DividendRow, Security.id, Security.yahoo_ticker, Security.name)
+        .join(Position, DividendRow.position_id == Position.id)
+        .join(Security, Position.security_id == Security.id)
+        .where(Position.user_id == user.id)
+        .order_by(DividendRow.date.desc(), DividendRow.id.desc())
+        .limit(limit)
+    ).all()
+
+    movements: list[MovementOut] = []
+    for t, sec_id, ticker, name in tx_rows:
+        rate = t.exchange_rate or Decimal("1")
+        gross = t.shares * t.price
+        amount_native = gross + t.fee if t.type == "buy" else gross - t.fee
+        movements.append(MovementOut(
+            kind=t.type,
+            date=t.date,
+            security_id=sec_id,
+            yahoo_ticker=ticker,
+            name=name,
+            currency=t.currency,
+            shares=t.shares,
+            price=t.price,
+            amount_native=amount_native,
+            amount_eur=amount_native / rate,
+        ))
+    for d, sec_id, ticker, name in div_rows:
+        rate = d.exchange_rate or Decimal("1")
+        net_native = d.gross_amount - d.withholding_tax
+        movements.append(MovementOut(
+            kind="dividend",
+            date=d.date,
+            security_id=sec_id,
+            yahoo_ticker=ticker,
+            name=name,
+            currency=d.currency,
+            shares=d.shares_at_date,
+            price=d.gross_per_share,
+            amount_native=net_native,
+            amount_eur=net_native / rate,
+        ))
+
+    # Más reciente primero (la fecha es string ISO YYYY-MM-DD, ordena lexicográficamente).
+    # Desempate por 'kind' solo para una salida estable.
+    movements.sort(key=lambda m: (m.date, m.kind), reverse=True)
+    return movements[:limit]
 
 
 # ---------------------------------------------------------------------------

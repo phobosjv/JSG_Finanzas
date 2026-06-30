@@ -397,6 +397,26 @@ class ClosedPositionAnalytics(ClosedPositionSummary):
     still_open: bool = False  # True si la posición SIGUE abierta (round-trip parcial pasado)
 
 
+class MovementOut(BaseModel):
+    """
+    Un movimiento de cartera (compra, venta o dividendo) para el listado de
+    "últimos movimientos". Agrega 'transactions' (buy/sell, sin traspasos) y
+    'dividends' de todas las posiciones del usuario en una vista única.
+    Importes: en buy = shares×price + fee; en sell = shares×price − fee;
+    en dividend = neto (gross_amount − withholding_tax). EUR = nativo / exchange_rate.
+    """
+    kind: Literal["buy", "sell", "dividend"]
+    date: str
+    security_id: int
+    yahoo_ticker: str
+    name: str
+    currency: str             # divisa nativa de la operación
+    shares: Decimal           # acciones (buy/sell) o shares_at_date (dividend)
+    price: Decimal            # precio por acción (buy/sell) o gross_per_share (dividend)
+    amount_native: Decimal    # importe total en divisa nativa
+    amount_eur: Decimal       # importe total en EUR
+
+
 class SecurityDividendSummary(BaseModel):
     """Agregado de dividendos cobrados de una acción, para tabla y gráficas."""
     security_id: int

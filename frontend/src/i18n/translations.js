@@ -463,6 +463,19 @@ export const translations = {
     'portfolio.div_scatter_yield':     'Yield anualizado (%)',
     'portfolio.div_empty':             'No hay dividendos cobrados aún.',
 
+    // ── Últimos movimientos ──────────────────────────────────────────────
+    'portfolio.mov_title':       'Últimos movimientos',
+    'portfolio.mov_col_date':    'Fecha',
+    'portfolio.mov_col_type':    'Tipo',
+    'portfolio.mov_col_amount':  'Importe',
+    'portfolio.mov_buy':         'Compra',
+    'portfolio.mov_sell':        'Venta',
+    'portfolio.mov_dividend':    'Dividendo',
+    'portfolio.mov_empty':       'No hay movimientos aún.',
+    'portfolio.mov_prev':        'Anteriores',
+    'portfolio.mov_next':        'Siguientes',
+    'portfolio.mov_page':        'Página {n} de {total}',
+
     // ── Admin — tramos IRPF ──────────────────────────────────────────────
     'admin.tax_brackets':         'Tramos IRPF del ahorro',
     'admin.bracket_from':         'Desde (€)',
@@ -1116,6 +1129,19 @@ export const translations = {
     'portfolio.div_scatter_years':     'Years held',
     'portfolio.div_scatter_yield':     'Annualized yield (%)',
     'portfolio.div_empty':             'No dividends collected yet.',
+
+    // ── Recent movements ─────────────────────────────────────────────────
+    'portfolio.mov_title':       'Recent movements',
+    'portfolio.mov_col_date':    'Date',
+    'portfolio.mov_col_type':    'Type',
+    'portfolio.mov_col_amount':  'Amount',
+    'portfolio.mov_buy':         'Buy',
+    'portfolio.mov_sell':        'Sell',
+    'portfolio.mov_dividend':    'Dividend',
+    'portfolio.mov_empty':       'No movements yet.',
+    'portfolio.mov_prev':        'Previous',
+    'portfolio.mov_next':        'Next',
+    'portfolio.mov_page':        'Page {n} of {total}',
 
     // ── Admin — IRPF tax brackets ─────────────────────────────────────────
     'admin.tax_brackets':         'IRPF Tax Brackets',
