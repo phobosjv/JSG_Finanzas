@@ -29,8 +29,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_admin
 from app.auth.security import hash_password
 from app.models import (
-    DividendRow, Favorite, MarketRow, Position, RecurringPlanRow,
-    Security, TransactionRow, User, UserStatusLog,
+    AppConfig, DividendRow, Favorite, MarketRow, Position, RecurringPlanRow,
+    Security, SecuritySplit, SubcarteraRow, SubcarteraPositionRow,
+    TaxBracketRow, TransactionRow, User, UserStatusLog,
 )
 from app.models.catalog_requests import UserNotificationRow
 from app.schemas.catalog_requests import AdminNotificationSend
@@ -541,8 +542,49 @@ def admin_export_backup(
             "username": u.username,
             "password_hash": u.password_hash,
             "is_admin": u.is_admin,
+            "is_enabled": u.is_enabled,
+            "email": u.email,
+            "expires_at": u.expires_at.isoformat() if u.expires_at else None,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
         }
         for u in db.scalars(select(User).order_by(User.id)).all()
+    ]
+
+    # Configuración global (app_config): nombre de app, logo, divisas, umbral de
+    # polvo, intervalo de snapshots, config de email (con secretos) y claves
+    # VAPID. Se exporta tal cual para reproducir el sitio 1:1 (secretos en claro
+    # — el fichero debe custodiarse).
+    app_config_data = [
+        {"key": c.key, "value": c.value}
+        for c in db.scalars(select(AppConfig).order_by(AppConfig.key)).all()
+    ]
+
+    # Tramos IRPF configurables.
+    tax_brackets_data = [
+        {
+            "min_amount": str(b.min_amount),
+            "max_amount": str(b.max_amount) if b.max_amount is not None else None,
+            "rate": str(b.rate),
+            "sort_order": b.sort_order,
+        }
+        for b in db.scalars(
+            select(TaxBracketRow).order_by(TaxBracketRow.sort_order, TaxBracketRow.id)
+        ).all()
+    ]
+
+    # Splits globales, referenciados por ticker (portable entre servidores).
+    security_splits_data = [
+        {
+            "security_ticker": sp.security.yahoo_ticker,
+            "ex_date": sp.ex_date,
+            "ratio_num": sp.ratio_num,
+            "ratio_den": sp.ratio_den,
+            "notes": sp.notes,
+        }
+        for sp in db.scalars(
+            select(SecuritySplit).order_by(SecuritySplit.security_id, SecuritySplit.ex_date)
+        ).all()
     ]
 
     markets_data = [
@@ -648,13 +690,42 @@ def admin_export_backup(
             for fav in favs
         ]
 
+        # Subcarteras del usuario. Las posiciones se referencian por ticker
+        # (portable): un usuario tiene una sola posición por valor.
+        pos_id_to_ticker = {p.id: p.security.yahoo_ticker for p in positions}
+        subcarteras_data = []
+        for sub in db.scalars(
+            select(SubcarteraRow)
+            .where(SubcarteraRow.user_id == user.id)
+            .order_by(SubcarteraRow.id)
+        ).all():
+            member_ids = db.scalars(
+                select(SubcarteraPositionRow.position_id).where(
+                    SubcarteraPositionRow.subcartera_id == sub.id
+                )
+            ).all()
+            subcarteras_data.append({
+                "name": sub.name,
+                "description": sub.description,
+                "position_tickers": [
+                    pos_id_to_ticker[pid] for pid in member_ids
+                    if pid in pos_id_to_ticker
+                ],
+            })
+
         portfolios_data.append({
             "username": user.username,
             "positions": positions_data,
             "favorites": favorites_data,
+            "subcarteras": subcarteras_data,
         })
 
-    payload = build_admin_export(users_data, securities_data, portfolios_data, markets_data)
+    payload = build_admin_export(
+        users_data, securities_data, portfolios_data, markets_data,
+        app_config=app_config_data,
+        tax_brackets=tax_brackets_data,
+        security_splits=security_splits_data,
+    )
     json_bytes = json.dumps(payload, ensure_ascii=False, indent=2, default=_decimal_default).encode("utf-8")
     return Response(
         content=json_bytes,
@@ -689,22 +760,92 @@ async def admin_import_backup(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=errors)
 
     result = AdminImportResult()
-    valid_currencies = set(_get_supported_currencies(db))
+
+    def _parse_dt(raw):
+        """ISO string → datetime, o None si no viene / no parsea."""
+        if not raw:
+            return None
+        try:
+            return datetime.fromisoformat(raw)
+        except (ValueError, TypeError):
+            return None
 
     # --- Usuarios ---
+    # Crear los que falten (con todos los campos); a los existentes se les
+    # actualiza email/is_enabled/expires_at desde el backup (no se toca la
+    # contraseña ni is_admin de un usuario que ya existe).
     for u_data in data.get("users", []):
         username = u_data.get("username", "")
         existing = db.scalar(select(User).where(User.username == username))
         if existing:
-            result.users_skipped += 1
+            changed = False
+            if "email" in u_data and existing.email != u_data.get("email"):
+                existing.email = u_data.get("email"); changed = True
+            if "is_enabled" in u_data and existing.is_enabled != bool(u_data["is_enabled"]):
+                existing.is_enabled = bool(u_data["is_enabled"]); changed = True
+            if "expires_at" in u_data:
+                new_exp = _parse_dt(u_data.get("expires_at"))
+                if existing.expires_at != new_exp:
+                    existing.expires_at = new_exp; changed = True
+            if changed:
+                result.users_updated += 1
+            else:
+                result.users_skipped += 1
         else:
             db.add(User(
                 username=username,
                 password_hash=u_data["password_hash"],
                 is_admin=u_data.get("is_admin", False),
+                is_enabled=bool(u_data.get("is_enabled", True)),
+                email=u_data.get("email"),
+                expires_at=_parse_dt(u_data.get("expires_at")),
+                created_at=_parse_dt(u_data.get("created_at")) or datetime.now(),
+                last_login_at=_parse_dt(u_data.get("last_login_at")),
             ))
             result.users_created += 1
     db.flush()
+
+    # --- Configuración global (app_config): upsert de cada clave ---
+    for c_data in data.get("app_config", []):
+        key = c_data.get("key")
+        if not key:
+            continue
+        value = c_data.get("value")
+        if value is None:
+            continue
+        cfg = db.get(AppConfig, key)
+        if cfg is None:
+            db.add(AppConfig(key=key, value=value))
+        else:
+            cfg.value = value
+        result.config_keys += 1
+    db.flush()
+
+    # Divisas soportadas: se recalculan DESPUÉS de importar app_config, para que
+    # las transacciones en divisas del backup validen contra la lista restaurada.
+    valid_currencies = set(_get_supported_currencies(db))
+
+    # --- Tramos IRPF: replace-all si el backup los trae ---
+    tax_brackets = data.get("tax_brackets")
+    if tax_brackets:
+        for old in db.scalars(select(TaxBracketRow)).all():
+            db.delete(old)
+        db.flush()
+        for b_data in tax_brackets:
+            try:
+                db.add(TaxBracketRow(
+                    min_amount=Decimal(str(b_data["min_amount"])),
+                    max_amount=(
+                        Decimal(str(b_data["max_amount"]))
+                        if b_data.get("max_amount") is not None else None
+                    ),
+                    rate=Decimal(str(b_data["rate"])),
+                    sort_order=int(b_data.get("sort_order", 0)),
+                ))
+                result.tax_brackets_set += 1
+            except (KeyError, TypeError, InvalidOperation, ValueError) as exc:
+                result.errors.append(f"Tramo IRPF omitido: {exc}")
+        db.flush()
 
     # --- Mercados (antes que los valores, que dependen de ellos) ---
     # Solo se crean los que falten (el código es PK); deriva market_type si no
@@ -759,6 +900,43 @@ async def admin_import_backup(
             sec.currency = s_data["currency"]
             sec.market = s_data["market"]
             result.securities_updated += 1
+    db.flush()
+
+    # --- Splits globales: upsert por (security, ex_date) ---
+    for sp_data in data.get("security_splits", []):
+        ticker = sp_data.get("security_ticker", "")
+        sec = db.scalar(select(Security).where(Security.yahoo_ticker == ticker))
+        if sec is None:
+            result.errors.append(f"Split omitido: valor '{ticker}' no encontrado.")
+            continue
+        ex_date = sp_data.get("ex_date")
+        try:
+            ratio_num = int(sp_data["ratio_num"])
+            ratio_den = int(sp_data["ratio_den"])
+            if not ex_date or ratio_num <= 0 or ratio_den <= 0:
+                raise ValueError("ex_date/ratio inválidos")
+        except (KeyError, TypeError, ValueError) as exc:
+            result.errors.append(f"Split omitido en '{ticker}': {exc}")
+            continue
+        existing_sp = db.scalar(
+            select(SecuritySplit).where(
+                SecuritySplit.security_id == sec.id,
+                SecuritySplit.ex_date == ex_date,
+            )
+        )
+        if existing_sp is None:
+            db.add(SecuritySplit(
+                security_id=sec.id,
+                ex_date=ex_date,
+                ratio_num=ratio_num,
+                ratio_den=ratio_den,
+                notes=sp_data.get("notes"),
+            ))
+            result.splits_added += 1
+        else:
+            existing_sp.ratio_num = ratio_num
+            existing_sp.ratio_den = ratio_den
+            existing_sp.notes = sp_data.get("notes")
     db.flush()
 
     # --- Carteras por usuario ---
@@ -922,6 +1100,46 @@ async def admin_import_backup(
                     ),
                 ))
                 result.favorites_added += 1
+
+        # Subcarteras del usuario (upsert por nombre; enlaza posiciones por
+        # ticker). Requiere que las posiciones ya existan (creadas arriba).
+        db.flush()
+        for sub_data in portfolio.get("subcarteras", []):
+            name = (sub_data.get("name") or "").strip()
+            if not name:
+                continue
+            sub = db.scalar(
+                select(SubcarteraRow).where(
+                    SubcarteraRow.user_id == user.id,
+                    SubcarteraRow.name == name,
+                )
+            )
+            if sub is None:
+                sub = SubcarteraRow(
+                    user_id=user.id,
+                    name=name,
+                    description=sub_data.get("description"),
+                )
+                db.add(sub)
+                db.flush()
+                result.subcarteras_added += 1
+            for ticker in sub_data.get("position_tickers", []):
+                sec = db.scalar(select(Security).where(Security.yahoo_ticker == ticker))
+                if sec is None:
+                    continue
+                pos = db.scalar(
+                    select(Position).where(
+                        Position.user_id == user.id,
+                        Position.security_id == sec.id,
+                    )
+                )
+                if pos is None:
+                    continue
+                link = db.get(SubcarteraPositionRow, (sub.id, pos.id))
+                if link is None:
+                    db.add(SubcarteraPositionRow(
+                        subcartera_id=sub.id, position_id=pos.id
+                    ))
 
     db.commit()
     return result.to_dict()

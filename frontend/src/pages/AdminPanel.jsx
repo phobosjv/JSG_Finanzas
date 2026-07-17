@@ -2732,12 +2732,17 @@ export default function AdminPanel() {
       const data = JSON.parse(text)
       const r = await api.post('/admin/backup/import', data)
       setAdminBackupMsg(
-        `Importado: ${r.users_created} usuarios nuevos, ` +
+        `Importado: ${r.users_created} usuarios nuevos` +
+        (r.users_updated ? ` (${r.users_updated} actualizados)` : '') + `, ` +
         `${r.securities_created} valores nuevos (${r.securities_updated} actualizados), ` +
         `${r.positions_found} posiciones, ` +
         `${r.transactions_added} transacciones, ` +
         `${r.dividends_added} dividendos, ` +
-        `${r.favorites_added} favoritos.` +
+        `${r.favorites_added} favoritos, ` +
+        `${r.config_keys ?? 0} claves de configuración, ` +
+        `${r.tax_brackets_set ?? 0} tramos IRPF, ` +
+        `${r.splits_added ?? 0} splits, ` +
+        `${r.subcarteras_added ?? 0} subcarteras.` +
         (r.errors?.length ? ` Avisos: ${r.errors.join('; ')}` : '')
       )
       loadUsers()
@@ -3100,8 +3105,12 @@ export default function AdminPanel() {
       {tab === 'herramientas' && <div className="card" style={{ marginTop: 24 }}>
         <h2>Backup completo del sistema</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.9rem' }}>
-          Exporta todos los usuarios, el catálogo de valores y todas las carteras a un JSON.
-          La importación es idempotente: crea lo que no existe y omite lo que ya está.
+          Exporta todo el sistema a un JSON: usuarios, catálogo de valores, todas las
+          carteras, subcarteras, splits, tramos IRPF y la configuración del sitio
+          (nombre, logo, divisas, email y claves push). Sirve para migrar el servidor 1:1.
+          La importación es idempotente: crea lo que no existe, actualiza la configuración
+          y no duplica movimientos.<br />
+          <strong>El fichero contiene secretos</strong> (contraseña de email y clave push privada): custódialo.
         </p>
         {adminBackupErr && <div className="state-error" style={{ padding: 8, marginBottom: 12 }}>{adminBackupErr}</div>}
         {adminBackupMsg && <div style={{ color: 'var(--green)', padding: 8, marginBottom: 12, fontSize: '0.85rem' }}>{adminBackupMsg}</div>}

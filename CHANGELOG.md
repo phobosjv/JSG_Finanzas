@@ -5,6 +5,41 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.22.0] — 2026-07-17
+
+### Nuevo
+
+- **Backup completo del sistema ampliado para migración 1:1 de servidor**
+  (formato `admin_2`). El backup admin ahora reproduce el sitio idéntico al
+  restaurarlo en otro servidor. Además de usuarios, catálogo y carteras, el
+  export incluye:
+  - **Configuración del sitio** (`app_config`): nombre de la app, logo, divisas
+    soportadas, umbral de «polvo», intervalo de snapshots, **configuración de
+    email (con secretos)** y **claves VAPID** de notificaciones push. Los
+    secretos viajan **en claro** para permitir la migración 1:1 — el fichero de
+    backup debe custodiarse.
+  - **Tramos IRPF** (`tax_brackets`) configurables.
+  - **Splits / contrasplits** (`security_splits`), referenciados por ticker
+    (portables entre servidores).
+  - **Subcarteras** de cada usuario, con sus posiciones referenciadas por ticker.
+  - **Campos de usuario** que antes se perdían: `email`, `is_enabled`,
+    `expires_at`, `created_at`, `last_login_at`.
+- **Import idempotente y no destructivo**:
+  - `app_config`: upsert de cada clave (sobrescribe la configuración existente).
+  - `tax_brackets`: replace-all (reemplaza el set de tramos por el del backup).
+  - `security_splits`: upsert por (valor, ex_date).
+  - `subcarteras`: upsert por (usuario, nombre) + enlaza posiciones por ticker.
+  - Usuarios existentes: se **actualizan** sus campos `email`/`is_enabled`/
+    `expires_at` desde el backup (no se toca la contraseña ni el rol); los
+    usuarios nuevos se crean con todos los campos.
+  - Movimientos (transacciones/dividendos) siguen siendo aditivos (no duplican).
+- **Retrocompatibilidad**: los backups `admin_1` anteriores se siguen importando
+  sin cambios (las secciones nuevas son opcionales).
+- El mensaje de resultado del import en el AdminPanel informa de las claves de
+  configuración, tramos, splits y subcarteras restaurados.
+
+---
+
 ## [1.21.0] — 2026-06-27
 
 ### Nuevo
