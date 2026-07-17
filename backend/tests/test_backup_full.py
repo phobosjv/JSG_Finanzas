@@ -11,9 +11,17 @@ restaura:
   * campos extra de usuario (email/is_enabled/expires_at)
 Y que un backup admin_1 (sin esas secciones) se sigue importando (retrocompat).
 """
+import base64
 import json
 
 from app.models import AppConfig
+
+
+# PNG 1×1 transparente válido (base64 canónico, sin saltos de línea).
+_PNG_1x1_B64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk"
+    "+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
 
 
 def _sec(admin_client, ticker, market="ibex35"):
@@ -173,6 +181,44 @@ def test_import_updates_existing_user_fields(admin_client, db, test_user):
     db.refresh(u)
     assert u.email == "nuevo@x.com"
     assert u.is_enabled is False
+
+
+# ---------------------------------------------------------------------------
+#  Logo: round-trip completo (bytes idénticos tras export/borrar/import)
+# ---------------------------------------------------------------------------
+
+def test_logo_round_trip(admin_client, db):
+    # 1) Subir el logo.
+    r = admin_client.put("/api/admin/config/logo", json={
+        "data": _PNG_1x1_B64, "mime": "image/png",
+    })
+    assert r.status_code == 200, r.text
+    original_bytes = admin_client.get("/api/config/logo").content
+    assert original_bytes == base64.b64decode(_PNG_1x1_B64)
+
+    # 2) Export: el logo viaja en app_config como logo_data (base64) + logo_mime.
+    backup = admin_client.get("/api/admin/backup/export").json()
+    cfg = {c["key"]: c["value"] for c in backup["app_config"]}
+    assert cfg["logo_mime"] == "image/png"
+    # El valor almacenado es base64 sin prefijo data-URI y decodifica a los
+    # bytes originales del PNG.
+    assert base64.b64decode(cfg["logo_data"]) == base64.b64decode(_PNG_1x1_B64)
+
+    # 3) Simular servidor limpio: borrar las claves del logo.
+    for key in ("logo_data", "logo_mime", "logo_updated_at"):
+        row = db.get(AppConfig, key)
+        if row is not None:
+            db.delete(row)
+    db.commit()
+    assert admin_client.get("/api/config/logo").status_code == 404
+
+    # 4) Restaurar: el logo vuelve con bytes y mime idénticos.
+    r = admin_client.post("/api/admin/backup/import", json=backup)
+    assert r.status_code == 200, r.text
+    restored = admin_client.get("/api/config/logo")
+    assert restored.status_code == 200
+    assert restored.content == original_bytes
+    assert restored.headers["content-type"] == "image/png"
 
 
 # ---------------------------------------------------------------------------
