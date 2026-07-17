@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.21.0** · **Tests: 574 en verde** · Aplicación web personal
+> **Versión actual: 1.22.0** · **Tests: 580 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -461,6 +461,22 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   recuperable con el menú operativo, no pantalla negra.
 - **Borrar cartera** (v1.10.0): Utilidades → exporta backup JSON y luego
   `DELETE /api/portfolio/reset` (conserva cuenta, favoritos y preferencias).
+- **Backup completo para migración 1:1** (v1.22.0): el backup admin
+  (`GET/POST /api/admin/backup/export|import`) pasa a formato **`admin_2`** y
+  reproduce el sitio idéntico en otro servidor. Además de usuarios, catálogo y
+  carteras, exporta **`app_config`** (nombre, logo, divisas, umbral de polvo,
+  intervalo de snapshots, **config de email y claves VAPID — secretos EN CLARO**,
+  custodiar el fichero), **`tax_brackets`**, **`security_splits`** (por ticker) y
+  **subcarteras** (por usuario, posiciones por ticker), más los campos de usuario
+  que faltaban (`email`/`is_enabled`/`expires_at`/`created_at`/`last_login_at`).
+  Import idempotente: app_config = upsert por clave; tax_brackets = replace-all;
+  splits = upsert por (valor, ex_date); subcarteras = upsert por (usuario,
+  nombre); usuarios existentes se **actualizan** (email/is_enabled/expires_at, no
+  toca contraseña ni rol); movimientos aditivos. **Retrocompatible con `admin_1`**
+  (las secciones nuevas son opcionales). Lógica en `services/backup.py`
+  (`ADMIN_BACKUP_VERSION`, `build_admin_export`, `validate_admin_backup`,
+  `AdminImportResult`) y `api/admin.py`. Alternativa cruda para migrar: copiar
+  el fichero `finanzas.db` del volumen.
 - **Dashboard — Movimientos del día** (v1.11.3): sección configurable con las
   mayores subidas/bajadas del día de las posiciones abiertas
   (`daily_change_eur`), 3 ó 5 por columna, sin llamada extra al backend.
@@ -532,7 +548,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.21.0 · 574 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.22.0 · 580 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -551,6 +567,9 @@ Cálculo puro: `test_calculations.py`, `test_splits.py`, `test_tax_report.py`,
 `test_import_export_v178.py`, `test_v179.py`, `test_active_updates.py`,
 `test_yahoo_explorer.py`, `test_catalog_import.py`, `test_user_subscriptions.py`,
 `test_app_logo.py`, `test_indicators.py`, `test_backup_service.py`,
+`test_backup_full.py` (v1.22.0: backup admin_2 — export incluye app_config/
+tramos/splits/subcarteras/campos de usuario/secretos; restaura y sobrescribe
+config; replace-all de tramos; idempotencia; retrocompat admin_1).
 `test_push.py` (VAPID, suscripciones, alertas push, dedup).
 `test_subcarteras.py` (CRUD, scoping, muchos-a-muchos, 404/403, filtrado position_ids).
 `test_security_requests.py` (solicitudes de catálogo: crear, aprobar, rechazar,
