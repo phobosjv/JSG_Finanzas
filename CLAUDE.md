@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.22.0** · **Tests: 580 en verde** · Aplicación web personal
+> **Versión actual: 1.22.0** · **Tests: 581 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -548,7 +548,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.22.0 · 580 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.22.0 · 581 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -569,7 +569,8 @@ Cálculo puro: `test_calculations.py`, `test_splits.py`, `test_tax_report.py`,
 `test_app_logo.py`, `test_indicators.py`, `test_backup_service.py`,
 `test_backup_full.py` (v1.22.0: backup admin_2 — export incluye app_config/
 tramos/splits/subcarteras/campos de usuario/secretos; restaura y sobrescribe
-config; replace-all de tramos; idempotencia; retrocompat admin_1).
+config; replace-all de tramos; idempotencia; retrocompat admin_1;
+round-trip del logo con bytes/MIME idénticos).
 `test_push.py` (VAPID, suscripciones, alertas push, dedup).
 `test_subcarteras.py` (CRUD, scoping, muchos-a-muchos, 404/403, filtrado position_ids).
 `test_security_requests.py` (solicitudes de catálogo: crear, aprobar, rechazar,
