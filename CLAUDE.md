@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.22.0** · **Tests: 581 en verde** · Aplicación web personal
+> **Versión actual: 1.23.0** · **Tests: 585 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -548,7 +548,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.22.0 · 581 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.23.0 · 585 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -586,7 +586,9 @@ POST /auth/request-renewal crea CatalogMessageRow + notif + email, idempotencia 
 importes, excluye traspasos, tope 50, limit>50 → 422, auth requerido).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
-`pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint).
+`pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint;
+v1.23.0: `docker-compose.sin-caddy.yml` existe, no declara Caddy, publica el
+puerto de `finanzas` y va en el zip).
 
 ### Routers y prefijos API
 
@@ -688,6 +690,11 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 
 - **2 contenedores**: `caddy` (puertos 80/443) + `finanzas` (puerto 8000
   interno, sin exponer al host).
+- **Variante sin Caddy** (v1.23.0): el zip incluye `docker-compose.sin-caddy.yml`,
+  que no declara `caddy` ni sus volúmenes y publica `8000:8000` de `finanzas` al
+  host (acceso directo por HTTP o detrás de un proxy propio). Para usarla se
+  renombra/borra el `docker-compose.yml` original y se renombra esta variante a
+  `docker-compose.yml`. Verificada por `test_distribution.py`.
 - Caddy obtiene y renueva certificados Let's Encrypt automáticamente.
 - Dominio en `.env` mediante `DOMAIN`.
 - Para pruebas locales sin dominio: `DOMAIN=localhost` (Caddy sirve HTTP).
@@ -826,7 +833,8 @@ necesite Node ni acceso a npm.
 - `frontend/dist/` (precompilado — imprescindible)
 - `frontend/src/`, `frontend/package*.json`, `frontend/vite.config.js`
 - Todo `backend/app/`, `backend/alembic/`, `backend/tests/`
-- `Dockerfile`, `docker-compose.yml`, `Caddyfile`, `entrypoint.sh`, `.dockerignore`
+- `Dockerfile`, `docker-compose.yml`, `docker-compose.sin-caddy.yml` (variante sin
+  Caddy, v1.23.0), `Caddyfile`, `entrypoint.sh`, `.dockerignore`
 - `.env.example`, `instrucciones.pdf`, `CHANGELOG.md`, `README.md`
 - `catalogo-valores.json`, `catalogo-etfs-completo.json`, `catalogo-crypto.json`
 
