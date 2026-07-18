@@ -5,6 +5,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.23.0] — 2026-07-18
+
+### Nuevo
+
+- **docker-compose alternativo sin Caddy** (`docker-compose.sin-caddy.yml`),
+  incluido en cada distribución (zip). Permite desplegar la app **sin el
+  reverse-proxy Caddy** (p. ej. cuando ya tienes tu propio proxy delante o
+  quieres acceder directo por HTTP). Para usarlo, basta renombrar/borrar el
+  `docker-compose.yml` original y renombrar este fichero a `docker-compose.yml`.
+  - No declara el servicio `caddy` ni sus volúmenes (`caddy-data`,
+    `caddy-config`).
+  - Como sin Caddy nadie hace de proxy, el servicio `finanzas` **publica su
+    puerto al host** (`8000:8000`); acceso en `http://<host>:8000`. Sin HTTPS
+    propio, `COOKIE_SECURE` se deja en `false` salvo TLS por otro medio.
+- Tests de distribución: `test_distribution.py` verifica que el fichero existe,
+  que **no** declara Caddy, que publica el puerto de `finanzas` y que se incluye
+  en el zip de distribución.
+
+---
+
 ## [1.22.0] — 2026-07-17
 
 ### Nuevo

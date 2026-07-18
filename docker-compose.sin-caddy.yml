@@ -1,0 +1,49 @@
+# ---------------------------------------------------------------------------
+# docker-compose ALTERNATIVO — despliegue SIN Caddy
+# ---------------------------------------------------------------------------
+# Úsalo cuando NO quieras el reverse-proxy HTTPS de Caddy (p. ej. porque ya
+# tienes tu propio proxy delante, o quieres acceder directo por HTTP).
+#
+# Cómo activarlo:
+#   1. Renombra o borra el docker-compose.yml original.
+#   2. Renombra este fichero a docker-compose.yml.
+#   3. docker compose up --build -d
+#
+# Diferencia clave con el original: aquí NO hay servicio `caddy`, así que el
+# servicio `finanzas` publica su puerto (8000) directamente al host. Accede en
+# http://<host>:8000. Como no hay HTTPS, deja COOKIE_SECURE=false (o no lo
+# pongas) salvo que tengas TLS por otro medio.
+# ---------------------------------------------------------------------------
+services:
+  finanzas:
+    build: .
+    # Sin Caddy delante: exponemos el puerto de la app directamente al host.
+    ports:
+      - "8000:8000"
+    volumes:
+      - finanzas-data:/data        # aquí vive finanzas.db y los backups
+    environment:
+      - DATABASE_URL=sqlite:////data/finanzas.db
+      - SECRET_KEY=${SECRET_KEY}
+      # El frontend lo sirve el propio FastAPI (mismo origen), así que CORS
+      # normalmente no hace falta tocarlo. Si accedes desde un dominio externo
+      # distinto al del servidor, añádelo aquí.
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-["http://localhost:5173"]}
+      # Marca la cookie de sesión como Secure (solo con HTTPS). Sin Caddy no hay
+      # TLS propio, así que déjalo en false salvo que pongas tu propio proxy TLS.
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - DEBUG=${DEBUG:-false}
+      # Usuario admin creado automáticamente en el primer arranque.
+      # Cambia la contraseña tras el primer login.
+      - ADMIN_DEFAULT_USER=${ADMIN_DEFAULT_USER:-admin}
+      - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin1234}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  finanzas-data:

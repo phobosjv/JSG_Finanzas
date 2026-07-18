@@ -435,3 +435,61 @@ def test_entrypoint_cd_coincide_con_workdir():
         "el contenedor hará crash-loop.\n"
         f"Rutas conocidas en el contenedor: {sorted(valid_paths)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# 7. docker-compose alternativo SIN Caddy (v1.23.0)
+# ---------------------------------------------------------------------------
+# Se distribuye un docker-compose.sin-caddy.yml para desplegar sin el
+# reverse-proxy Caddy. Para usarlo, el usuario renombra este fichero a
+# docker-compose.yml. Debe: (1) NO declarar el servicio caddy, (2) publicar el
+# puerto de `finanzas` al host (si no, sin Caddy la app queda inaccesible).
+
+COMPOSE_SIN_CADDY = os.path.join(PROJECT_ROOT, "docker-compose.sin-caddy.yml")
+
+
+def test_compose_sin_caddy_existe():
+    """El docker-compose alternativo (sin Caddy) debe estar en la raíz."""
+    assert os.path.isfile(COMPOSE_SIN_CADDY), (
+        "docker-compose.sin-caddy.yml no encontrado. Es la variante de "
+        "despliegue sin Caddy que se distribuye en el zip."
+    )
+
+
+def test_compose_sin_caddy_no_declara_caddy():
+    """La variante sin Caddy NO debe declarar el servicio ni volúmenes de caddy."""
+    content = open(COMPOSE_SIN_CADDY, encoding="utf-8").read()
+    # Buscar la clave de servicio 'caddy:' (con 2 espacios de indentación),
+    # no las menciones en comentarios.
+    assert not re.search(r"^  caddy:", content, re.MULTILINE), (
+        "docker-compose.sin-caddy.yml declara el servicio 'caddy'; "
+        "la variante sin Caddy no debe incluirlo."
+    )
+    assert not re.search(r"^  caddy-(data|config):", content, re.MULTILINE), (
+        "docker-compose.sin-caddy.yml declara volúmenes de caddy; sobran sin Caddy."
+    )
+
+
+def test_compose_sin_caddy_publica_puerto_finanzas():
+    """Sin Caddy delante, `finanzas` debe publicar un puerto al host."""
+    content = open(COMPOSE_SIN_CADDY, encoding="utf-8").read()
+    assert re.search(r'^\s*-\s*"\d+:8000"', content, re.MULTILINE), (
+        "docker-compose.sin-caddy.yml no publica el puerto 8000 de 'finanzas'; "
+        "sin Caddy la app quedaría inaccesible desde el host."
+    )
+
+
+def test_compose_sin_caddy_en_zip():
+    """El zip de distribución debe incluir el docker-compose alternativo."""
+    zip_path = _latest_zip(PROJECT_ROOT)
+    if zip_path is None:
+        pytest.skip("No hay ningún zip de distribución en el proyecto.")
+
+    with zipfile.ZipFile(zip_path) as zf:
+        names_in_zip = {info.filename for info in zf.infolist()}
+
+    zip_name = os.path.basename(zip_path)
+    assert "docker-compose.sin-caddy.yml" in names_in_zip, (
+        f"El zip '{zip_name}' no incluye docker-compose.sin-caddy.yml "
+        "(variante de despliegue sin Caddy)."
+    )
