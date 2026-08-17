@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.23.0** · **Tests: 585 en verde** · Aplicación web personal
+> **Versión actual: 1.23.1** · **Tests: 587 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -548,7 +548,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.23.0 · 585 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.23.1 · 587 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -588,7 +588,9 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint;
 v1.23.0: `docker-compose.sin-caddy.yml` existe, no declara Caddy, publica el
-puerto de `finanzas` y va en el zip).
+puerto de `finanzas` y va en el zip; **v1.23.1: `entrypoint.sh` ejecuta
+`alembic upgrade head` ANTES de uvicorn**, y Dockerfile + zip incluyen
+`alembic.ini` y `alembic/versions/`).
 
 ### Routers y prefijos API
 
@@ -1055,6 +1057,20 @@ docker compose up --build
   encoding='utf-8')`) o `[System.IO.File]::WriteAllText(path, text, (New-Object
   System.Text.UTF8Encoding $false))`. `entrypoint.sh` siempre con `printf` desde
   Bash. `test_distribution.py` ya verifica BOM en los tres; correrlo tras el zip.
+- **`entrypoint.sh` DEBE ejecutar `alembic upgrade head` antes de uvicorn.** Las
+  migraciones son la **única** vía de creación del esquema en producción (no hay
+  `create_all()`; eso solo existe en `tests/conftest.py`). Al regenerar el fichero
+  con `printf` en la v1.16.0 se perdió esa línea y nadie lo notó durante 7
+  versiones: en el VPS el volumen ya tenía `finanzas.db` con las tablas creadas
+  por versiones anteriores. Solo se manifestó en una **instalación nueva**
+  (volumen vacío): SQLite abre un `.db` sin tablas y el `lifespan` falla en
+  `_ensure_default_admin()` con `OperationalError: no such table: users` →
+  `Application startup failed` → crash-loop. **Regla: al regenerar `entrypoint.sh`
+  con `printf`, escribir SIEMPRE las 5 líneas completas** (shebang, `set -e`,
+  `cd /app`, `alembic upgrade head`, `exec uvicorn`). `test_distribution.py` lo
+  verifica desde v1.23.1. **Corolario**: los bugs que solo afectan a la
+  instalación desde cero no se ven en el VPS de producción; probar el zip contra
+  un volumen limpio antes de darlo por bueno.
 - **`entrypoint.sh` hace `cd /app`, NO `/app/backend`.** El Dockerfile tiene
   `WORKDIR /app` y copia ahí. Una ruta incorrecta → crash-loop → Caddy 502.
   `test_distribution.py` verifica que el `cd` coincide con el `WORKDIR`.

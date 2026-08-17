@@ -18,6 +18,10 @@ services:
   finanzas:
     build: .
     # Sin Caddy delante: exponemos el puerto de la app directamente al host.
+    # Para usar otro puerto cambia SOLO la cifra de la IZQUIERDA (la del host):
+    # "8080:8000" → http://<host>:8080. La cifra de la derecha es el puerto
+    # INTERNO del contenedor y debe seguir siendo 8000: uvicorn escucha en 8000
+    # (entrypoint.sh) y el healthcheck también comprueba el 8000.
     ports:
       - "8000:8000"
     volumes:

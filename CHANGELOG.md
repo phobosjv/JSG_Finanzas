@@ -5,6 +5,32 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.23.1] — 2026-08-17
+
+### Corregido
+
+- **El contenedor no arrancaba en una instalación nueva** (`sqlalchemy.exc.
+  OperationalError: no such table: users` → `Application startup failed`).
+  `entrypoint.sh` había perdido la línea `alembic upgrade head` al regenerarse
+  en la v1.16.0, así que en un volumen vacío nunca se creaba el esquema: SQLite
+  abría un `finanzas.db` sin tablas y el `lifespan` reventaba en
+  `_ensure_default_admin()`, dejando el contenedor en crash-loop. En las
+  instalaciones ya existentes (VPS) no se notaba porque el volumen conservaba la
+  base de datos creada por versiones anteriores. Las migraciones de Alembic son
+  la única vía de creación del esquema en producción (no hay `create_all`).
+- Tests de regresión en `test_distribution.py`: `entrypoint.sh` debe ejecutar
+  `alembic upgrade head` **antes** de `uvicorn`, y el Dockerfile y el zip deben
+  incluir `alembic.ini` y las migraciones.
+
+### Cambiado
+
+- `docker-compose.sin-caddy.yml`: comentario explicando que, para cambiar el
+  puerto de acceso, solo se modifica la cifra del **host** (`"8080:8000"`); el
+  puerto interno debe seguir siendo 8000, que es donde escuchan uvicorn y el
+  healthcheck.
+
+---
+
 ## [1.23.0] — 2026-07-18
 
 ### Nuevo

@@ -1,0 +1,5 @@
+# Ficheros que ejecuta Linux dentro del contenedor: SIEMPRE con finales de
+# línea LF, aunque se clonen en Windows con core.autocrlf=true. Con CRLF el
+# kernel lee el shebang como "/bin/sh\r" y el contenedor hace crash-loop.
+entrypoint.sh text eol=lf
+*.sh text eol=lf

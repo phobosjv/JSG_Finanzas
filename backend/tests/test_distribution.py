@@ -383,6 +383,14 @@ def test_entrypoint_shebang_sin_bom():
         "Si empieza con 0xEF 0xBB 0xBF (BOM) el contenedor no arrancará."
     )
 
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    assert b"\r\n" not in raw, (
+        "entrypoint.sh tiene finales de línea CRLF. El kernel del contenedor "
+        "leería el shebang como '/bin/sh\\r' → crash-loop. Se fuerza LF desde "
+        "el .gitattributes de la raíz."
+    )
+
 
 def test_entrypoint_cd_coincide_con_workdir():
     """El directorio del 'cd' en entrypoint.sh debe existir en el contenedor.
@@ -492,4 +500,76 @@ def test_compose_sin_caddy_en_zip():
     assert "docker-compose.sin-caddy.yml" in names_in_zip, (
         f"El zip '{zip_name}' no incluye docker-compose.sin-caddy.yml "
         "(variante de despliegue sin Caddy)."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 8. entrypoint.sh debe aplicar las migraciones antes de arrancar uvicorn
+#
+# Bug real (introducido en v1.16.0, detectado en v1.23.1): al regenerar
+# entrypoint.sh con printf se perdió la línea 'alembic upgrade head'. En el VPS
+# no se notó porque el volumen ya tenía finanzas.db con todas las tablas
+# creadas por versiones anteriores. En una instalación NUEVA (volumen vacío)
+# nadie crea el esquema: SQLite genera un fichero .db vacío y el lifespan
+# revienta en _ensure_default_admin() con
+#   sqlalchemy.exc.OperationalError: no such table: users
+#   ERROR: Application startup failed. Exiting.
+# → crash-loop del contenedor.
+#
+# No hay ningún create_all() en producción (solo en los tests), así que las
+# migraciones de Alembic son la ÚNICA vía de creación del esquema.
+# ---------------------------------------------------------------------------
+
+def test_entrypoint_aplica_migraciones_antes_de_uvicorn():
+    """entrypoint.sh debe ejecutar 'alembic upgrade head' antes de uvicorn."""
+    path = os.path.join(PROJECT_ROOT, "entrypoint.sh")
+    if not os.path.isfile(path):
+        pytest.skip("entrypoint.sh no encontrado.")
+
+    content = open(path, encoding="utf-8-sig").read()
+
+    migrate = re.search(r"^\s*alembic\s+upgrade\s+head\s*$", content, re.MULTILINE)
+    assert migrate is not None, (
+        "entrypoint.sh no ejecuta 'alembic upgrade head'. En una instalación "
+        "nueva (volumen vacío) no se crearía el esquema y el arranque fallaría "
+        "con 'no such table: users'."
+    )
+
+    serve = re.search(r"^\s*exec\s+uvicorn\b", content, re.MULTILINE)
+    assert serve is not None, "entrypoint.sh no arranca uvicorn con 'exec'."
+    assert migrate.start() < serve.start(), (
+        "'alembic upgrade head' debe ir ANTES de arrancar uvicorn: el lifespan "
+        "de la app consulta la tabla users nada más arrancar."
+    )
+
+
+def test_entrypoint_migraciones_en_el_zip():
+    """El zip debe llevar alembic/ y alembic.ini, y el Dockerfile copiarlos.
+
+    Sin ellos 'alembic upgrade head' fallaría dentro del contenedor.
+    """
+    dockerfile = open(DOCKERFILE, encoding="utf-8").read()
+    assert re.search(r"^COPY\s+backend/alembic\s", dockerfile, re.MULTILINE), (
+        "El Dockerfile no copia backend/alembic al contenedor."
+    )
+    assert re.search(r"^COPY\s+backend/alembic\.ini\s", dockerfile, re.MULTILINE), (
+        "El Dockerfile no copia backend/alembic.ini al contenedor."
+    )
+
+    zip_path = _latest_zip(PROJECT_ROOT)
+    if zip_path is None:
+        pytest.skip("No hay ningún zip de distribución en el proyecto.")
+
+    with zipfile.ZipFile(zip_path) as zf:
+        names_in_zip = {info.filename for info in zf.infolist()}
+
+    zip_name = os.path.basename(zip_path)
+    assert "backend/alembic.ini" in names_in_zip, (
+        f"El zip '{zip_name}' no incluye backend/alembic.ini."
+    )
+    versiones = [n for n in names_in_zip if n.startswith("backend/alembic/versions/")
+                 and n.endswith(".py")]
+    assert versiones, (
+        f"El zip '{zip_name}' no incluye las migraciones de "
+        "backend/alembic/versions/."
     )
