@@ -53,8 +53,44 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
   - Warnings de la suite: de 18 a 1 (el restante es de `fastapi/testclient`,
     ajeno al proyecto).
 
+### Nuevo
+
+- **Aviso de «gráfico incompleto»** (`GET /api/portfolio/history/coverage`). El
+  gráfico de evolución no se cachea: se recalcula entero en cada petición desde
+  `price_history` y `ecb_rates`. Cuando esas tablas están incompletas la curva
+  salía mal **en silencio**, indistinguible de una correcta. Ahora Portfolio y
+  Dashboard muestran un aviso sobre el gráfico con lo que falta.
+  - `missing_history`: posiciones excluidas por no tener cotizaciones desde su
+    primera compra. **No se valoran en cero: desaparecen del total**, así que la
+    curva queda por debajo del valor real.
+  - `missing_rates`: divisas sin histórico del BCE, que fuerzan a convertir toda
+    la serie con el tipo más reciente en vez del de cada fecha.
+  - El criterio de exclusión se extrajo a `_history_inputs`, **compartido** con
+    `_history_series`: duplicarlo garantizaba que un día divergieran y el aviso
+    mintiera. De paso se eliminaron dos consultas que quedaban muertas.
+  - Endpoint aparte de `/history` a propósito: si falla, el gráfico se dibuja
+    igual, solo se queda sin aviso.
+
+### Corregido
+
+- **El botón «forzar histórico» no actualizaba los tipos del BCE.** El job
+  nocturno `daily_update` ejecuta `update_price_history` + `update_snapshots` +
+  `update_ecb_rates`; el botón del AdminPanel solo hacía las dos primeras. Como
+  el gráfico convierte cada cierre pasado con el tipo de **esa** fecha, sin la
+  tabla `ecb_rates` toda la serie de los valores en divisa se deformaba usando el
+  tipo más reciente. Se manifestó al migrar de servidor: el backup admin no
+  exporta `price_history` ni `ecb_rates`, y al forzar el histórico solo se
+  recuperaba la primera — los tipos había que esperarlos al nocturno de las 6:30,
+  sin ninguna señal de por qué. Cuatro tests nuevos (`test_force_history.py`),
+  que además cubren el 403, el 409 de concurrencia y el reporte de error, hasta
+  ahora sin cobertura.
+
 ### Cambiado
 
+- **CLAUDE.md**: la descripción del backup `admin_2` como «migración 1:1» inducía
+  a error. Ahora dice explícitamente que **no incluye datos de mercado**
+  (`price_history`, `price_snapshots`, `ecb_rates`) y hay una sección
+  «Tras migrar de servidor» con los pasos y el límite de 5 años del backfill.
 - **`yfinance` pasa a tener techo: `>=1.6,<2.0`.** Es la única dependencia
   acotada, y de forma deliberada: rompe su API entre majors, y es la única cuya
   integración real **no** cubren los tests (la mockean `test_bugs.py`,

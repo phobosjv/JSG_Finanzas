@@ -462,8 +462,13 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
 - **Borrar cartera** (v1.10.0): Utilidades → exporta backup JSON y luego
   `DELETE /api/portfolio/reset` (conserva cuenta, favoritos y preferencias).
 - **Backup completo para migración 1:1** (v1.22.0): el backup admin
-  (`GET/POST /api/admin/backup/export|import`) pasa a formato **`admin_2`** y
-  reproduce el sitio idéntico en otro servidor. Además de usuarios, catálogo y
+  (`GET/POST /api/admin/backup/export|import`) pasa a formato **`admin_2`**.
+  ⚠️ **«1:1» se refiere a la configuración y los datos del usuario, NO a los datos
+  de mercado**: el export **no incluye `price_history`, `price_snapshots` ni
+  `ecb_rates`** (tampoco `user_notifications`, `catalog_messages`,
+  `push_subscriptions` ni `user_status_log`). Tras restaurar en otro servidor hay
+  que **forzar el histórico** desde AdminPanel, o el gráfico de evolución sale mal
+  en silencio — ver [Tras migrar de servidor](#tras-migrar-de-servidor). Además de usuarios, catálogo y
   carteras, exporta **`app_config`** (nombre, logo, divisas, umbral de polvo,
   intervalo de snapshots, **config de email y claves VAPID — secretos EN CLARO**,
   custodiar el fichero), **`tax_brackets`**, **`security_splits`** (por ticker) y
@@ -477,6 +482,36 @@ diseñado para que un nuevo chat retome el proyecto sin contexto previo.
   (`ADMIN_BACKUP_VERSION`, `build_admin_export`, `validate_admin_backup`,
   `AdminImportResult`) y `api/admin.py`. Alternativa cruda para migrar: copiar
   el fichero `finanzas.db` del volumen.
+- **Aviso de gráfico incompleto** (`GET /api/portfolio/history/coverage`): el
+  gráfico de evolución **no se cachea**, se recalcula entero en cada petición
+  desde `price_history` + `ecb_rates`. Cuando esas tablas están incompletas la
+  curva sale mal **en silencio**, y una posición sin cotizaciones **no vale
+  cero: desaparece del total** (el `continue` de `_history_inputs`), dejando la
+  curva por debajo del valor real. El endpoint expone `missing_history`
+  (posiciones excluidas) y `missing_rates` (divisas sin tipos del BCE) y el
+  frontend pinta un aviso sobre el gráfico. `_history_inputs` es **la única
+  definición** del criterio de exclusión, compartida con `_history_series`:
+  duplicarlo garantizaba que un día divergieran y el aviso mintiera.
+
+### Tras migrar de servidor
+
+El backup admin **no lleva datos de mercado**. Al restaurar en un servidor nuevo,
+`price_history` y `ecb_rates` llegan **vacías** y el gráfico de evolución se
+dibuja con lo poco que haya, sin avisar (de ahí el endpoint `coverage`). Pasos:
+
+1. Restaurar el backup admin.
+2. **AdminPanel → forzar histórico** (`POST /api/admin/force-history-update`).
+   Ejecuta las **tres** tareas del job nocturno: `update_price_history`,
+   `update_snapshots` y `update_ecb_rates`. (Hasta la corrección de 2026-08 solo
+   hacía las dos primeras, así que los tipos del BCE había que esperarlos al
+   nocturno de las 6:30 — con toda la serie en divisa distorsionada mientras tanto.)
+3. Comprobar que el aviso del gráfico desaparece.
+
+**Límite**: el backfill baja **5 años** (`today - 5*365`, tanto para precios como
+para tipos). Con movimientos anteriores, esa parte del gráfico no se recupera por
+esta vía. La alternativa que sí lo conserva todo es **copiar el fichero
+`finanzas.db`** del volumen en vez de usar el backup.
+
 - **Dashboard — Movimientos del día** (v1.11.3): sección configurable con las
   mayores subidas/bajadas del día de las posiciones abiertas
   (`daily_change_eur`), 3 ó 5 por columna, sin llamada extra al backend.
@@ -621,6 +656,8 @@ puerto de `finanzas` y va en el zip; **v1.23.1: `entrypoint.sh` ejecuta
 - `GET /api/markets/exchange-rate?date=YYYY-MM-DD` → `{rate, date, source}`
   (`source ∈ {ecb, yahoo, not_found}`).
 - `GET /api/portfolio/history` · `/closed-analytics` (scatter, con `still_open`) ·
+- `GET /api/portfolio/history/coverage` → `{missing_history, missing_rates, ok}`
+  — qué le falta al gráfico de evolución para ser fiable (aviso en la UI).
   `/dividends-by-security` · `/xirr` · `/period-returns` · `/by-security/{id}` y
   `/by-security/{id}/operations` (historial aunque esté cerrada).
 - `GET /api/portfolio/movements?limit=N` (N≤50) — últimos movimientos (buy/sell +
