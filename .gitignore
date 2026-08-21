@@ -38,3 +38,6 @@ Thumbs.db
 
 # Artefactos de distribución (zips de release)
 finanzas-v*.zip
+
+# Notas sueltas de trabajo (no forman parte del proyecto)
+docker run *.txt
