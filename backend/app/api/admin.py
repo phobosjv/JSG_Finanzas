@@ -281,7 +281,14 @@ def _require_user(db: Session, user_id: int) -> User:
 
 @router.post("/force-history-update", status_code=status.HTTP_202_ACCEPTED)
 def force_history_update(_admin: User = Depends(require_admin)):
-    """Lanza update_price_history + update_snapshots en un hilo en segundo plano.
+    """Lanza update_price_history + update_snapshots + update_ecb_rates en un
+    hilo en segundo plano: las MISMAS tres tareas que el job nocturno.
+
+    Los tipos del BCE van incluidos porque el gráfico de evolución convierte
+    cada cierre pasado con el tipo vigente EN ESA FECHA; sin ellos, _history_series
+    cae al tipo más reciente y distorsiona toda la serie de los valores en divisa.
+    Es el escenario tras migrar de servidor: el backup admin NO exporta
+    'price_history' ni 'ecb_rates', así que este botón es la via de recuperacion.
 
     Devuelve 409 si ya hay una actualización en curso.
     El frontend puede consultar /admin/force-history-update/status para
@@ -302,11 +309,14 @@ def force_history_update(_admin: User = Depends(require_admin)):
 
     def _run() -> None:
         from app.database import SessionLocal
-        from app.scheduler.jobs import update_price_history, update_snapshots
+        from app.scheduler.jobs import (
+            update_price_history, update_snapshots, update_ecb_rates,
+        )
         db = SessionLocal()
         try:
             update_price_history(db)
             update_snapshots(db)
+            update_ecb_rates(db)
             with _history_job_lock:
                 _history_job["result"] = "ok"
             log.info("force-history-update completado correctamente")
