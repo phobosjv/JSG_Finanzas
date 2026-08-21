@@ -355,6 +355,7 @@ function ChartsSection({ positions, history, chartsVisible, t, navigate }) {
         chartsVisible={chartsVisible}
         t={t}
         navigate={navigate}
+        coverage={coverage}
       />
     </div>
   )
@@ -528,6 +529,7 @@ export default function Dashboard() {
   const [positions,  setPositions]  = useState(null)
   const [favorites,  setFavorites]  = useState([])
   const [history,    setHistory]    = useState([])
+  const [coverage,   setCoverage]   = useState(null)
   const [allMarkets, setAllMarkets] = useState([])
   const [error,      setError]      = useState(null)
   const [configOpen, setConfigOpen] = useState(false)
@@ -559,6 +561,7 @@ export default function Dashboard() {
   useEffect(() => {
     const qs = segTypes.length ? `?types=${segTypes.join(',')}` : ''
     api.get(`/portfolio/history${qs}`).then(setHistory).catch(() => setHistory([]))
+    api.get(`/portfolio/history/coverage${qs}`).then(setCoverage).catch(() => setCoverage(null))
   }, [segTypes])
 
   function changeSeg(next) {

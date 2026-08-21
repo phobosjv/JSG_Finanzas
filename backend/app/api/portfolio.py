@@ -545,17 +545,24 @@ def get_portfolio(
 #  Historial de valor de cartera (para gráfico de líneas en Portfolio)
 # ---------------------------------------------------------------------------
 
-def _history_series(
+def _history_inputs(
     db: Session,
     user_id: int,
     selected_types: set[str] | None,
     selected_position_ids: set[int] | None = None,
-) -> list[dict]:
-    """
-    Serie diaria de valor de cartera en EUR (reconstruida transacción a
-    transacción). Reutilizada por el gráfico de historial y por los retornos
-    por periodo. 'selected_types' filtra por tipo de producto (None = todo).
-    'selected_position_ids' filtra por posiciones concretas (alternativo a types).
+) -> tuple[list, set[str], list[dict]]:
+    """Recopila las entradas del grafico y las posiciones que quedan FUERA.
+
+    Devuelve '(sec_series, all_dates, excluded)'. Se extrajo de _history_series
+    para que el aviso de cobertura y el propio grafico compartan una sola
+    definicion de "que se excluye": duplicar el criterio garantizaba que un dia
+    divergieran y el aviso mintiera.
+
+    'excluded' solo recoge las posiciones sin cotizaciones en 'price_history'
+    desde su primera compra, que es la exclusion PROBLEMATICA: la posicion no se
+    valora en cero, desaparece entera del total y la curva queda por debajo del
+    valor real sin ninguna senal. Las posiciones sin transacciones o sin compras
+    no se reportan: ahi no falta ningun dato de mercado.
     """
     positions = db.scalars(
         select(Position).where(Position.user_id == user_id)
@@ -564,18 +571,9 @@ def _history_series(
         m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
     }
 
-    # Para cada posición recopilamos su línea temporal de participaciones
-    # (transacciones) y de precios (cierres). Después valoramos CADA posición en
-    # CADA fecha del eje global usando su último cierre conocido (carry-forward).
-    #
-    # Antes se sumaba el valor de una posición SOLO en las fechas con cotización
-    # propia: si en una fecha del eje (p. ej. el último día) ese valor no tenía
-    # registro de precio —algo habitual entre fondos (NAV) y acciones, o por
-    # festivos desalineados— quedaba fuera del total. Eso infravaloraba la
-    # cartera (sobre todo el último punto, v_end) y disparaba los retornos por
-    # periodo a valores imposibles (Modified Dietz con numerador negativo).
     sec_series: list[tuple[Decimal, list, list, list[tuple[str, Decimal]]]] = []
     all_dates: set[str] = set()
+    excluded: list[dict] = []
 
     for pos in positions:
         sec: Security = pos.security
@@ -604,6 +602,12 @@ def _history_series(
             .order_by(PriceHistory.date)
         ).all()
         if not price_rows:
+            excluded.append({
+                "position_id": pos.id,
+                "ticker": sec.yahoo_ticker,
+                "name": sec.name,
+                "since": str(first_buy_date),
+            })
             continue
 
         split_rows = db.scalars(
@@ -616,6 +620,34 @@ def _history_series(
         sec_series.append((sec.currency, list(tx_rows), list(split_rows), prices))
         all_dates.update(d for d, _ in prices)
 
+    return sec_series, all_dates, excluded
+
+
+def _history_series(
+    db: Session,
+    user_id: int,
+    selected_types: set[str] | None,
+    selected_position_ids: set[int] | None = None,
+) -> list[dict]:
+    """
+    Serie diaria de valor de cartera en EUR (reconstruida transacción a
+    transacción). Reutilizada por el gráfico de historial y por los retornos
+    por periodo. 'selected_types' filtra por tipo de producto (None = todo).
+    'selected_position_ids' filtra por posiciones concretas (alternativo a types).
+    """
+    # Valoramos CADA posición en CADA fecha del eje global usando su último
+    # cierre conocido (carry-forward). La recolección de entradas vive en
+    # _history_inputs, compartida con el aviso de cobertura.
+    #
+    # Antes se sumaba el valor de una posición SOLO en las fechas con cotización
+    # propia: si en una fecha del eje (p. ej. el último día) ese valor no tenía
+    # registro de precio —algo habitual entre fondos (NAV) y acciones, o por
+    # festivos desalineados— quedaba fuera del total. Eso infravaloraba la
+    # cartera (sobre todo el último punto, v_end) y disparaba los retornos por
+    # periodo a valores imposibles (Modified Dietz con numerador negativo).
+    sec_series, all_dates, _excluded = _history_inputs(
+        db, user_id, selected_types, selected_position_ids
+    )
     if not all_dates:
         return []
 
@@ -702,6 +734,60 @@ def get_portfolio_history(
         return _history_series(db, user.id, None, sel_pos)
     selected = {t.strip() for t in types.split(",") if t.strip()} if types else None
     return _history_series(db, user.id, selected)
+
+
+@router.get("/history/coverage")
+def get_history_coverage(
+    types: str | None = Query(None),
+    position_ids: str | None = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Datos que le FALTAN al gráfico de evolución para ser fiable.
+
+    El gráfico se recalcula entero en cada petición desde 'price_history' y
+    'ecb_rates'; no se cachea nada. Cuando esas tablas están incompletas la curva
+    sale mal en silencio, y ese silencio es el problema: se dibuja igual, sin
+    distinguirse de una correcta. Este endpoint expone las dos carencias para
+    que la UI pueda avisar.
+
+      - 'missing_history': posiciones excluidas por no tener cotizaciones desde
+        su primera compra. No se valoran en cero: desaparecen del total, así que
+        la curva queda POR DEBAJO del valor real.
+      - 'missing_rates': divisas sin histórico de tipos del BCE. No excluyen
+        nada, pero fuerzan a convertir toda la serie con el tipo más reciente en
+        vez del de cada fecha, deformando la curva de esos valores.
+
+    Escenario típico de ambas: una migración de servidor. El backup admin NO
+    exporta 'price_history' ni 'ecb_rates', y hasta que el job nocturno (o el
+    botón de forzar histórico del AdminPanel) las rellena, el gráfico miente.
+
+    Va en un endpoint aparte a propósito: el aviso es información secundaria y no
+    debe acoplarse al camino crítico de /history — si esto falla, el gráfico se
+    sigue dibujando igual.
+    """
+    if position_ids is not None:
+        sel_pos = {int(p) for p in position_ids.split(",") if p.strip()}
+        sel_types = None
+    else:
+        sel_pos = None
+        sel_types = {t.strip() for t in types.split(",") if t.strip()} if types else None
+
+    sec_series, _all_dates, excluded = _history_inputs(db, user.id, sel_types, sel_pos)
+
+    # Divisas presentes en el gráfico que no tienen NINGÚN tipo del BCE guardado:
+    # _history_series caería al tipo más reciente para toda su serie histórica.
+    monedas = {cur for cur, _, _, _ in sec_series if cur != "EUR"}
+    sin_tipos = [
+        cur for cur in sorted(monedas)
+        if not db.scalar(select(EcbRate.date).where(EcbRate.currency == cur).limit(1))
+    ]
+
+    return {
+        "missing_history": excluded,
+        "missing_rates": sin_tipos,
+        "ok": not excluded and not sin_tipos,
+    }
 
 
 def _portfolio_flows(

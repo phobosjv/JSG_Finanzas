@@ -258,12 +258,20 @@ export function PnLChart({ positions, t, navigate }) {
 
 // ─── Gráfico 3: Área evolución del valor ────────────────────────────────────
 
-export function HistoryChart({ history, t }) {
+export function HistoryChart({ history, t, coverage }) {
   const [histYears, setHistYears] = useState(2)
   const cutoff = new Date()
   cutoff.setFullYear(cutoff.getFullYear() - histYears)
   const cutStr  = cutoff.toISOString().slice(0, 10)
   const filtered = history.filter(p => p.date >= cutStr)
+
+  // Aviso de cobertura: una curva incompleta es indistinguible de una correcta,
+  // y ese silencio es justo el problema (posiciones sin histórico DESAPARECEN
+  // del total en vez de valer cero). 'coverage' es opcional: si no llega, o si
+  // la llamada falló, el gráfico se comporta como siempre.
+  const faltanPrecios = coverage?.missing_history ?? []
+  const faltanTipos   = coverage?.missing_rates ?? []
+  const incompleto    = faltanPrecios.length > 0 || faltanTipos.length > 0
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
@@ -289,6 +297,39 @@ export function HistoryChart({ history, t }) {
           ))}
         </div>
       </div>
+      {incompleto && (
+        <div
+          role="status"
+          style={{
+            display: 'flex', gap: 8, alignItems: 'flex-start',
+            padding: '8px 10px', marginBottom: 10,
+            border: '1px solid var(--warning-border, #f0b429)',
+            background: 'var(--warning-bg, rgba(240, 180, 41, 0.10))',
+            borderRadius: 6, fontSize: '0.8rem', lineHeight: 1.45,
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: '1rem', lineHeight: 1.2 }}>&#9888;</span>
+          <div style={{ minWidth: 0 }}>
+            <strong>{t('portfolio.hist_incomplete')}</strong>
+            {faltanPrecios.length > 0 && (
+              <div style={{ marginTop: 2 }}>
+                {t('portfolio.hist_missing_prices')}{' '}
+                <span style={{ wordBreak: 'break-word' }}>
+                  {faltanPrecios.map(p => p.ticker).join(', ')}
+                </span>
+              </div>
+            )}
+            {faltanTipos.length > 0 && (
+              <div style={{ marginTop: 2 }}>
+                {t('portfolio.hist_missing_rates')} {faltanTipos.join(', ')}
+              </div>
+            )}
+            <div style={{ marginTop: 4, color: 'var(--text-muted)' }}>
+              {t('portfolio.hist_incomplete_hint')}
+            </div>
+          </div>
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={220}>
         <AreaChart data={filtered} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
           <defs>
@@ -336,7 +377,7 @@ export function HistoryChart({ history, t }) {
  * Los gráficos 'distribution' y 'pnl_pct' aparecen en fila (flex-wrap).
  * El gráfico 'history' ocupa el ancho completo debajo.
  */
-export default function PortfolioChartsPanel({ positions, history, chartsVisible, t, navigate }) {
+export default function PortfolioChartsPanel({ positions, history, chartsVisible, t, navigate, coverage }) {
   if (!positions || positions.length === 0) return null
 
   const showDistrib  = chartsVisible.includes('distribution')
@@ -351,7 +392,7 @@ export default function PortfolioChartsPanel({ positions, history, chartsVisible
           {showPnl     && <PnLChart          positions={positions} t={t} navigate={navigate} />}
         </div>
       )}
-      {showHistory && <HistoryChart history={history} t={t} />}
+      {showHistory && <HistoryChart history={history} t={t} coverage={coverage} />}
     </div>
   )
 }

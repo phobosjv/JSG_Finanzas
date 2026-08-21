@@ -140,6 +140,7 @@ export default function Portfolio() {
   const [positions, setPositions]         = useState(null)
   const [closed, setClosed]               = useState([])
   const [history, setHistory]             = useState([])
+  const [coverage, setCoverage]           = useState(null)
   const [closedAnalytics, setClosedAn]    = useState([])
   const [dividendsBySec, setDivsBySec]    = useState([])
   const [movements, setMovements]         = useState([])
@@ -195,6 +196,9 @@ export default function Portfolio() {
       qs = `?types=${segTypes.join(',')}`
     }
     api.get(`/portfolio/history${qs}`).then(setHistory).catch(() => setHistory([]))
+    // Aviso de datos incompletos. Va aparte del grafico a proposito: si esta
+    // llamada falla, la curva se dibuja igual (solo se queda sin aviso).
+    api.get(`/portfolio/history/coverage${qs}`).then(setCoverage).catch(() => setCoverage(null))
     api.get(`/portfolio/xirr${qs}`).then(setXirr).catch(() => setXirr(null))
     api.get(`/portfolio/period-returns${qs}`).then(setPeriods).catch(() => setPeriods(null))
   }, [segTypes, segMode, activeSubcartera, subcarteras])
@@ -423,7 +427,7 @@ export default function Portfolio() {
 
       {/* 2. Evolución de cartera (ancho completo) */}
       {fPositions.length > 0 && (
-        <HistoryChart history={history} t={t} />
+        <HistoryChart history={history} t={t} coverage={coverage} />
       )}
 
       {/* 3. Tabla posiciones abiertas */}
