@@ -243,3 +243,75 @@ def test_worker_pasada2_business_insider(admin_client, seed_markets, db):
     rep = db.scalar(select(Security).where(Security.yahoo_ticker == "REP.MC"))
     assert itx.isin == "ES0148396007"
     assert rep.isin in (None, "")                    # no se le asignó el ISIN colisionado
+
+
+# ---------------------------------------------------------------------------
+#  Regresión: la pasada 1 asignaba ISINs que ya pertenecían a otro valor
+# ---------------------------------------------------------------------------
+#
+# La pasada 2 (Business Insider) siempre rechazó un ISIN ya presente en la BBDD,
+# por considerarlo "señal de coincidencia equivocada". La pasada 1 (Yahoo) no
+# hacía esa comprobación: asignaba y commiteaba cualquier cadena con forma de
+# ISIN. Y como el worker nunca sobreescribe un ISIN existente, el dato erróneo
+# quedaba fijado de forma permanente.
+#
+# No es hipotético: 'yf.Ticker("SAN.MC").isin' devuelve CA05973U1057 (un ISIN
+# canadiense; Santander es ES0113900J37), y en el catálogo local se encontró
+# AAPL con el ISIN de Microsoft (US5949181045), duplicado con MSFT.
+#
+# _normalize_isin solo valida la FORMA (2 letras + 10 caracteres), así que no
+# filtra nada de esto: la única señal disponible es la colisión.
+
+def test_pasada1_rechaza_isin_que_ya_pertenece_a_otro_valor(admin_client, seed_markets, db):
+    """Un ISIN ya asignado a otro valor NO se reasigna en la pasada 1."""
+    _crear_sec(admin_client, "Microsoft", "MSFT", isin="US5949181045")
+    _crear_sec(admin_client, "Apple", "AAPL")     # sin ISIN, pendiente
+
+    # Yahoo devuelve para AAPL el ISIN que ya tiene MSFT (coincidencia errónea).
+    res = _fill_isins_worker(db, _FakeProvider({"AAPL": "US5949181045"}))
+
+    assert res["checked"] == 1
+    assert res["updated"] == 0, "no debe asignarse un ISIN que ya es de otro valor"
+    assert "AAPL" in res["not_found"]
+    assert "AAPL" in res["skipped_existing"]
+
+    db.expire_all()
+    aapl = db.scalar(select(Security).where(Security.yahoo_ticker == "AAPL"))
+    msft = db.scalar(select(Security).where(Security.yahoo_ticker == "MSFT"))
+    assert aapl.isin is None, "preferimos un hueco a un dato incorrecto"
+    assert msft.isin == "US5949181045", "el legítimo no se toca"
+
+
+def test_pasada1_rechaza_isin_duplicado_dentro_de_la_misma_ejecucion(admin_client, seed_markets, db):
+    """La colisión también se detecta entre dos valores rellenados en la misma pasada."""
+    _crear_sec(admin_client, "Apple", "AAPL")
+    _crear_sec(admin_client, "Impostor", "FAKE.MC")
+
+    # Ambos sin ISIN previo: Yahoo devuelve el mismo para los dos.
+    res = _fill_isins_worker(
+        db, _FakeProvider({"AAPL": "US0378331005", "FAKE.MC": "US0378331005"})
+    )
+
+    assert res["checked"] == 2
+    assert res["updated"] == 1, "solo el primero se queda con el ISIN"
+    db.expire_all()
+    isins = [
+        s.isin for s in db.scalars(
+            select(Security).where(Security.yahoo_ticker.in_(["AAPL", "FAKE.MC"]))
+        ).all()
+    ]
+    assert sorted(i or "" for i in isins) == ["", "US0378331005"]
+
+
+def test_pasada1_sigue_rellenando_los_isin_no_conflictivos(admin_client, seed_markets, db):
+    """La protección no debe bloquear el caso normal: ISIN nuevo y único se asigna."""
+    _crear_sec(admin_client, "Microsoft", "MSFT", isin="US5949181045")
+    _crear_sec(admin_client, "Inditex", "ITX.MC")
+
+    res = _fill_isins_worker(db, _FakeProvider({"ITX.MC": "ES0148396007"}))
+
+    assert res["updated"] == 1
+    assert res["skipped_existing"] == []
+    db.expire_all()
+    itx = db.scalar(select(Security).where(Security.yahoo_ticker == "ITX.MC"))
+    assert itx.isin == "ES0148396007"

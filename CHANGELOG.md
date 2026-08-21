@@ -9,6 +9,30 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ### Corregido
 
+- **La pasada 1 de `fill-isins` asignaba ISINs pertenecientes a otro valor.**
+  La pasada 2 (Business Insider) siempre rechazó un ISIN ya presente en la BBDD
+  —"señal de coincidencia equivocada", en palabras del propio worker—, pero la
+  pasada 1 (Yahoo) no hacía esa comprobación: aceptaba y commiteaba cualquier
+  cadena con forma de ISIN. Como el worker **nunca sobreescribe** un ISIN ya
+  asignado, el dato incorrecto quedaba fijado de forma permanente, y se propaga
+  a la búsqueda por ISIN y a `PositionSummary.isin`.
+  - No era hipotético: `yf.Ticker("SAN.MC").isin` devuelve hoy `CA05973U1057`
+    —un ISIN canadiense, cuando Santander es `ES0113900J37`— y en el catálogo
+    local se encontró **AAPL con el ISIN de Microsoft** (`US5949181045`),
+    duplicado con el propio MSFT. Corregido a `US0378331005`.
+  - `_normalize_isin` solo valida la **forma** (2 letras de país + 10
+    caracteres), así que no filtra nada de esto: la colisión es la única señal
+    disponible sin una fuente externa de verdad.
+  - Efecto secundario aceptado: un **ETF multi-listado** (mismo ISIN en dos
+    bolsas, como `SHELL.AS`/`SHEL.L`) queda sin rellenar en el segundo listing.
+    Es deliberado — se prefiere el hueco al dato incorrecto, sobre todo porque
+    el hueco es recuperable y el dato incorrecto no. En la práctica apenas se
+    nota: los catálogos distribuidos ya traen esos ISINs, y `fill-isins` solo
+    procesa los valores que están vacíos.
+  - Tres tests de regresión en `test_isin_pipeline.py`: colisión con un valor
+    preexistente, colisión entre dos valores de la misma ejecución, y que el
+    caso normal (ISIN nuevo y único) sigue rellenándose.
+
 - **APIs deprecadas de Python 3.12 y Starlette.** `datetime.utcnow()`
   (deprecado en 3.12, con retirada anunciada) en `services/backup.py`, y
   `HTTP_422_UNPROCESSABLE_ENTITY` en 6 puntos de `admin_markets.py`,

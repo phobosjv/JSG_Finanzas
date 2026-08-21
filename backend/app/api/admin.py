@@ -377,9 +377,16 @@ def _fill_isins_worker(db: Session, provider, *, bi_search=None, on_item=None) -
 
       Pasada 1 (exacta): 'provider.fetch_isin(ticker)' (Yahoo por ticker).
       Pasada 2 (heurística, opcional): 'bi_search(name, ticker)' (Business
-        Insider por nombre), solo para los que la pasada 1 no resolvió. Se acepta
-        el ISIN únicamente si NO existe ya en la BBDD (evita asignar a un valor
-        un ISIN que pertenece a otro: señal de coincidencia equivocada).
+        Insider por nombre), solo para los que la pasada 1 no resolvió.
+
+    En AMBAS pasadas se acepta el ISIN únicamente si NO existe ya en la BBDD
+    (evita asignar a un valor un ISIN que pertenece a otro: señal de coincidencia
+    equivocada). Yahoo devuelve ocasionalmente un ISIN de otra empresa —p. ej.
+    'SAN.MC' -> CA05973U1057, canadiense, cuando Santander es ES0113900J37— y
+    '_normalize_isin' solo valida la FORMA, así que la colisión es la única
+    señal disponible. Un ETF multi-listado (mismo ISIN en dos bolsas) queda sin
+    rellenar en el segundo listing: es deliberado, preferimos el hueco al dato
+    incorrecto, porque el worker nunca sobreescribe un ISIN ya asignado.
 
     Excluye las cripto (no tienen ISIN). Commit INCREMENTAL: cada ISIN se guarda
     al momento, así un corte/timeout no pierde lo ya hecho. Nunca sobreescribe un
@@ -411,13 +418,19 @@ def _fill_isins_worker(db: Session, provider, *, bi_search=None, on_item=None) -
     for sid, ticker, name in pending:
         isin = provider.fetch_isin(ticker)
         checked += 1
-        if isin:
+        if isin and isin not in existing:
             sec = db.get(Security, sid)
             sec.isin = isin
             db.commit()
             updated_p1 += 1
             existing.add(isin)
         else:
+            if isin:
+                # Yahoo devolvio un ISIN que ya pertenece a otro valor: misma
+                # senal de coincidencia equivocada que aplica la pasada 2. Se
+                # descarta y el valor pasa a la pasada 2, por si la busqueda
+                # por nombre da con el correcto.
+                skipped_existing.append(ticker)
             missing.append(ticker)
             remaining.append((sid, ticker, name))
         _report()
