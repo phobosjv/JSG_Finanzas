@@ -792,6 +792,7 @@ Esta sección es **operacional**: cómo hacer cambios y releases sin saltarse pa
 ```
 1. Bump versión en 4 ficheros (sed)
 2. Actualizar CHANGELOG.md con la nueva entrada
+   + bloque «Entorno de construcción» (ver abajo)   ← permite rollback informado
 3. pytest — todo en verde
 4. cd frontend && npm run build       ← IMPRESCINDIBLE
 5. python gen_instrucciones.py        (regenera PDF)
@@ -799,6 +800,30 @@ Esta sección es **operacional**: cómo hacer cambios y releases sin saltarse pa
 7. Generar zip (script Python al final de este documento)
 8. git add ... && git commit con resumen claro
 ```
+
+#### Registrar el entorno de construcción (paso 2)
+
+Las dependencias se declaran con **mínimos abiertos** (`>=`) y **no hay
+lockfile**: el `pip install --no-cache-dir .` del Dockerfile resuelve *las
+versiones que existan el día del build*, no las del día en que la versión se dio
+por buena. Consecuencia práctica: **volver a un zip antiguo no reproduce aquel
+despliegue** — instala código viejo sobre dependencias nuevas, una combinación
+que nunca se probó. Por lo mismo, el servidor de pruebas y el de producción
+pueden acabar con imágenes distintas si se construyen en fechas distintas.
+
+Mantener los mínimos abiertos es deliberado (los parches de seguridad de
+`cryptography`, `requests` y `urllib3` siguen llegando solos), así que la
+mitigación es barata: pegar en la entrada del CHANGELOG las versiones con las
+que se verificó la release.
+
+```bash
+cd backend && ./venv/Scripts/python.exe -c "import importlib.metadata as md; print(chr(10).join(f'{n}=={md.version(n)}' for n in ['fastapi','uvicorn','sqlalchemy','alembic','pydantic-settings','yfinance','httpx','apscheduler','bcrypt','itsdangerous','jinja2','pywebpush','cryptography','pandas','numpy','starlette','pydantic','requests','urllib3']))"
+```
+
+`yfinance` es la **única dependencia con techo** (`>=1.6,<2.0`): rompe su API
+entre majors y es la única cuya integración real no cubren los tests, que la
+mockean — una suite en verde no dice nada sobre ella. Subir ese techo es una
+decisión deliberada que exige probar contra Yahoo, nunca un `sed` de rutina.
 
 #### Numeración de versiones
 

@@ -5,6 +5,66 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [Sin publicar]
+
+### Corregido
+
+- **APIs deprecadas de Python 3.12 y Starlette.** `datetime.utcnow()`
+  (deprecado en 3.12, con retirada anunciada) en `services/backup.py`, y
+  `HTTP_422_UNPROCESSABLE_ENTITY` en 6 puntos de `admin_markets.py`,
+  `catalog_requests.py` y `admin_catalog_requests.py`. Ninguna rompía nada
+  todavía —ambas constantes 422 valen lo mismo y `utcnow()` aún funciona— pero
+  las dos desaparecerán en versiones futuras y se llevarían por delante el
+  arranque sin aviso. El bug 1 de la v1.5.1 era exactamente esta constante:
+  se corrigió puntualmente y volvió a colarse en 6 sitios nuevos.
+  - `_utc_stamp()` sustituye a `utcnow()` **conservando el formato exacto**
+    (`YYYY-MM-DDTHH:MM:SS`, 19 caracteres, sin zona): lo exige el test
+    `test_build_export_exported_at_formato_iso` y de esos caracteres depende
+    `payload["exported_at"][:10]`, que nombra el fichero de backup descargado.
+    Usa `timezone.utc` y no `datetime.UTC` para no romper `requires-python >=3.10`.
+  - Test de guardia `test_no_apis_deprecadas_en_codigo_de_produccion` en
+    `test_bugs.py`: escanea `app/` con `tokenize` y falla indicando fichero:línea
+    si alguna reaparece. Tokeniza en vez de buscar texto para que los
+    comentarios y docstrings que las **citan** al explicarlas no cuenten como uso.
+  - Warnings de la suite: de 18 a 1 (el restante es de `fastapi/testclient`,
+    ajeno al proyecto).
+
+### Cambiado
+
+- **`yfinance` pasa a tener techo: `>=1.6,<2.0`.** Es la única dependencia
+  acotada, y de forma deliberada: rompe su API entre majors, y es la única cuya
+  integración real **no** cubren los tests (la mockean `test_bugs.py`,
+  `test_yahoo_explorer.py`, `test_v179.py` y `test_tax_brackets.py`), de modo que
+  una suite en verde no dice nada sobre ella. El rango abierto anterior
+  (`>=0.2`) resolvió **1.6.0** al recrear el entorno el 2026-08-21 — un salto de
+  major que pasó inadvertido. El resto de dependencias sigue con mínimos
+  abiertos a propósito, para no perder los parches de seguridad de
+  `cryptography`, `requests` y `urllib3`.
+- `fpdf2` declarado en `[project.optional-dependencies] dev`. `gen_instrucciones.py`
+  lo importa desde siempre, pero no estaba en ninguna parte: en un entorno
+  recién creado, el paso 5 del release fallaba.
+- `.gitignore`: notas de trabajo sueltas en la raíz (`docker run *.txt`).
+
+### Entorno de construcción
+
+Versiones con las que se ha verificado esta línea de código (Python 3.12.10).
+Anotarlas en cada release convierte un rollback a ciegas en uno informado: el
+`pip install .` del Dockerfile resuelve **las versiones del día del build**, no
+las del día en que la versión se dio por buena.
+
+```
+fastapi==0.141.1        sqlalchemy==2.0.52     alembic==1.19.1
+uvicorn==0.52.4         pydantic-settings==2.15.0
+yfinance==1.6.0         httpx==0.28.1          apscheduler==3.11.3
+bcrypt==5.0.0           itsdangerous==2.2.0    jinja2==3.1.6
+pywebpush==2.4.0        cryptography==50.0.0
+# transitivas cuyo major duele:
+pandas==3.0.5           numpy==2.5.2           starlette==1.6.0
+pydantic==2.13.4        requests==2.34.2       urllib3==2.7.0
+```
+
+---
+
 ## [1.23.1] — 2026-08-17
 
 ### Corregido

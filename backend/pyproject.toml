@@ -15,8 +15,13 @@ dependencies = [
     "alembic>=1.13",
     # Configuracion
     "pydantic-settings>=2.0",
-    # Datos de mercado
-    "yfinance>=0.2",
+    # Datos de mercado.
+    # Unica dependencia con techo: yfinance rompe su API entre majors
+    # (el rango abierto ">=0.2" resolvio 1.6.0 el 2026-08-21, un salto de
+    # major) y es la unica cuya integracion real NO cubren los tests, que
+    # la mockean. Subir el techo es una decision deliberada: probar contra
+    # Yahoo antes de tocarlo.
+    "yfinance>=1.6,<2.0",
     # Tipos de cambio del BCE (parsing XML)
     "httpx>=0.27",
     # Tareas en segundo plano
