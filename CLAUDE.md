@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.23.1** · **Tests: 587 en verde** · Aplicación web personal
+> **Versión actual: 1.23.1** · **Tests: 601 en verde** (v1.23.1 + cambios sin publicar) · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -583,7 +583,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.23.1 · 587 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.23.1 · 601 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -619,6 +619,11 @@ triggers en solicitudes/mensajes/reply — mock `app.api.admin_markets.send_emai
 POST /auth/request-renewal crea CatalogMessageRow + notif + email, idempotencia (doble llamada no duplica), job check_expired_users — mock `app.api.auth.notify_admins`).
 `test_movements.py` (v1.21.0: GET /portfolio/movements — combina/ordena compras/ventas/dividendos,
 importes, excluye traspasos, tope 50, limit>50 → 422, auth requerido).
+`test_force_history.py` (botón «forzar histórico»: lanza las TRES tareas del
+nocturno —incluida `update_ecb_rates`—, 403, 409 de concurrencia, error en `/status`).
+`test_history_coverage.py` (`GET /portfolio/history/coverage`: posiciones sin
+cotizaciones, divisas sin tipos del BCE, filtro por posición, y que el gráfico
+efectivamente devuelve 1000 en vez de 2000 cuando una posición queda excluida).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint;
@@ -1171,6 +1176,40 @@ docker compose up --build
   `auth_client` + `admin_client` en el mismo test**. Al insertar mercados directamente
   en BD (sin HTTP), pasar siempre `created_at` explícito — el `server_default` de
   SQLAlchemy no se aplica en inserts ORM directos con SQLite en memoria.
+- **Los datos de Yahoo pueden ser válidos y falsos a la vez.**
+  `yf.Ticker("SAN.MC").isin` devuelve `CA05973U1057` — un ISIN canadiense
+  perfectamente bien formado, pero de otra empresa (Santander es `ES0113900J37`).
+  `_normalize_isin` solo valida la FORMA, así que no filtra nada de esto. La
+  **pasada 1 de `fill-isins` lo escribía sin comprobar colisiones** (la pasada 2
+  sí lo hacía), y como el worker nunca sobreescribe, el error quedaba fijado para
+  siempre. En el catálogo local apareció **AAPL con el ISIN de Microsoft**.
+  Corregido en 2026-08: ambas pasadas rechazan un ISIN que ya pertenezca a otro
+  valor. **Regla**: ante un dato externo sin fuente de verdad, la colisión es la
+  única señal disponible; preferir el hueco al dato incorrecto, porque el hueco
+  es recuperable y el dato incorrecto no. **Ojo al auditar**: un ISIN duplicado
+  NO siempre es error — un valor multi-listado lo comparte legítimamente
+  (`SHELL.AS`/`SHEL.L`, `HSBA.L`/`0005.HK`, `SXR8.DE`/`CSPX.L`).
+- **Una suite verde no dice nada de las integraciones que mockea.** Los 601 tests
+  pasaban con `yfinance` 0.2.x y siguen pasando con 1.6.0 porque **todos** los
+  tests que la tocan la mockean. El salto de major se detectó solo al ejercitar
+  `YahooProvider` contra la red de verdad. Por eso `yfinance` es la **única
+  dependencia con techo** (`>=1.6,<2.0`). Tras tocarla o tras un cambio de
+  entorno, probar contra Yahoo: precios, batch, histórico e ISIN.
+- **El backup admin NO lleva datos de mercado**, pese a llamarse «migración 1:1».
+  No exporta `price_history`, `price_snapshots` ni `ecb_rates`. Al restaurar en
+  otro servidor, el gráfico de evolución se dibuja con lo poco que haya y **no
+  avisa**: una posición sin cotizaciones no vale cero, **desaparece del total**.
+  Incidente real de 2026-08 («el gráfico se generó con discrepancias grandes»
+  tras migrar). Ver [Tras migrar de servidor](#tras-migrar-de-servidor) y el
+  endpoint `/history/coverage`. **Regla general**: cuando un cálculo descarta
+  entradas por falta de datos, **exponer lo descartado**; un resultado incompleto
+  y silencioso es peor que un error.
+- **`frontend/dist/` está en `.gitignore` PERO con 12 ficheros trackeados a la
+  fuerza.** Cada `npm run build` cambia el hash del bundle: el trackeado sale
+  como borrado y el nuevo no entra solo, hace falta `git add -f`. Contradicción
+  pendiente de resolver (o se trackea de verdad, o no se trackea y el zip lo toma
+  del disco, como ya hace). Mientras siga así, **revisar `git status` tras cada
+  build**.
 - **Las tarjetas (snapshot) y el gráfico (histórico) son rutas de datos
   INDEPENDIENTES.** El gráfico lee `price_history` de la BD; las tarjetas (precio,
   variación, Mín./Máx.) leen `price_snapshots`, que solo se escribe si
