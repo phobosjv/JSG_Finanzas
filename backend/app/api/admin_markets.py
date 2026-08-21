@@ -517,13 +517,13 @@ def test_email_config(
     """
     if not admin.email:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Configura primero tu email en la tabla de usuarios",
         )
     config = load_email_config(db)
     if config is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="No hay configuración de email guardada",
         )
     try:
@@ -535,7 +535,7 @@ def test_email_config(
         send_email(config, admin.email, "Prueba de configuración de email", body_html)
     except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Error al enviar el email: {exc}",
         )
     return {"sent_to": admin.email}

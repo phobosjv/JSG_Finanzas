@@ -713,3 +713,44 @@ class TestBugValorIliquidoUnaBarra:
             # Rangos desde price_history: mín 0.977, máx 1.024
             assert float(snap.min_1y) == 0.977
             assert float(snap.max_1y) == 1.024
+
+
+# ── Bug: reintroducción de APIs deprecadas (utcnow, HTTP_422_..._ENTITY) ────
+# El bug 1 de la v1.5.1 (delete_position con HTTP_422_UNPROCESSABLE_ENTITY) se
+# corrigió puntualmente, pero la constante deprecada volvió a colarse en 6
+# call-sites de 3 routers, y `datetime.utcnow()` (deprecado en Python 3.12)
+# sobrevivió en services/backup.py. Ninguna de las dos rompe nada hoy —ambas
+# constantes 422 valen lo mismo y utcnow() aún funciona— pero las dos emiten
+# DeprecationWarning y desaparecerán en una versión futura de Python/Starlette,
+# rompiendo el arranque sin previo aviso.
+#
+# En lugar de un test por call-site, este test escanea el árbol: cubre también
+# los ficheros que aún no existen. Es la única forma de que una reintroducción
+# falle en CI en vez de pasar desapercibida entre los warnings de pytest.
+
+def test_no_apis_deprecadas_en_codigo_de_produccion():
+    import pathlib, tokenize
+
+    app_dir = pathlib.Path(__file__).resolve().parent.parent / "app"
+    # Nombre prohibido -> con qué sustituirlo.
+    prohibidos = {
+        "utcnow": "datetime.now(timezone.utc).replace(tzinfo=None)",
+        "HTTP_422_UNPROCESSABLE_ENTITY": "HTTP_422_UNPROCESSABLE_CONTENT",
+    }
+
+    infracciones = []
+    for py in sorted(app_dir.rglob("*.py")):
+        with tokenize.open(py) as fh:
+            # Se tokeniza en vez de buscar texto: así los comentarios y
+            # docstrings que CITAN estos nombres para explicarlos (p. ej. el
+            # helper _utc_stamp de services/backup.py) no cuentan como uso.
+            for tok in tokenize.generate_tokens(fh.readline):
+                if tok.type != tokenize.NAME:
+                    continue
+                if tok.string in prohibidos:
+                    rel = py.relative_to(app_dir.parent)
+                    infracciones.append(
+                        f"{rel}:{tok.start[0]}: {tok.string} -> usar {prohibidos[tok.string]}"
+                    )
+
+    assert not infracciones, "APIs deprecadas reintroducidas:\n" + "\n".join(infracciones)

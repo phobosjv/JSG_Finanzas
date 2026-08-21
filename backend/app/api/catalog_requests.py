@@ -65,7 +65,7 @@ def validate_ticker(
     ticker = ticker.strip().upper()
     if not ticker:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="El ticker no puede estar vacío",
         )
 
@@ -178,7 +178,7 @@ def create_request(
     from app.models import MarketRow
     if db.get(MarketRow, body.market_id) is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"El mercado '{body.market_id}' no existe",
         )
 

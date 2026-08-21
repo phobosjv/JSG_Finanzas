@@ -10,7 +10,7 @@ La I/O real (SELECT/INSERT) queda en api/backup.py y api/admin.py.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 BACKUP_VERSION = "1"
@@ -23,6 +23,17 @@ ADMIN_BACKUP_VERSION = "admin_2"
 _ACCEPTED_ADMIN_VERSIONS = {"admin_1", "admin_2"}
 
 
+def _utc_stamp() -> str:
+    """Timestamp UTC en ISO 8601 sin zona ni microsegundos: YYYY-MM-DDTHH:MM:SS.
+
+    Equivalente exacto al antiguo `datetime.utcnow()` (deprecado desde Python
+    3.12) conservando el formato historico de `exported_at`: los backups ya
+    emitidos y `payload["exported_at"][:10]` (nombre del fichero de descarga)
+    dependen de esos 19 caracteres.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
+
+
 def build_export(positions: list[dict]) -> dict:
     """
     Envuelve la lista de posiciones (cada una con 'transactions' y 'dividends')
@@ -30,7 +41,7 @@ def build_export(positions: list[dict]) -> dict:
     """
     return {
         "version": BACKUP_VERSION,
-        "exported_at": datetime.utcnow().isoformat(timespec="seconds"),
+        "exported_at": _utc_stamp(),
         "positions": positions,
     }
 
@@ -68,7 +79,7 @@ def build_admin_export(
     """
     return {
         "version": ADMIN_BACKUP_VERSION,
-        "exported_at": datetime.utcnow().isoformat(timespec="seconds"),
+        "exported_at": _utc_stamp(),
         "markets": markets or [],
         "app_config": app_config or [],
         "tax_brackets": tax_brackets or [],

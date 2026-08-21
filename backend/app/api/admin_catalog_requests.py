@@ -141,7 +141,7 @@ def approve_request(
     # Validar mercado destino (puede diferir del propuesto por el usuario)
     if db.get(MarketRow, body.market_id) is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"El mercado '{body.market_id}' no existe",
         )
 
