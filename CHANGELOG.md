@@ -5,6 +5,55 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.24.1] — 2026-08-22
+
+### Rendimiento
+
+- **«Mi cartera» cargaba lenta: 1.256 ms y 413 consultas.** Medido sobre una
+  cartera real de 27 posiciones y 214.193 filas de `price_history`. Ahora son
+  **312 ms y 29 consultas** — un 75 % menos de tiempo y 14 veces menos consultas,
+  también un 67 % más rápido que antes de que existiera el aviso (v1.23.1: 936 ms).
+  Cuatro causas, todas de acceso a datos:
+  - `GET /history/coverage` **repetía entero el trabajo del gráfico** (regresión
+    introducida en la 1.24.0 al añadir el aviso: +320 ms y +108 consultas por
+    carga). Solo necesita saber si existe una cotización posterior a la primera
+    compra: ahora es un `MAX(date)` agrupado, 26 ms.
+  - `pos.security` se resolvía **en diferido**, una consulta por posición.
+    Resuelto con `selectinload` en el gráfico y en los flujos de la TIR.
+  - Una consulta de transacciones —y otra de dividendos— **por posición**. Ahora
+    una sola con `IN` para todas. `_portfolio_flows`: 55 ms → 7 ms.
+  - Las cotizaciones se pedían desde la primera compra **más antigua de toda la
+    cartera** y se descartaban después en Python: se traían ~29.500 filas para
+    usar 11.800. Ahora cada valor se acota en SQL **desde su propia** primera
+    compra (`OR` por valor, servido por `idx_history_security_date`), y la carga
+    de datos baja de 195 ms a 86 ms.
+  - **Sin caché y sin tocar la regla de oro 2**: todo se sigue derivando de
+    `transactions` en cada petición. Verificado contra la cartera real que la
+    serie (1.122 puntos) y los retornos por periodo (`ytd 15,43 · y1 16,15 ·
+    y3 80,3 · total 117,14`) son **idénticos** a los de antes; los flujos son el
+    mismo multiconjunto en distinto orden, irrelevante para Modified Dietz.
+  - `test_history_queries.py` fija la propiedad estructural —número de consultas
+    **constante**, no proporcional a las posiciones— en vez de un tiempo, que
+    dependería de la máquina.
+
+### Cambiado
+
+- **El aviso de «gráfico incompleto» pasa debajo del gráfico y nace plegado.**
+  En la 1.24.0 ocupaba una banda desplegada sobre la curva. El caso normal es
+  que no falte nada, así que un aviso siempre abierto empujaba el gráfico hacia
+  abajo y alarmaba más de lo que informaba. Ahora, cuando falta algo, aparece
+  **solo un triángulo de atención** bajo el gráfico; al pulsarlo se despliega el
+  detalle (posiciones sin cotizaciones, divisas sin tipos y qué hacer). Si no
+  falta nada, no se ve nada. Accesible: `<button>` real con `aria-expanded` y
+  `aria-controls`, y el chevron gira al abrir.
+
+### Entorno de construcción
+
+Idéntico al de la 1.24.0 (Python 3.12.10, 601 tests en verde): el único cambio
+es de presentación en el frontend, no se tocó ninguna dependencia.
+
+---
+
 ## [1.24.0] — 2026-08-22
 
 ### Corregido

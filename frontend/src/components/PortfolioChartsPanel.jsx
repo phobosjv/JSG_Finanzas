@@ -260,6 +260,7 @@ export function PnLChart({ positions, t, navigate }) {
 
 export function HistoryChart({ history, t, coverage }) {
   const [histYears, setHistYears] = useState(2)
+  const [avisoAbierto, setAvisoAbierto] = useState(false)
   const cutoff = new Date()
   cutoff.setFullYear(cutoff.getFullYear() - histYears)
   const cutStr  = cutoff.toISOString().slice(0, 10)
@@ -297,39 +298,6 @@ export function HistoryChart({ history, t, coverage }) {
           ))}
         </div>
       </div>
-      {incompleto && (
-        <div
-          role="status"
-          style={{
-            display: 'flex', gap: 8, alignItems: 'flex-start',
-            padding: '8px 10px', marginBottom: 10,
-            border: '1px solid var(--warning-border, #f0b429)',
-            background: 'var(--warning-bg, rgba(240, 180, 41, 0.10))',
-            borderRadius: 6, fontSize: '0.8rem', lineHeight: 1.45,
-          }}
-        >
-          <span aria-hidden="true" style={{ fontSize: '1rem', lineHeight: 1.2 }}>&#9888;</span>
-          <div style={{ minWidth: 0 }}>
-            <strong>{t('portfolio.hist_incomplete')}</strong>
-            {faltanPrecios.length > 0 && (
-              <div style={{ marginTop: 2 }}>
-                {t('portfolio.hist_missing_prices')}{' '}
-                <span style={{ wordBreak: 'break-word' }}>
-                  {faltanPrecios.map(p => p.ticker).join(', ')}
-                </span>
-              </div>
-            )}
-            {faltanTipos.length > 0 && (
-              <div style={{ marginTop: 2 }}>
-                {t('portfolio.hist_missing_rates')} {faltanTipos.join(', ')}
-              </div>
-            )}
-            <div style={{ marginTop: 4, color: 'var(--text-muted)' }}>
-              {t('portfolio.hist_incomplete_hint')}
-            </div>
-          </div>
-        </div>
-      )}
       <ResponsiveContainer width="100%" height={220}>
         <AreaChart data={filtered} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
           <defs>
@@ -366,6 +334,64 @@ export function HistoryChart({ history, t, coverage }) {
           />
         </AreaChart>
       </ResponsiveContainer>
+
+      {/* Aviso de cobertura, bajo el gráfico y plegado por defecto: el caso
+          normal es que no falte nada, así que no debe robar espacio ni alarmar.
+          Cuando algo falta aparece el triángulo, que despliega el detalle. */}
+      {incompleto && (
+        <div style={{ marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={() => setAvisoAbierto(v => !v)}
+            aria-expanded={avisoAbierto}
+            aria-controls="hist-aviso"
+            title={t('portfolio.hist_incomplete')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '2px 8px 2px 4px',
+              background: 'transparent',
+              border: '1px solid var(--warning-border, #f0b429)',
+              borderRadius: 999,
+              color: 'var(--warning-border, #f0b429)',
+              fontSize: '0.78rem', cursor: 'pointer', lineHeight: 1.5,
+            }}
+          >
+            <span aria-hidden="true" style={{ fontSize: '0.95rem' }}>&#9888;</span>
+            <span style={{ transform: avisoAbierto ? 'rotate(90deg)' : 'none', transition: 'transform .15s', display: 'inline-block' }}>&#8250;</span>
+          </button>
+
+          {avisoAbierto && (
+            <div
+              id="hist-aviso"
+              role="status"
+              style={{
+                marginTop: 6, padding: '8px 10px',
+                border: '1px solid var(--warning-border, #f0b429)',
+                background: 'var(--warning-bg, rgba(240, 180, 41, 0.10))',
+                borderRadius: 6, fontSize: '0.8rem', lineHeight: 1.45,
+              }}
+            >
+              <strong>{t('portfolio.hist_incomplete')}</strong>
+              {faltanPrecios.length > 0 && (
+                <div style={{ marginTop: 2 }}>
+                  {t('portfolio.hist_missing_prices')}{' '}
+                  <span style={{ wordBreak: 'break-word' }}>
+                    {faltanPrecios.map(p => p.ticker).join(', ')}
+                  </span>
+                </div>
+              )}
+              {faltanTipos.length > 0 && (
+                <div style={{ marginTop: 2 }}>
+                  {t('portfolio.hist_missing_rates')} {faltanTipos.join(', ')}
+                </div>
+              )}
+              <div style={{ marginTop: 4, color: 'var(--text-muted)' }}>
+                {t('portfolio.hist_incomplete_hint')}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.24.0** · **Tests: 601 en verde** · Aplicación web personal
+> **Versión actual: 1.24.1** · **Tests: 605 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -583,7 +583,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.24.0 · 601 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.24.1 · 605 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -624,6 +624,9 @@ nocturno —incluida `update_ecb_rates`—, 403, 409 de concurrencia, error en `
 `test_history_coverage.py` (`GET /portfolio/history/coverage`: posiciones sin
 cotizaciones, divisas sin tipos del BCE, filtro por posición, y que el gráfico
 efectivamente devuelve 1000 en vez de 2000 cuando una posición queda excluida).
+`test_history_queries.py` (el gráfico no debe hacer N+1: nº de consultas
+**constante**, no proporcional al nº de posiciones; y `coverage` no puede costar
+más que el propio gráfico).
 Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint;
@@ -1176,6 +1179,20 @@ docker compose up --build
   `auth_client` + `admin_client` en el mismo test**. Al insertar mercados directamente
   en BD (sin HTTP), pasar siempre `created_at` explícito — el `server_default` de
   SQLAlchemy no se aplica en inserts ORM directos con SQLite en memoria.
+- **N+1 invisible: los tests tienen 3 filas, la cartera real tiene 27 posiciones
+  y 214.193 cotizaciones.** «Mi cartera» llegó a **413 consultas y 1.256 ms** por
+  carga sin que ningún test se quejara, porque con datos de juguete un N+1 no se
+  nota. Las cuatro causas: `coverage` repetía el trabajo del gráfico, `pos.security`
+  se resolvía en diferido (una consulta por posición), transacciones y dividendos
+  se pedían por posición, y las cotizaciones se traían desde la primera compra
+  **global** para descartarlas luego en Python (~29.500 filas traídas para usar
+  11.800). Tras corregirlo: **29 consultas y 312 ms**. **Reglas**: (1) en cualquier
+  bucle sobre posiciones, cargar de golpe con `selectinload` / `IN`, nunca consulta
+  por elemento; (2) filtrar **en SQL**, no traer y descartar en Python — el coste
+  no es el SQL (44 ms) sino deserializar lo que sobra (150 ms); (3) al añadir un
+  endpoint que acompaña a otro, comprobar si repite su trabajo; (4) **medir sobre
+  una copia de la BD real**, nunca sobre la de tests. `test_history_queries.py`
+  fija el nº de consultas **constante**, no un tiempo (que dependería de la máquina).
 - **Los datos de Yahoo pueden ser válidos y falsos a la vez.**
   `yf.Ticker("SAN.MC").isin` devuelve `CA05973U1057` — un ISIN canadiense
   perfectamente bien formado, pero de otra empresa (Santander es `ES0113900J37`).

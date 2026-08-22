@@ -25,8 +25,8 @@ from datetime import date as date_type, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user, get_db
 from collections import defaultdict
@@ -545,6 +545,69 @@ def get_portfolio(
 #  Historial de valor de cartera (para gráfico de líneas en Portfolio)
 # ---------------------------------------------------------------------------
 
+def _history_candidates(
+    db: Session,
+    user_id: int,
+    selected_types: set[str] | None,
+    selected_position_ids: set[int] | None = None,
+) -> list[tuple[Position, Security, list, str]]:
+    """Posiciones que ENTRAN en el gráfico, con sus transacciones y primera compra.
+
+    Es la parte del criterio comun al grafico y al aviso de cobertura. Devuelve
+    '(pos, sec, tx_rows, first_buy_date)' por posicion que supera los filtros,
+    tiene transacciones y tiene alguna compra.
+
+    Carga las transacciones de TODAS las posiciones en una sola consulta y las
+    agrupa en memoria. Antes se hacia una consulta por posicion (N+1): con 27
+    posiciones eran 111 consultas y ~440 ms solo para el grafico.
+    """
+    positions = db.scalars(
+        # selectinload: sin el, cada 'pos.security' dispara su propia consulta
+        # (27 posiciones = 27 consultas solo para resolver la relacion).
+        select(Position)
+        .where(Position.user_id == user_id)
+        .options(selectinload(Position.security))
+    ).all()
+    market_types: dict[str, str] = {
+        m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
+    }
+
+    elegidas: list[Position] = []
+    for pos in positions:
+        sec: Security = pos.security
+        if selected_position_ids is not None:
+            if pos.id not in selected_position_ids:
+                continue
+        elif selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
+            continue
+        elegidas.append(pos)
+
+    if not elegidas:
+        return []
+
+    # Una sola consulta para las transacciones de todas las posiciones.
+    tx_por_pos: dict[int, list] = defaultdict(list)
+    for tx in db.scalars(
+        select(TransactionRow)
+        .where(TransactionRow.position_id.in_([p.id for p in elegidas]))
+        .order_by(TransactionRow.position_id, TransactionRow.date)
+    ).all():
+        tx_por_pos[tx.position_id].append(tx)
+
+    salida: list[tuple[Position, Security, list, str]] = []
+    for pos in elegidas:
+        tx_rows = tx_por_pos.get(pos.id, [])
+        if not tx_rows:
+            continue
+        first_buy_date = next(
+            (tx.date for tx in tx_rows if tx.type in ("buy", "transfer_in")), None
+        )
+        if not first_buy_date:
+            continue
+        salida.append((pos, pos.security, tx_rows, str(first_buy_date)))
+    return salida
+
+
 def _history_inputs(
     db: Session,
     user_id: int,
@@ -553,71 +616,74 @@ def _history_inputs(
 ) -> tuple[list, set[str], list[dict]]:
     """Recopila las entradas del grafico y las posiciones que quedan FUERA.
 
-    Devuelve '(sec_series, all_dates, excluded)'. Se extrajo de _history_series
-    para que el aviso de cobertura y el propio grafico compartan una sola
-    definicion de "que se excluye": duplicar el criterio garantizaba que un dia
-    divergieran y el aviso mintiera.
+    Devuelve '(sec_series, all_dates, excluded)'. Comparte con el aviso de
+    cobertura la definicion de que entra (_history_candidates): duplicar el
+    criterio garantizaba que un dia divergieran y el aviso mintiera.
 
     'excluded' solo recoge las posiciones sin cotizaciones en 'price_history'
     desde su primera compra, que es la exclusion PROBLEMATICA: la posicion no se
     valora en cero, desaparece entera del total y la curva queda por debajo del
-    valor real sin ninguna senal. Las posiciones sin transacciones o sin compras
-    no se reportan: ahi no falta ningun dato de mercado.
+    valor real sin ninguna senal.
+
+    Cotizaciones y splits se cargan en UNA consulta cada uno para todos los
+    valores implicados, no una por posicion.
     """
-    positions = db.scalars(
-        select(Position).where(Position.user_id == user_id)
-    ).all()
-    market_types: dict[str, str] = {
-        m.code: m.market_type for m in db.scalars(select(MarketRow)).all()
-    }
+    candidatas = _history_candidates(db, user_id, selected_types, selected_position_ids)
+    if not candidatas:
+        return [], set(), []
+
+    sec_ids = {sec.id for _, sec, _, _ in candidatas}
+
+    # Cada valor se pide DESDE SU PROPIA primera compra, no desde la mas antigua
+    # de la cartera. Con un unico corte global se traian ~29.500 filas para usar
+    # 11.800: el resto se descartaba despues en Python, pero ya se habia pagado
+    # su deserializacion (el grueso del coste, no el SQL). El indice
+    # idx_history_security_date sirve a cada rama del OR.
+    desde_por_sec: dict[int, str] = {}
+    for _, sec, _, first_buy_date in candidatas:
+        previo = desde_por_sec.get(sec.id)
+        if previo is None or first_buy_date < previo:
+            desde_por_sec[sec.id] = first_buy_date
+
+    precios_por_sec: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
+    for row in db.execute(
+        select(PriceHistory.security_id, PriceHistory.date, PriceHistory.close)
+        .where(or_(*[
+            and_(PriceHistory.security_id == sid, PriceHistory.date >= desde)
+            for sid, desde in desde_por_sec.items()
+        ]))
+        .order_by(PriceHistory.security_id, PriceHistory.date)
+    ).all():
+        precios_por_sec[row[0]].append((row[1], row[2]))
+
+    splits_por_sec: dict[int, list] = defaultdict(list)
+    for sp in db.scalars(
+        select(SecuritySplit)
+        .where(SecuritySplit.security_id.in_(sec_ids))
+        .order_by(SecuritySplit.security_id, SecuritySplit.ex_date)
+    ).all():
+        splits_por_sec[sp.security_id].append(sp)
 
     sec_series: list[tuple[Decimal, list, list, list[tuple[str, Decimal]]]] = []
     all_dates: set[str] = set()
     excluded: list[dict] = []
 
-    for pos in positions:
-        sec: Security = pos.security
-        if selected_position_ids is not None:
-            if pos.id not in selected_position_ids:
-                continue
-        elif selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
-            continue
-
-        tx_rows = db.scalars(
-            select(TransactionRow)
-            .where(TransactionRow.position_id == pos.id)
-            .order_by(TransactionRow.date)
-        ).all()
-        if not tx_rows:
-            continue
-        first_buy_date = next(
-            (tx.date for tx in tx_rows if tx.type in ("buy", "transfer_in")), None
-        )
-        if not first_buy_date:
-            continue
-
-        price_rows = db.scalars(
-            select(PriceHistory)
-            .where(PriceHistory.security_id == sec.id, PriceHistory.date >= first_buy_date)
-            .order_by(PriceHistory.date)
-        ).all()
-        if not price_rows:
+    for pos, sec, tx_rows, first_buy_date in candidatas:
+        # El corte por fecha se aplica aqui: la consulta trae desde la primera
+        # compra MAS ANTIGUA de la cartera, y cada posicion usa la suya.
+        prices = [
+            (d, c) for d, c in precios_por_sec.get(sec.id, ()) if d >= first_buy_date
+        ]
+        if not prices:
             excluded.append({
                 "position_id": pos.id,
                 "ticker": sec.yahoo_ticker,
                 "name": sec.name,
-                "since": str(first_buy_date),
+                "since": first_buy_date,
             })
             continue
 
-        split_rows = db.scalars(
-            select(SecuritySplit)
-            .where(SecuritySplit.security_id == sec.id)
-            .order_by(SecuritySplit.ex_date)
-        ).all()
-
-        prices = [(p.date, p.close) for p in price_rows]
-        sec_series.append((sec.currency, list(tx_rows), list(split_rows), prices))
+        sec_series.append((sec.currency, list(tx_rows), splits_por_sec.get(sec.id, []), prices))
         all_dates.update(d for d, _ in prices)
 
     return sec_series, all_dates, excluded
@@ -773,11 +839,39 @@ def get_history_coverage(
         sel_pos = None
         sel_types = {t.strip() for t in types.split(",") if t.strip()} if types else None
 
-    sec_series, _all_dates, excluded = _history_inputs(db, user.id, sel_types, sel_pos)
+    candidatas = _history_candidates(db, user.id, sel_types, sel_pos)
+
+    # Saber si una posicion entra en el grafico NO exige cargar su serie de
+    # cotizaciones: basta con que exista una fecha >= su primera compra, o sea,
+    # que MAX(date) la alcance. Una agregada en vez de traer las filas. (En la
+    # 1.24.0 este endpoint llamaba a _history_inputs y repetia entero el trabajo
+    # del grafico: +320 ms y +108 consultas en cada carga de «Mi cartera».)
+    ultima_por_sec: dict[int, str] = {}
+    if candidatas:
+        for sid, ultima in db.execute(
+            select(PriceHistory.security_id, func.max(PriceHistory.date))
+            .where(PriceHistory.security_id.in_({sec.id for _, sec, _, _ in candidatas}))
+            .group_by(PriceHistory.security_id)
+        ).all():
+            ultima_por_sec[sid] = ultima
+
+    excluded: list[dict] = []
+    monedas: set[str] = set()
+    for pos, sec, _tx, first_buy_date in candidatas:
+        ultima = ultima_por_sec.get(sec.id)
+        if ultima is None or ultima < first_buy_date:
+            excluded.append({
+                "position_id": pos.id,
+                "ticker": sec.yahoo_ticker,
+                "name": sec.name,
+                "since": first_buy_date,
+            })
+            continue
+        if sec.currency != "EUR":
+            monedas.add(sec.currency)
 
     # Divisas presentes en el gráfico que no tienen NINGÚN tipo del BCE guardado:
     # _history_series caería al tipo más reciente para toda su serie histórica.
-    monedas = {cur for cur, _, _, _ in sec_series if cur != "EUR"}
     sin_tipos = [
         cur for cur in sorted(monedas)
         if not db.scalar(select(EcbRate.date).where(EcbRate.currency == cur).limit(1))
@@ -804,22 +898,42 @@ def _portfolio_flows(
     """
     market_types = {m.code: m.market_type for m in db.scalars(select(MarketRow)).all()}
     flows: list[tuple[date_type, float]] = []
-    for pos in db.scalars(select(Position).where(Position.user_id == user_id)).all():
+
+    # Igual que _history_candidates: una consulta para las posiciones (con su
+    # Security ya resuelto) y una para las transacciones y otra para los
+    # dividendos de TODAS ellas, en vez de dos por posicion.
+    posiciones = db.scalars(
+        select(Position)
+        .where(Position.user_id == user_id)
+        .options(selectinload(Position.security))
+    ).all()
+
+    elegidas = []
+    for pos in posiciones:
         sec: Security = pos.security
         if selected_position_ids is not None:
             if pos.id not in selected_position_ids:
                 continue
         elif selected_types is not None and market_types.get(sec.market, "stock") not in selected_types:
             continue
-        for tx in db.scalars(select(TransactionRow).where(TransactionRow.position_id == pos.id)).all():
-            d = date_type.fromisoformat(tx.date)
-            if tx.type == "buy":
-                flows.append((d, float((tx.shares * tx.price + tx.fee) / tx.exchange_rate)))
-            elif tx.type == "sell":
-                flows.append((d, -float((tx.shares * tx.price - tx.fee) / tx.exchange_rate)))
-        for div in db.scalars(select(DividendRow).where(DividendRow.position_id == pos.id)).all():
-            d = date_type.fromisoformat(div.date)
-            flows.append((d, -float((div.gross_amount - div.withholding_tax) / div.exchange_rate)))
+        elegidas.append(pos)
+    if not elegidas:
+        return flows
+
+    ids = [p.id for p in elegidas]
+    for tx in db.scalars(
+        select(TransactionRow).where(TransactionRow.position_id.in_(ids))
+    ).all():
+        d = date_type.fromisoformat(tx.date)
+        if tx.type == "buy":
+            flows.append((d, float((tx.shares * tx.price + tx.fee) / tx.exchange_rate)))
+        elif tx.type == "sell":
+            flows.append((d, -float((tx.shares * tx.price - tx.fee) / tx.exchange_rate)))
+    for div in db.scalars(
+        select(DividendRow).where(DividendRow.position_id.in_(ids))
+    ).all():
+        d = date_type.fromisoformat(div.date)
+        flows.append((d, -float((div.gross_amount - div.withholding_tax) / div.exchange_rate)))
     return flows
 
 
