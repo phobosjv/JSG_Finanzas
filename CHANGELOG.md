@@ -5,7 +5,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
-## [Sin publicar]
+## [1.24.0] — 2026-08-22
 
 ### Corregido
 
@@ -107,8 +107,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ### Entorno de construcción
 
-Versiones con las que se ha verificado esta línea de código (Python 3.12.10).
-Anotarlas en cada release convierte un rollback a ciegas en uno informado: el
+Versiones con las que se compiló y verificó la 1.24.0 (Python 3.12.10, 601 tests
+en verde). Anotarlas convierte un rollback a ciegas en uno informado: el
 `pip install .` del Dockerfile resuelve **las versiones del día del build**, no
 las del día en que la versión se dio por buena.
 
