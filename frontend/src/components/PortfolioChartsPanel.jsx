@@ -271,8 +271,9 @@ export function HistoryChart({ history, t, coverage }) {
   // del total en vez de valer cero). 'coverage' es opcional: si no llega, o si
   // la llamada falló, el gráfico se comporta como siempre.
   const faltanPrecios = coverage?.missing_history ?? []
+  const truncados     = coverage?.partial_history ?? []
   const faltanTipos   = coverage?.missing_rates ?? []
-  const incompleto    = faltanPrecios.length > 0 || faltanTipos.length > 0
+  const incompleto    = faltanPrecios.length > 0 || truncados.length > 0 || faltanTipos.length > 0
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
@@ -377,6 +378,14 @@ export function HistoryChart({ history, t, coverage }) {
                   {t('portfolio.hist_missing_prices')}{' '}
                   <span style={{ wordBreak: 'break-word' }}>
                     {faltanPrecios.map(p => p.ticker).join(', ')}
+                  </span>
+                </div>
+              )}
+              {truncados.length > 0 && (
+                <div style={{ marginTop: 2 }}>
+                  {t('portfolio.hist_partial')}{' '}
+                  <span style={{ wordBreak: 'break-word' }}>
+                    {truncados.map(p => `${p.ticker} (${t('portfolio.hist_partial_from')} ${p.from})`).join(', ')}
                   </span>
                 </div>
               )}

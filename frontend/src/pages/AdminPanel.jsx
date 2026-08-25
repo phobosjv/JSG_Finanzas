@@ -1419,11 +1419,11 @@ function ForceHistoryUpdateSection() {
     return () => clearInterval(id)
   }, [jobStatus?.running])
 
-  async function start() {
+  async function start(full = false) {
     setConfirming(false)
     setMsg(null); setErr(null)
     try {
-      await api.post('/admin/force-history-update')
+      await api.post(`/admin/force-history-update${full ? '?full=true' : ''}`)
       // Refresca el estado para que el polling vea running=true
       const s = await api.get('/admin/force-history-update/status')
       setJobStatus(s)
@@ -1436,9 +1436,16 @@ function ForceHistoryUpdateSection() {
     <div className="card" style={{ marginTop: 24 }}>
       <h2>Actualización manual del historial</h2>
       <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 12 }}>
-        Descarga los últimos 7 días de historial de precios para todos los valores y
-        sobrescribe cualquier precio incorrecto almacenado (p.&nbsp;ej. tras un ex-date de dividendo).
-        Al terminar también actualiza los snapshots de precios en vivo.
+        <strong>Actualización normal:</strong> para cada valor que ya tenga historial, descarga
+        los últimos 7 días y sobrescribe precios incorrectos (p.&nbsp;ej. tras un ex-date de
+        dividendo). Los valores <em>sin</em> ningún historial se descargan enteros (5 años).
+        Al terminar actualiza los snapshots de precios y los tipos de cambio del BCE.
+        <br /><br />
+        <strong>Reconstrucción completa:</strong> vuelve a descargar los 5 años de <em>todos</em> los
+        valores, ignorando lo ya guardado. Es la única forma de reparar un historial
+        <strong> truncado</strong> —el que no está vacío pero empieza después de tus primeras
+        compras, típico tras migrar de servidor—, porque la actualización normal arranca en la
+        última fecha almacenada y nunca rellena hacia atrás. Tarda bastante más.
       </p>
 
       {err && (
@@ -1465,11 +1472,26 @@ function ForceHistoryUpdateSection() {
             <li>La operación tarda ~0,5&nbsp;s por valor para evitar rate-limiting. Con 50 valores, unos 25&nbsp;seg.</li>
             <li><strong>No se puede cancelar</strong> una vez iniciada.</li>
             <li>Puedes seguir usando la aplicación mientras se ejecuta en segundo plano.</li>
-            <li>Al terminar, los snapshots de precios también se actualizarán.</li>
+            <li>Al terminar se actualizarán también los snapshots de precios y los tipos del BCE.</li>
+            <li>La <strong>reconstrucción completa</strong> baja 5 años por valor en vez de una
+                ventana de 7 días: con muchos valores puede tardar bastante. Úsala solo si el
+                gráfico de evolución avisa de historial incompleto.</li>
           </ul>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn-primary btn-sm" onClick={start}>
-              Iniciar actualización
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button className="btn-primary btn-sm" onClick={() => start(false)}>
+              Actualización normal
+            </button>
+            <button
+              className="btn-sm"
+              onClick={() => start(true)}
+              title="Vuelve a descargar 5 años de todos los valores, ignorando lo guardado"
+              style={{
+                border: '1px solid var(--warning-border, #f0b429)',
+                color: 'var(--warning-border, #f0b429)',
+                background: 'transparent',
+              }}
+            >
+              Reconstrucción completa (5 años)
             </button>
             <button className="btn-ghost btn-sm" onClick={() => setConfirming(false)}>
               Cancelar

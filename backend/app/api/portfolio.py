@@ -802,6 +802,20 @@ def get_portfolio_history(
     return _history_series(db, user.id, selected)
 
 
+# Margen antes de considerar que a un valor le falta historico por delante. Que
+# la primera cotizacion sea uno o dos dias posterior a la compra es NORMAL
+# (compras el viernes y la siguiente sesion es el lunes, festivos, o el historico
+# se descargo al dia siguiente). Lo que delata una migracion o un borrado es un
+# hueco de semanas o meses. Una semana natural cubre el ruido de calendario sin
+# dejar pasar un tramo visible en el grafico.
+_TOLERANCIA_HUECO_DIAS = 7
+
+
+def _hueco_dias(desde: str, hasta: str) -> int:
+    """Dias naturales entre dos fechas ISO. Negativo si 'hasta' es anterior."""
+    return (date_type.fromisoformat(hasta) - date_type.fromisoformat(desde)).days
+
+
 @router.get("/history/coverage")
 def get_history_coverage(
     types: str | None = Query(None),
@@ -820,6 +834,11 @@ def get_history_coverage(
       - 'missing_history': posiciones excluidas por no tener cotizaciones desde
         su primera compra. No se valoran en cero: desaparecen del total, así que
         la curva queda POR DEBAJO del valor real.
+      - 'partial_history': posiciones con cotizaciones que EMPIEZAN despues de la
+        primera compra. Entran en el gráfico, pero no aportan nada en el tramo
+        anterior, que queda hundido. Se detecta desde la v1.24.2: antes bastaba
+        con que existiera una cotización posterior a la compra, así que un
+        histórico truncado pasaba sin aviso.
       - 'missing_rates': divisas sin histórico de tipos del BCE. No excluyen
         nada, pero fuerzan a convertir toda la serie con el tipo más reciente en
         vez del de cada fecha, deformando la curva de esos valores.
@@ -846,20 +865,29 @@ def get_history_coverage(
     # que MAX(date) la alcance. Una agregada en vez de traer las filas. (En la
     # 1.24.0 este endpoint llamaba a _history_inputs y repetia entero el trabajo
     # del grafico: +320 ms y +108 consultas en cada carga de «Mi cartera».)
-    ultima_por_sec: dict[int, str] = {}
+    rango_por_sec: dict[int, tuple[str, str]] = {}
     if candidatas:
-        for sid, ultima in db.execute(
-            select(PriceHistory.security_id, func.max(PriceHistory.date))
+        for sid, primera, ultima in db.execute(
+            select(
+                PriceHistory.security_id,
+                func.min(PriceHistory.date),
+                func.max(PriceHistory.date),
+            )
             .where(PriceHistory.security_id.in_({sec.id for _, sec, _, _ in candidatas}))
             .group_by(PriceHistory.security_id)
         ).all():
-            ultima_por_sec[sid] = ultima
+            rango_por_sec[sid] = (primera, ultima)
 
     excluded: list[dict] = []
+    parcial: list[dict] = []
     monedas: set[str] = set()
     for pos, sec, _tx, first_buy_date in candidatas:
-        ultima = ultima_por_sec.get(sec.id)
+        rango = rango_por_sec.get(sec.id)
+        primera, ultima = rango if rango else (None, None)
+
         if ultima is None or ultima < first_buy_date:
+            # Sin ninguna cotizacion posterior a la compra: la posicion no se
+            # valora en cero, DESAPARECE del total.
             excluded.append({
                 "position_id": pos.id,
                 "ticker": sec.yahoo_ticker,
@@ -867,8 +895,25 @@ def get_history_coverage(
                 "since": first_buy_date,
             })
             continue
+
         if sec.currency != "EUR":
             monedas.add(sec.currency)
+
+        # Cobertura PARCIAL: hay cotizaciones, pero empiezan despues de la
+        # primera compra. La posicion si entra en el grafico, solo que no aporta
+        # nada antes de 'primera': la curva queda baja en ese tramo y hasta la
+        # v1.24.2 no lo detectaba nadie, porque el criterio era solo "existe
+        # alguna cotizacion posterior a la compra". Es justo lo que deja una
+        # migracion, y el boton de forzar historico en modo incremental NO lo
+        # repara (arranca en la ultima fecha guardada): hace falta full=true.
+        if primera is not None and _hueco_dias(first_buy_date, primera) > _TOLERANCIA_HUECO_DIAS:
+            parcial.append({
+                "position_id": pos.id,
+                "ticker": sec.yahoo_ticker,
+                "name": sec.name,
+                "since": first_buy_date,
+                "from": primera,
+            })
 
     # Divisas presentes en el gráfico que no tienen NINGÚN tipo del BCE guardado:
     # _history_series caería al tipo más reciente para toda su serie histórica.
@@ -879,8 +924,9 @@ def get_history_coverage(
 
     return {
         "missing_history": excluded,
+        "partial_history": parcial,
         "missing_rates": sin_tipos,
-        "ok": not excluded and not sin_tipos,
+        "ok": not excluded and not parcial and not sin_tipos,
     }
 
 

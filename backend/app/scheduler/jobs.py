@@ -229,13 +229,22 @@ def execute_due_recurring_plans(db: Session, today: date | None = None) -> int:
 #  1. Historico de cotizaciones
 # ---------------------------------------------------------------------------
 
-def update_price_history(db: Session) -> None:
+def update_price_history(db: Session, *, full: bool = False) -> None:
+    """Actualiza el historico de precios de todo el catalogo.
+
+    'full=False' (por defecto, el del job nocturno) solo refresca la ventana
+    reciente de los valores que ya tienen historico. 'full=True' vuelve a
+    descargar 5 anos IGNORANDO lo que haya: es la unica via para reparar un
+    historico TRUNCADO —el que no esta vacio pero empieza despues de la primera
+    compra—, porque el modo incremental arranca en la ultima fecha guardada y
+    por tanto nunca rellena hacia atras.
+    """
     securities = db.scalars(select(Security)).all()
     today = date.today()
 
     for sec in securities:
         try:
-            _update_history_for_security(db, sec, today)
+            _update_history_for_security(db, sec, today, full=full)
         except Exception:
             log.exception("Error actualizando historico de %s", sec.yahoo_ticker)
             db.rollback()
@@ -245,10 +254,12 @@ def update_price_history(db: Session) -> None:
 
 
 def _update_history_for_security(
-    db: Session, sec: Security, today: date
+    db: Session, sec: Security, today: date, *, full: bool = False
 ) -> None:
-    # Ultima fecha almacenada para este valor
-    last_date_str = db.scalar(
+    # Ultima fecha almacenada para este valor. Con 'full' se ignora a
+    # proposito, para volver a bajar los 5 anos completos y tapar huecos
+    # anteriores a esa fecha (p. ej. tras migrar de servidor).
+    last_date_str = None if full else db.scalar(
         select(func.max(PriceHistory.date)).where(
             PriceHistory.security_id == sec.id
         )

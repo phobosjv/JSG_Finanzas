@@ -191,6 +191,8 @@ export const translations = {
     'portfolio.hist_incomplete':       'Este gráfico está incompleto',
     'portfolio.hist_missing_prices':   'Sin histórico de precios, no se suman al total:',
     'portfolio.hist_missing_rates':    'Sin tipos de cambio históricos, se convierten al tipo de hoy:',
+    'portfolio.hist_partial':          'Histórico incompleto, el gráfico se hunde antes de esa fecha:',
+    'portfolio.hist_partial_from':     'desde',
     'portfolio.hist_incomplete_hint':  'Pide al administrador que actualice el histórico desde el panel de administración.',
 
     // ── Detalle de valor ─────────────────────────────────────────────────
@@ -862,6 +864,8 @@ export const translations = {
     'portfolio.hist_incomplete':       'This chart is incomplete',
     'portfolio.hist_missing_prices':   'No price history, not included in the total:',
     'portfolio.hist_missing_rates':    "No historical exchange rates, converted at today's rate:",
+    'portfolio.hist_partial':          'Incomplete history, the chart dips before that date:',
+    'portfolio.hist_partial_from':     'from',
     'portfolio.hist_incomplete_hint':  'Ask an administrator to refresh price history from the admin panel.',
 
     // ── Security detail ───────────────────────────────────────────────────

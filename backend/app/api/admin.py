@@ -21,7 +21,7 @@ import threading as _threading
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -65,6 +65,7 @@ _history_job: dict = {
     "started_at": None,
     "finished_at": None,
     "result": None,   # None | "ok" | "error: <mensaje>"
+    "full": False,    # True si la ultima ejecucion fue reconstruccion completa
 }
 _history_job_lock = _threading.Lock()
 
@@ -280,7 +281,10 @@ def _require_user(db: Session, user_id: int) -> User:
 # ---------------------------------------------------------------------------
 
 @router.post("/force-history-update", status_code=status.HTTP_202_ACCEPTED)
-def force_history_update(_admin: User = Depends(require_admin)):
+def force_history_update(
+    full: bool = Query(False),
+    _admin: User = Depends(require_admin),
+):
     """Lanza update_price_history + update_snapshots + update_ecb_rates en un
     hilo en segundo plano: las MISMAS tres tareas que el job nocturno.
 
@@ -289,6 +293,12 @@ def force_history_update(_admin: User = Depends(require_admin)):
     cae al tipo más reciente y distorsiona toda la serie de los valores en divisa.
     Es el escenario tras migrar de servidor: el backup admin NO exporta
     'price_history' ni 'ecb_rates', así que este botón es la via de recuperacion.
+
+    'full=true' vuelve a descargar los 5 años de historico IGNORANDO lo que ya
+    haya guardado. Es la unica via para reparar un historico TRUNCADO: el modo
+    incremental arranca en la ultima fecha almacenada de cada valor, asi que
+    nunca rellena hacia atras. Tarda bastante mas (baja 5 años por valor en vez
+    de una ventana de 7 dias), por eso no es el modo por defecto.
 
     Devuelve 409 si ya hay una actualización en curso.
     El frontend puede consultar /admin/force-history-update/status para
@@ -305,6 +315,7 @@ def force_history_update(_admin: User = Depends(require_admin)):
             started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
             finished_at=None,
             result=None,
+            full=full,
         )
 
     def _run() -> None:
@@ -314,7 +325,7 @@ def force_history_update(_admin: User = Depends(require_admin)):
         )
         db = SessionLocal()
         try:
-            update_price_history(db)
+            update_price_history(db, full=full)
             update_snapshots(db)
             update_ecb_rates(db)
             with _history_job_lock:

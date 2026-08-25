@@ -5,6 +5,45 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.24.2] — 2026-08-22
+
+### Entorno de construcción
+
+Idéntico al de la 1.24.1 (Python 3.12.10, **614 tests** en verde): no se tocó
+ninguna dependencia.
+
+### Corregido
+
+- **Un historial de precios truncado no se detectaba ni se podía reparar.** Dos
+  fallos que se tapaban entre sí y que explican el gráfico raro tras migrar de
+  servidor:
+  - **El aviso no lo veía.** El criterio era «¿existe alguna cotización posterior
+    a la primera compra?». Con una compra de 2022 y cotizaciones desde 2026 la
+    respuesta es *sí*, así que la posición **no** se marcaba: entraba en el
+    gráfico aportando valor solo desde 2026 y el tramo anterior quedaba hundido
+    **sin ningún aviso**. Ahora `/history/coverage` devuelve también
+    `partial_history`, comparando la **primera** cotización con la primera compra.
+    Con una tolerancia de **7 días naturales**, porque que la primera cotización
+    sea uno o dos días posterior a la compra es normal (compras el viernes y la
+    siguiente sesión es el lunes) y marcarlo convertiría el aviso en ruido.
+  - **El botón no lo reparaba.** «Forzar histórico» arranca en la última fecha
+    guardada de cada valor, así que **nunca rellena hacia atrás**: solo descargaba
+    5 años para los valores con la tabla completamente vacía. Nuevo modo
+    `POST /admin/force-history-update?full=true`, que ignora lo almacenado y
+    vuelve a bajar los 5 años. En el AdminPanel es un segundo botón,
+    «Reconstrucción completa (5 años)», separado del normal porque tarda mucho más.
+
+### Cambiado
+
+- **El texto del panel de administración era engañoso.** Decía «descarga los
+  últimos 7 días de historial», que solo es cierto para los valores que ya tienen
+  historial: los que no lo tienen se descargan enteros (5 años). Ahora describe
+  los dos modos, qué hace cada uno y cuándo usar la reconstrucción completa.
+- El estado del job (`/force-history-update/status`) incluye `full`, para que la
+  interfaz no pueda afirmar que hizo una reconstrucción completa cuando no la hizo.
+
+---
+
 ## [1.24.1] — 2026-08-22
 
 ### Rendimiento

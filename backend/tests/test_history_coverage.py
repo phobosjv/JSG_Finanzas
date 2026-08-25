@@ -130,3 +130,95 @@ def test_coverage_respeta_el_filtro_de_posiciones(admin_client, seed_markets, en
 
 def test_coverage_requiere_autenticacion(client):
     assert client.get("/api/portfolio/history/coverage").status_code == 401
+
+
+# ---------------------------------------------------------------------------
+#  Cobertura PARCIAL: el hueco que el aviso no veia (v1.24.2)
+# ---------------------------------------------------------------------------
+#
+# El criterio original era "existe alguna cotizacion posterior a la primera
+# compra". Con compra en 2022 y cotizaciones desde 2026 la respuesta es SI, asi
+# que la posicion no se marcaba: entraba en el grafico aportando valor solo desde
+# 2026, y el tramo 2022-2025 quedaba hundido SIN NINGUN AVISO. Es exactamente lo
+# que deja una migracion de servidor, y el boton de forzar historico en modo
+# incremental no lo repara (arranca en la ultima fecha guardada, nunca rellena
+# hacia atras): para eso existe full=true.
+
+def test_coverage_detecta_historico_truncado(admin_client, seed_markets, engine):
+    sec = _crear_security(admin_client, "TRUNC.MC")
+    _posicion_con_compra(admin_client, sec, d="2022-03-01")
+    with Session(engine) as s:
+        # Cotizaciones que empiezan MUCHO despues de la compra.
+        s.add_all([
+            PriceHistory(security_id=sec, date="2026-06-01", close=D("100")),
+            PriceHistory(security_id=sec, date="2026-06-02", close=D("101")),
+        ])
+        s.commit()
+
+    data = admin_client.get("/api/portfolio/history/coverage").json()
+    assert data["ok"] is False
+    assert data["missing_history"] == [], "hay cotizaciones: no es una exclusion total"
+    assert len(data["partial_history"]) == 1
+    p = data["partial_history"][0]
+    assert p["ticker"] == "TRUNC.MC"
+    assert p["since"] == "2022-03-01"      # primera compra
+    assert p["from"] == "2026-06-01"       # primera cotizacion disponible
+
+
+def test_coverage_no_marca_parcial_si_cubre_desde_la_compra(admin_client, seed_markets, engine):
+    """Cotizaciones desde antes (o el mismo dia) de la compra: cobertura completa."""
+    sec = _crear_security(admin_client, "OKFULL.MC")
+    _posicion_con_compra(admin_client, sec, d="2024-01-10")
+    with Session(engine) as s:
+        s.add_all([
+            PriceHistory(security_id=sec, date="2024-01-09", close=D("99")),
+            PriceHistory(security_id=sec, date="2024-01-11", close=D("100")),
+        ])
+        s.commit()
+
+    data = admin_client.get("/api/portfolio/history/coverage").json()
+    assert data["partial_history"] == []
+    assert data["ok"] is True
+
+
+def test_truncado_y_ausente_se_distinguen(admin_client, seed_markets, engine):
+    """Son dos problemas distintos y se reportan por separado."""
+    trunc = _crear_security(admin_client, "PARC.MC")
+    vacio = _crear_security(admin_client, "NADA.MC")
+    _posicion_con_compra(admin_client, trunc, d="2022-01-05")
+    _posicion_con_compra(admin_client, vacio, d="2022-01-05")
+    with Session(engine) as s:
+        s.add(PriceHistory(security_id=trunc, date="2026-01-05", close=D("50")))
+        s.commit()
+
+    data = admin_client.get("/api/portfolio/history/coverage").json()
+    assert [m["ticker"] for m in data["missing_history"]] == ["NADA.MC"]
+    assert [m["ticker"] for m in data["partial_history"]] == ["PARC.MC"]
+
+
+def test_tolerancia_de_calendario_no_marca_huecos_normales(admin_client, seed_markets, engine):
+    """Un desfase de pocos dias es ruido de calendario, no un historico truncado.
+
+    Compras el viernes y la siguiente sesion es el lunes; o el historico se
+    descargo un dia despues. Marcar eso convertiria el aviso en ruido constante
+    y dejaria de leerse, que es peor que no tenerlo.
+    """
+    sec = _crear_security(admin_client, "FINDE.MC")
+    _posicion_con_compra(admin_client, sec, d="2024-01-10")
+    with Session(engine) as s:
+        # 6 dias despues: dentro de la tolerancia (7).
+        s.add(PriceHistory(security_id=sec, date="2024-01-16", close=D("100")))
+        s.commit()
+    data = admin_client.get("/api/portfolio/history/coverage").json()
+    assert data["partial_history"] == []
+
+
+def test_hueco_mayor_que_la_tolerancia_si_se_marca(admin_client, seed_markets, engine):
+    sec = _crear_security(admin_client, "HUECO.MC")
+    _posicion_con_compra(admin_client, sec, d="2024-01-10")
+    with Session(engine) as s:
+        # 21 dias: ya no es calendario, es un hueco real.
+        s.add(PriceHistory(security_id=sec, date="2024-01-31", close=D("100")))
+        s.commit()
+    data = admin_client.get("/api/portfolio/history/coverage").json()
+    assert [p["ticker"] for p in data["partial_history"]] == ["HUECO.MC"]

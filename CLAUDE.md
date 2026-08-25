@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.24.1** · **Tests: 605 en verde** · Aplicación web personal
+> **Versión actual: 1.24.2** · **Tests: 614 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -500,12 +500,19 @@ El backup admin **no lleva datos de mercado**. Al restaurar en un servidor nuevo
 dibuja con lo poco que haya, sin avisar (de ahí el endpoint `coverage`). Pasos:
 
 1. Restaurar el backup admin.
-2. **AdminPanel → forzar histórico** (`POST /api/admin/force-history-update`).
-   Ejecuta las **tres** tareas del job nocturno: `update_price_history`,
-   `update_snapshots` y `update_ecb_rates`. (Hasta la corrección de 2026-08 solo
-   hacía las dos primeras, así que los tipos del BCE había que esperarlos al
-   nocturno de las 6:30 — con toda la serie en divisa distorsionada mientras tanto.)
-3. Comprobar que el aviso del gráfico desaparece.
+2. **AdminPanel → Reconstrucción completa (5 años)**
+   (`POST /api/admin/force-history-update?full=true`). **Usar el modo completo, no
+   el normal**: el normal arranca en la última fecha guardada de cada valor y solo
+   descarga 5 años si la tabla está *totalmente vacía*. Si la migración dejó
+   cotizaciones parciales —o el nocturno alcanzó a escribir algo antes de que
+   miraras—, el modo normal **no rellena hacia atrás** y el hueco se queda para
+   siempre. Ambos modos ejecutan además `update_snapshots` y `update_ecb_rates`.
+   (Hasta la corrección de 2026-08 el botón no lanzaba `update_ecb_rates`, así que
+   los tipos había que esperarlos al nocturno de las 6:30, con toda la serie en
+   divisa distorsionada mientras tanto.)
+3. Comprobar que el aviso del gráfico desaparece. Cubre los tres casos: sin
+   cotizaciones (`missing_history`), **historial truncado** (`partial_history`) y
+   divisas sin tipos del BCE (`missing_rates`).
 
 **Límite**: el backfill baja **5 años** (`today - 5*365`, tanto para precios como
 para tipos). Con movimientos anteriores, esa parte del gráfico no se recupera por
@@ -583,7 +590,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.24.1 · 605 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.24.2 · 614 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -664,8 +671,10 @@ puerto de `finanzas` y va en el zip; **v1.23.1: `entrypoint.sh` ejecuta
 - `GET /api/markets/exchange-rate?date=YYYY-MM-DD` → `{rate, date, source}`
   (`source ∈ {ecb, yahoo, not_found}`).
 - `GET /api/portfolio/history` · `/closed-analytics` (scatter, con `still_open`) ·
-- `GET /api/portfolio/history/coverage` → `{missing_history, missing_rates, ok}`
+- `GET /api/portfolio/history/coverage` → `{missing_history, partial_history, missing_rates, ok}`
   — qué le falta al gráfico de evolución para ser fiable (aviso en la UI).
+  `partial_history` = histórico **truncado** (empieza después de la primera compra,
+  con tolerancia de 7 días); se repara solo con `?full=true`.
   `/dividends-by-security` · `/xirr` · `/period-returns` · `/by-security/{id}` y
   `/by-security/{id}/operations` (historial aunque esté cerrada).
 - `GET /api/portfolio/movements?limit=N` (N≤50) — últimos movimientos (buy/sell +
@@ -698,7 +707,9 @@ puerto de `finanzas` y va en el zip; **v1.23.1: `entrypoint.sh` ejecuta
 - `GET /api/admin/config` (incluye `dust_threshold`, `email_configured`, `email_provider`) · `PATCH
   /api/admin/config/dust-threshold` (admin) · `PATCH /api/admin/config/snapshot-interval`.
 - `POST /api/markets/refresh-all` (admin) · `POST /api/admin/force-history-update`
-  (+ `/status`) · `POST /api/admin/markets/{code}/sync-currency` (admin) ·
+  (+ `/status`; **`?full=true`** = reconstrucción completa: ignora lo guardado y baja
+  5 años. Sin él, cada valor arranca en su última fecha almacenada y **nunca rellena
+  hacia atrás**, así que un histórico truncado no se repara) · `POST /api/admin/markets/{code}/sync-currency` (admin) ·
   `POST /api/admin/securities/fill-isins` (+ `/status`, job en segundo plano).
 
 ### Limitaciones conocidas
@@ -1179,6 +1190,22 @@ docker compose up --build
   `auth_client` + `admin_client` en el mismo test**. Al insertar mercados directamente
   en BD (sin HTTP), pasar siempre `created_at` explícito — el `server_default` de
   SQLAlchemy no se aplica en inserts ORM directos con SQLite en memoria.
+- **Un dato incompleto no es lo mismo que un dato ausente, y el aviso tiene que
+  distinguirlos.** El aviso del gráfico preguntaba «¿existe alguna cotización
+  posterior a la primera compra?». Con compra en 2022 y cotizaciones desde 2026 la
+  respuesta es *sí*: la posición entraba en el gráfico aportando valor solo desde
+  2026, el tramo anterior quedaba hundido y **no saltaba ningún aviso**. Un
+  detector que solo distingue «hay algo / no hay nada» da falsa tranquilidad
+  justo en el caso que más se parece a la normalidad. **Regla**: cuando avises de
+  datos que faltan, comprueba el **rango cubierto**, no la mera existencia. Y
+  cuidado con el otro extremo: hace falta tolerancia (aquí 7 días naturales) o el
+  aviso salta siempre y deja de leerse.
+- **Un botón de «reparar» que solo actúa sobre el caso vacío no repara nada.**
+  `update_price_history` arrancaba en la última fecha guardada de cada valor: solo
+  bajaba 5 años si la tabla estaba *totalmente vacía*, así que un histórico
+  truncado no tenía forma de arreglarse desde la interfaz. De ahí `full=true`.
+  **Regla**: toda operación de recuperación necesita un modo que ignore el estado
+  actual; si no, el estado corrupto es su propia coartada.
 - **N+1 invisible: los tests tienen 3 filas, la cartera real tiene 27 posiciones
   y 214.193 cotizaciones.** «Mi cartera» llegó a **413 consultas y 1.256 ms** por
   carga sin que ningún test se quejara, porque con datos de juguete un N+1 no se
