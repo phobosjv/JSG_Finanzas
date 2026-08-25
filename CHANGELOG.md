@@ -5,6 +5,120 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.24.3] — 2026-08-22
+
+### Entorno de construcción
+
+Python 3.12.10, **626 tests** en verde. No se tocó ninguna dependencia:
+
+```
+fastapi==0.141.1        uvicorn==0.52.4         sqlalchemy==2.0.52
+alembic==1.19.1         pydantic-settings==2.15.0  yfinance==1.6.0
+httpx==0.28.1           apscheduler==3.11.3     bcrypt==5.0.0
+itsdangerous==2.2.0     jinja2==3.1.6           pywebpush==2.4.0
+cryptography==50.0.0    pandas==3.0.5           numpy==2.5.2
+starlette==1.6.0        pydantic==2.13.4        requests==2.34.2
+urllib3==2.7.0
+```
+
+### Corregido
+
+- **Un split no registrado multiplicaba por su factor todo el tramo anterior a la
+  fecha efectiva.** Es la causa del gráfico deformado que se investigó en esta
+  sesión: un contrasplit 1:25 de AMP.MC sin dar de alta convirtió una posición de
+  1.500 € en 38.000 € durante un año, con un pico de ~68.000 € en la cartera y un
+  desplome vertical el día de la venta.
+
+  El origen es una premisa falsa documentada en el código: se creía que
+  `auto_adjust=False` devolvía precios **sin ajustar por splits**. No es así.
+  `auto_adjust` solo gobierna el ajuste por **dividendos**; yfinance reescala
+  **siempre** la serie entera cuando hay un split (verificado contra yfinance
+  1.6: el cierre de AMP.MC es idéntico con `True` y con `False`). Es decir,
+  `price_history` ha estado siempre split-ajustado.
+
+  Sobre esa premisa, `_history_series` escalaba `running_shares` **desde** la
+  `ex_date` en adelante, justo al revés que `normalize_splits`, que normaliza las
+  transacciones **anteriores** a ella. Resultado: el tramo previo al split
+  quedaba con acciones en unidades viejas contra precios ya ajustados. Y con un
+  contrasplit posterior al cierre de la posición el factor no llegaba a aplicarse
+  nunca, porque para entonces ya había cero acciones. Ahora el gráfico usa
+  `normalize_splits`, la misma función que el FIFO y el informe fiscal, en vez de
+  reimplementar el criterio.
+
+  El test que cubría esto **daba verde con el bug vivo**: insertaba a mano un
+  cierre pre-split sin ajustar, una combinación que el proveedor real nunca
+  produce. Corregido para usar la convención de verdad, y añadido un test del
+  caso que no cubría nadie (contrasplit posterior a la venta).
+
+- **`ecb_rates` llevaba vacía desde siempre y nada lo avisaba.** El formato de la
+  petición viajaba dentro del literal de la URL (`?format=csvdata`) y se pasaba
+  el rango de fechas por `params`. **httpx sustituye la query string** cuando
+  recibe `params` — a diferencia de `requests`, que la fusiona—, así que el
+  formato se descartaba, el BCE respondía en SDMX-ML y el parser CSV devolvía un
+  diccionario vacío **sin lanzar ninguna excepción**. El job insertaba cero filas,
+  hacía `commit()` y lo registraba como éxito.
+
+  Consecuencia: toda valoración en divisa caía al tipo de la última transacción
+  registrada en esa divisa, plano para toda la serie histórica. Nadie lo notó
+  porque el autorrelleno de los formularios tiene su propio respaldo en Yahoo y
+  el informe fiscal usa el `exchange_rate` guardado en cada transacción.
+
+  Ahora el formato viaja en `params` y una descarga vacía se registra como
+  **warning**, no como éxito: cero tipos en un rango que contiene días hábiles
+  solo puede ser un fallo.
+
+- **El tipo de cambio de respaldo se tomaba de las transacciones de otro
+  usuario.** `_latest_tx_rate` buscaba la última operación en esa divisa **sin
+  filtrar por usuario**. Con `ecb_rates` vacía, la cartera de un usuario se
+  valoraba con el tipo que había tecleado otro. Ahora se acota por usuario.
+
+- **El tramo anterior a la primera cotización de un valor se valoraba a cero.**
+  Cero es la única cifra que sabemos con certeza que es falsa. Ahora se usa el
+  **coste vivo**, convertido a EUR con el tipo de cada operación. Afecta sobre
+  todo a valores muy ilíquidos del Continuo de los que Yahoo solo publica cierres
+  sueltos (NXTE.XD: comprado en marzo de 2025, primera cotización en agosto de
+  2026; 535 días aportando cero y un salto de +2.775 € el día que llegó el dato).
+
+### Añadido
+
+- **Dos comprobaciones de que el bundle compilado lleva la versión que dice
+  `package.json`**, una en disco y otra dentro del zip. El número que se ve en la
+  aplicación no sale del fichero: sale del bundle, porque Vite resuelve el
+  `import { version } from '../../package.json'` de `Login.jsx` en tiempo de
+  compilación y lo incrusta como literal. Compilar antes del bump deja un zip que
+  pasa todas las verificaciones —el `package.json` que lleva dentro es el
+  correcto— y una aplicación desplegada que muestra la versión anterior. Pasó al
+  preparar esta misma versión y costó un despliegue entero buscándolo en la caché
+  del navegador. En la secuencia de release, `npm run build` va **siempre**
+  después del bump.
+- **Detector de splits no registrados**, en AdminPanel → Valores. Compara el
+  precio pagado en cada operación con el cierre de ese mismo día **en las
+  carteras de todos los usuarios**, y propone el ratio. Un desfase grande y
+  constante solo lo explica un evento corporativo que falta por registrar.
+
+  Hacía falta porque `/history/coverage` **no puede ver esto**: solo detecta datos
+  que faltan, y aquí no falta ninguno — están todos, en otra escala. La curva sale
+  completa y verosímil, solo que falsa. El caso de AMP.MC se encontró a mano.
+
+  Los precios se comparan ya normalizados con `normalize_splits`, así que lo que
+  está correctamente dado de alta no aparece: solo sale lo que falta.
+  `GET /api/admin/splits/detect`.
+
+### Cambiado
+
+- **El aviso del gráfico distingue lo reparable de lo que no lo es.** Antes
+  mandaba siempre a «actualizar el histórico desde el panel de administración»,
+  incluso para valores de los que el proveedor no publica serie diaria, donde
+  reconstruir no arregla nada. El aviso quedaba encendido para siempre, y un aviso
+  que no se puede apagar deja de leerse. `partial_history` incluye ahora
+  `no_series`, y la interfaz separa ambos mensajes.
+- El texto del aviso ya no dice que el gráfico «se hunde» antes de esa fecha:
+  desde esta versión se valora a coste.
+- Corregida la documentación de `auto_adjust` en `providers/yahoo.py`, que
+  afirmaba que evitaba el ajuste por splits.
+
+---
+
 ## [1.24.2] — 2026-08-22
 
 ### Entorno de construcción

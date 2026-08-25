@@ -421,10 +421,18 @@ function EditEmailModal({ user, onClose, onDone }) {
 //  Modal: splits / contrasplits de un valor
 // ---------------------------------------------------------------------------
 
-function SplitsModal({ security, onClose }) {
+function SplitsModal({ security, onClose, suggest }) {
   const [splits, setSplits]   = useState([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm]       = useState({ ex_date: '', ratio_num: 2, ratio_den: 1, notes: '' })
+  // 'suggest' llega del detector: trae el ratio deducido de comparar el precio
+  // pagado con el cierre. La fecha efectiva NO se puede deducir de los datos
+  // (Yahoo reajusta la serie entera hacia atras), asi que se deja vacia.
+  const [form, setForm]       = useState({
+    ex_date: '',
+    ratio_num: suggest?.ratio_num ?? 2,
+    ratio_den: suggest?.ratio_den ?? 1,
+    notes: '',
+  })
   const [busy, setBusy]       = useState(false)
   const [err, setErr]         = useState(null)
 
@@ -2024,6 +2032,10 @@ function SecuritiesSection() {
   const [err, setErr]             = useState(null)
   const [msg, setMsg]             = useState(null)
   const [splitsFor, setSplitsFor] = useState(null)   // security para SplitsModal
+  const [splitSuggest, setSplitSuggest] = useState(null)  // ratio propuesto por el detector
+  const [detected, setDetected]         = useState(null)  // null = sin buscar todavia
+  const [detecting, setDetecting]       = useState(false)
+  const [detectErr, setDetectErr]       = useState(null)
 
   async function load() {
     const [mks, secs] = await Promise.all([api.get('/markets/list'), api.get('/securities')])
@@ -2032,6 +2044,13 @@ function SecuritiesSection() {
     if (!form.market && mks.length) setForm(f => ({ ...f, market: mks[0].code }))
   }
   useEffect(() => { load() }, [])
+
+  async function detectSplits() {
+    setDetecting(true); setDetectErr(null)
+    try { setDetected((await api.get('/admin/splits/detect')).detected) }
+    catch (e) { setDetectErr(e.message) }
+    finally { setDetecting(false) }
+  }
 
   async function searchYahoo(e) {
     e?.preventDefault()
@@ -2274,6 +2293,65 @@ function SecuritiesSection() {
         </div>
       )}
 
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0 }}>{t('admin.split_detect_title')}</h3>
+          <button className="btn-primary btn-sm" onClick={detectSplits} disabled={detecting}>
+            {detecting ? '…' : t('admin.split_detect_run')}
+          </button>
+        </div>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.45, marginTop: 6 }}>
+          {t('admin.split_detect_desc')}
+        </p>
+        {detectErr && <div className="state-error">{detectErr}</div>}
+        {detected !== null && detected.length === 0 && (
+          <div className="state-empty">{t('admin.split_detect_none')}</div>
+        )}
+        {detected !== null && detected.length > 0 && (
+          <>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>Nombre</th>
+                    <th>{t('admin.split_detect_factor')}</th>
+                    <th>{t('admin.split_detect_suggest')}</th>
+                    <th>{t('admin.split_detect_users')}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detected.map(d => (
+                    <tr key={d.security_id}>
+                      <td className="ticker">{d.ticker}</td>
+                      <td>{d.name}</td>
+                      <td>×{d.factor}</td>
+                      <td>{d.suggested_ratio_num}:{d.suggested_ratio_den}</td>
+                      <td style={{ fontSize: '0.8rem' }}>{d.users.join(', ')}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="btn-ghost btn-sm"
+                          onClick={() => {
+                            setSplitSuggest({ ratio_num: d.suggested_ratio_num, ratio_den: d.suggested_ratio_den })
+                            setSplitsFor(securities.find(x => x.id === d.security_id) ?? {
+                              id: d.security_id, yahoo_ticker: d.ticker, name: d.name,
+                            })
+                          }}
+                        >÷ Splits</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 6 }}>
+              {t('admin.split_detect_hint')}
+            </p>
+          </>
+        )}
+      </div>
+
       {(() => {
         const q = secSearch.toLowerCase()
         const filtered = securities
@@ -2323,8 +2401,10 @@ function SecuritiesSection() {
 
       {splitsFor && (
         <SplitsModal
+          key={splitsFor.id}
           security={splitsFor}
-          onClose={() => setSplitsFor(null)}
+          suggest={splitSuggest}
+          onClose={() => { setSplitsFor(null); setSplitSuggest(null) }}
         />
       )}
     </div>

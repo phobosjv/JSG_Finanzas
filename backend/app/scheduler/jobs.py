@@ -561,6 +561,23 @@ def update_ecb_rates(db: Session) -> None:
         log.exception("Error descargando tipos BCE")
         return
 
+    # Una descarga VACIA no es un exito: el BCE publica todos los dias habiles,
+    # asi que cero tipos en un rango que los contiene significa que la peticion
+    # o el parseo han fallado en silencio (paso de verdad: el formato viajaba en
+    # la URL, httpx lo descartaba al pasar 'params', llegaba SDMX-ML en vez de
+    # CSV y el parser devolvia {} sin lanzar). Antes esto se registraba como
+    # "0 entradas" al mismo nivel que una carga correcta y 'ecb_rates' se quedo
+    # vacia indefinidamente, con toda la app cayendo al tipo de la ultima
+    # transaccion. Se avisa y se sale sin commit.
+    if not rates:
+        log.warning(
+            "Tipos BCE: descarga VACIA para %s..%s. No se ha guardado nada; "
+            "las valoraciones en divisa caeran al ultimo tipo conocido. "
+            "Revisa el proveedor (formato de la peticion o parseo de la respuesta).",
+            from_date, today,
+        )
+        return
+
     for (date_str, currency), rate in rates.items():
         stmt = (
             sqlite_insert(EcbRate)

@@ -213,17 +213,26 @@ def test_history_usa_fx_historico_por_fecha(admin_client, seed_markets, engine):
 
 def test_history_split_no_infla_valor_pre_split(admin_client, seed_markets, engine):
     """
-    Regresión: _history_series aplicaba todos los splits futuros a las
-    transacciones sin importar la fecha 'd' que se estaba procesando.
-    Resultado: para fechas ANTERIORES al split, running_shares ya estaba
-    multiplicado por el ratio pero last_close seguía siendo el precio
-    pre-split (auto_adjust=False) → valor ×ratio, inflado.
+    Regresión: el gráfico valoraba el tramo ANTERIOR a un split con las acciones
+    en unidades viejas contra precios ya ajustados.
+
+    PREMISA (verificada contra yfinance 1.6, no asumida): 'price_history' guarda
+    precios AJUSTADOS por splits. 'auto_adjust' solo gobierna el ajuste por
+    dividendos; el de splits lo aplica yfinance siempre. Comprobado con un
+    contrasplit real 1:25 (AMP.MC): el cierre devuelto es idéntico con
+    auto_adjust=True y auto_adjust=False.
+
+    Este test daba VERDE con el bug vivo porque insertaba a mano un cierre
+    pre-split SIN ajustar (100 €), una combinación que el proveedor real nunca
+    produce. Ahora usa la convención de verdad.
 
     Escenario:
-      Compra 100 acc × 100 € el 2024-01-02.
-      Split 2:1 el 2024-04-01: precio pasa de 100 € a 50 €.
-      Valor correcto en AMBAS fechas: 10.000 €.
-      Valor BUGGY en 2024-01-02: 200 × 100 = 20.000 € (el doble).
+      Compra 100 acc × 100 € el 2024-01-02 (precio real de ese día).
+      Split 2:1 el 2024-04-01.
+      Yahoo devuelve la serie entera ajustada → 50 € en AMBAS fechas.
+      Normalizadas, las acciones son 200 desde el principio.
+      Valor correcto en AMBAS fechas: 200 × 50 = 10.000 €.
+      Valor BUGGY en 2024-01-02: 100 × 50 = 5.000 € (la mitad).
     """
     sec = admin_client.post("/api/securities", json={
         "name": "SplitCo", "yahoo_ticker": "SPLIT.MC", "market": "ibex35", "currency": "EUR",
@@ -239,15 +248,16 @@ def test_history_split_no_infla_valor_pre_split(admin_client, seed_markets, engi
     })
     with Session(engine) as s:
         s.add_all([
-            PriceHistory(security_id=sec, date="2024-01-02", close=D("100")),  # pre-split
-            PriceHistory(security_id=sec, date="2024-04-01", close=D("50")),   # post-split
+            # Ajustados: Yahoo reescala TODA la serie tras el split 2:1.
+            PriceHistory(security_id=sec, date="2024-01-02", close=D("50")),
+            PriceHistory(security_id=sec, date="2024-04-01", close=D("50")),
         ])
         s.commit()
 
     hist = admin_client.get("/api/portfolio/history").json()
     by_date = {h["date"]: h["value"] for h in hist}
 
-    # Pre-split: 100 acc × 100 € = 10.000 € (no 200 × 100 = 20.000)
+    # Pre-split: 200 acc normalizadas × 50 € ajustados = 10.000 € (no 100 × 50)
     assert abs(by_date["2024-01-02"] - 10_000.0) < 0.01, (
         f"Bug splits: valor pre-split es {by_date['2024-01-02']}, esperado 10000"
     )
@@ -255,3 +265,59 @@ def test_history_split_no_infla_valor_pre_split(admin_client, seed_markets, engi
     assert abs(by_date["2024-04-01"] - 10_000.0) < 0.01, (
         f"Bug splits: valor post-split es {by_date['2024-04-01']}, esperado 10000"
     )
+
+
+def test_history_contrasplit_posterior_a_la_venta(admin_client, seed_markets, engine):
+    """
+    Regresión (incidente real, AMP.MC 2026): un contrasplit cuya ex_date es
+    POSTERIOR al cierre de la posición inflaba toda su vida por el factor.
+
+    Yahoo reajusta hacia atrás la serie entera en cuanto se produce el split, así
+    que las cotizaciones guardadas pasan a estar ×25 mientras las acciones seguían
+    contándose en unidades viejas. Y el reescalado de 'running_shares' llegaba
+    tarde: en la ex_date ya había cero acciones, así que NO corregía nada. En
+    producción esto convirtió una posición de 1.500 € en 38.000 € durante un año,
+    con un pico de ~68.000 € en la cartera y un desplome vertical el día de la
+    venta. Ningún test cruzaba gráfico y splits, y el aviso de cobertura no lo ve:
+    no es un dato que falte, es un dato incoherente.
+
+    Escenario:
+      Compra 2.500 acc × 0,16 € el 2025-01-02  → 400 € reales.
+      Venta  2.500 acc × 0,20 € el 2025-06-02.
+      Contrasplit 1:25 el 2025-07-01, DESPUÉS de la venta.
+      Yahoo devuelve la serie ajustada: 0,16 × 25 = 4,00 €.
+      Normalizadas, las acciones son 2.500/25 = 100.
+      Valor correcto el 2025-03-03: 100 × 4,00 = 400 € (= lo que costó).
+      Valor BUGGY: 2.500 × 4,00 = 10.000 € (25 veces más).
+    """
+    sec = admin_client.post("/api/securities", json={
+        "name": "ContraCo", "yahoo_ticker": "CONTRA.MC", "market": "ibex35", "currency": "EUR",
+    }).json()["id"]
+    pos = admin_client.post("/api/portfolio/positions", json={"security_id": sec}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos}/transactions", json={
+        "type": "buy", "date": "2025-01-02", "shares": "2500", "price": "0.16",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    admin_client.post(f"/api/portfolio/{pos}/transactions", json={
+        "type": "sell", "date": "2025-06-02", "shares": "2500", "price": "0.20",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+    # Contrasplit 1:25 POSTERIOR a la venta.
+    admin_client.post(f"/api/admin/securities/{sec}/splits", json={
+        "ex_date": "2025-07-01", "ratio_num": 1, "ratio_den": 25,
+    })
+    with Session(engine) as s:
+        s.add_all([
+            # Serie ya ajustada por el contrasplit (0,16 × 25 = 4,00).
+            PriceHistory(security_id=sec, date="2025-03-03", close=D("4.00")),
+            PriceHistory(security_id=sec, date="2025-08-01", close=D("5.00")),
+        ])
+        s.commit()
+
+    by_date = {h["date"]: h["value"] for h in admin_client.get("/api/portfolio/history").json()}
+
+    assert abs(by_date["2025-03-03"] - 400.0) < 0.01, (
+        f"Contrasplit no normalizado: {by_date['2025-03-03']} en vez de 400"
+    )
+    # Tras la venta no queda nada, con o sin split de por medio.
+    assert abs(by_date.get("2025-08-01", 0.0)) < 0.01

@@ -19,6 +19,15 @@ El BCE solo publica en dias habiles. Fines de semana y festivos no
 aparecen. El scheduler decide que tipo usar para esos dias (normalmente
 el ultimo publicado). El proveedor devuelve solo lo que el BCE da.
 
+El formato va en params, nunca en el literal de la URL
+------------------------------------------------------
+httpx SUSTITUYE la query string cuando se le pasa 'params' (a diferencia de
+requests, que la fusiona). Si el formato viaja dentro de la constante de la URL,
+httpx lo descarta al construir la peticion, el BCE responde en su formato por
+defecto (SDMX-ML) y el parser CSV devuelve {} SIN LANZAR NADA: no hay error,
+solo cero tipos. Asi estuvo 'ecb_rates' vacia sin que nada avisara. Por eso el
+formato viaja como un parametro mas y hay un test que lo fija.
+
 Timeout
 -------
 Se usa un timeout generoso (30 s) porque el endpoint del BCE puede ser
@@ -47,23 +56,18 @@ ECB_CURRENCIES: tuple[str, ...] = (
     "ILS", "INR", "KRW", "MXN", "MYR", "NZD", "PHP", "SGD", "THB", "ZAR",
 )
 
-_ECB_URL = (
-    "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A"
-    "?format=csvdata"
-)
+_ECB_URL = "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A"
 
 # Dimensión 'currency' vacía → el BCE devuelve TODAS las divisas (~30) en una
 # sola petición. La CSV incluye entonces la columna CURRENCY.
-_ECB_URL_ALL = (
-    "https://data-api.ecb.europa.eu/service/data/EXR/D..EUR.SP00.A"
-    "?format=csvdata"
-)
+_ECB_URL_ALL = "https://data-api.ecb.europa.eu/service/data/EXR/D..EUR.SP00.A"
 
 
 class EcbProvider(RateProvider):
 
     def fetch_rates(self, from_date: date, to_date: date) -> dict[str, Decimal]:
         params = {
+            "format": "csvdata",
             "startPeriod": from_date.isoformat(),
             "endPeriod": to_date.isoformat(),
         }
@@ -79,6 +83,7 @@ class EcbProvider(RateProvider):
         Devuelve {(fecha, divisa): rate}, con rate = "{divisa} por 1 EUR".
         """
         params = {
+            "format": "csvdata",
             "startPeriod": from_date.isoformat(),
             "endPeriod": to_date.isoformat(),
         }

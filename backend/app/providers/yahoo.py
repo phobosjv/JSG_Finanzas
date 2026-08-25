@@ -8,9 +8,14 @@ Decisiones de implementacion
 - Se usa Ticker.history() en lugar de yf.download() porque devuelve un
   DataFrame de columna simple (sin MultiIndex) para un unico ticker, lo
   que simplifica el parseo.
-- auto_adjust=False: precios reales de mercado en cada fecha (no ajustados
-  retroactivamente por dividendos). Los splits se gestionan aparte (tabla
-  security_splits + lógica en _history_series y _normalize_splits).
+- auto_adjust=False: precios reales de mercado en cada fecha, SIN ajustar
+  retroactivamente por DIVIDENDOS. Ojo: no evita el ajuste por SPLITS.
+  auto_adjust solo gobierna los dividendos; yfinance reescala siempre la serie
+  entera cuando hay un split (verificado en yfinance 1.6 con el contrasplit
+  1:25 de AMP.MC: el cierre es identico con True y con False). Por eso las
+  acciones deben normalizarse a unidades post-split ANTES de valorar
+  (normalize_splits), y la tabla security_splits tiene que estar al dia: un
+  split no dado de alta deforma el grafico por el factor del split.
 - El extremo 'end' de history() es EXCLUSIVO en yfinance, por eso se
   suma un dia a to_date.
 - El volumen puede llegar como NaN (p.ej. ETFs en ciertos mercados);
@@ -59,7 +64,9 @@ class YahooProvider(PriceProvider):
         self, ticker: str, from_date: date, to_date: date
     ) -> list[PriceBar]:
         t = yf.Ticker(ticker)
-        # auto_adjust=False: precios reales de mercado en cada fecha.
+        # auto_adjust=False: precios reales de mercado en cada fecha, SIN
+        # ajuste por dividendos. No afecta a los SPLITS: esos yfinance los
+        # aplica siempre, asi que lo que se guarda aqui esta split-ajustado.
         # Con auto_adjust=True, cuando se paga un dividendo yfinance ajusta
         # retroactivamente TODOS los precios de la ventana (incluyendo el más
         # reciente), lo que distorsiona el precio absoluto. Para el gráfico
@@ -171,14 +178,14 @@ class YahooProvider(PriceProvider):
         """
         t = yf.Ticker(ticker)
         # auto_adjust=False para obtener el precio REAL de mercado.
-        # auto_adjust=True ajustaría retroactivamente los precios por dividendos
-        # y splits, lo que distorsiona el precio absoluto mostrado al usuario
+        # auto_adjust=True ajustaría retroactivamente los precios por dividendos,
+        # lo que distorsiona el precio absoluto mostrado al usuario
         # (ej: si SAB.MC acaba de pagar un dividendo de 0,50 €, todos los
         # cierres de la ventana de 5 días aparecerían ~14 % más bajos).
         # El porcentaje diario se calcula como ratio y no se ve afectado por
         # el ajuste, pero el precio absoluto sí: se mostraría 2,94 en lugar
-        # de 3,44. fetch_history también usa auto_adjust=False; los splits se
-        # aplican de forma progresiva en _history_series (sin retroactividad).
+        # de 3,44. Los SPLITS son otra historia: yfinance los aplica siempre,
+        # con auto_adjust a False o a True, y reescala la serie hacia atras.
         df = t.history(period="5d", auto_adjust=False)
         # Descartar filas con Close NaN (pre-mercado, festivos sin datos)
         df = df.dropna(subset=["Close"])

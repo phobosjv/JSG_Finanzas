@@ -1,6 +1,6 @@
 # Finanzas — Seguimiento de cartera de inversión
 
-> **Versión actual: 1.24.2** · **Tests: 614 en verde** · Aplicación web personal
+> **Versión actual: 1.24.3** · **Tests: 626 en verde** · Aplicación web personal
 > multiusuario para seguimiento de cartera de inversión (IBEX 35, Mercado
 > Continuo, Nasdaq, ETFs, cripto, **fondos de inversión**). Inspiración
 > funcional: snowball-analytics.
@@ -590,7 +590,7 @@ Qué puede hacer la app hoy (visión de producto, agrupada):
 
 ## Estado actual
 
-**v1.24.2 · 614 tests en verde** (pytest, SQLite en memoria). 23 migraciones
+**v1.24.3 · 626 tests en verde** (pytest, SQLite en memoria). 23 migraciones
 Alembic, 21 tablas. Desplegado en VPS Debian con Caddy + HTTPS
 (`jsg-portfolio.com`). Caddy hace además de proxy inverso HTTPS para
 `webmin.{$DOMAIN}` (host:10000, vía `host.docker.internal`) y
@@ -631,6 +631,8 @@ nocturno —incluida `update_ecb_rates`—, 403, 409 de concurrencia, error en `
 `test_history_coverage.py` (`GET /portfolio/history/coverage`: posiciones sin
 cotizaciones, divisas sin tipos del BCE, filtro por posición, y que el gráfico
 efectivamente devuelve 1000 en vez de 2000 cuando una posición queda excluida).
+`test_split_detect.py` (v1.24.3: detección de splits no registrados — contrasplit,
+split normal, agregación multiusuario, y que un split ya registrado NO aparezca).
 `test_history_queries.py` (el gráfico no debe hacer N+1: nº de consultas
 **constante**, no proporcional al nº de posiciones; y `coverage` no puede costar
 más que el propio gráfico).
@@ -638,7 +640,7 @@ Regresiones: `test_bugs.py` (cada bug = un test). Distribución:
 `test_distribution.py` (coherencia zip/Dockerfile, iconos PWA, **BOM** en
 `pyproject.toml`/`package.json`/`entrypoint.sh`, shebang y `cd` del entrypoint;
 v1.23.0: `docker-compose.sin-caddy.yml` existe, no declara Caddy, publica el
-puerto de `finanzas` y va en el zip; **v1.23.1: `entrypoint.sh` ejecuta
+puerto de `finanzas` y va en el zip; **v1.24.3: la versión del **bundle compilado** coincide con `package.json`, en disco y en el zip; v1.23.1: `entrypoint.sh` ejecuta
 `alembic upgrade head` ANTES de uvicorn**, y Dockerfile + zip incluyen
 `alembic.ini` y `alembic/versions/`).
 
@@ -706,6 +708,11 @@ puerto de `finanzas` y va en el zip; **v1.23.1: `entrypoint.sh` ejecuta
 - `GET /api/portfolio/history`, `/xirr`, `/period-returns` aceptan `?position_ids=id1,id2,…` como alternativa a `?types=…` para filtrar por subcartera.
 - `GET /api/admin/config` (incluye `dust_threshold`, `email_configured`, `email_provider`) · `PATCH
   /api/admin/config/dust-threshold` (admin) · `PATCH /api/admin/config/snapshot-interval`.
+- `GET /api/admin/splits/detect` (admin) — splits/contrasplits NO registrados,
+  detectados comparando el precio pagado con el cierre de ese día en las carteras
+  de **todos** los usuarios. Devuelve `{detected: [{ticker, factor, users,
+  suggested_ratio_num, suggested_ratio_den, samples}]}`. Compara precios ya
+  normalizados con `normalize_splits`: lo que está bien dado de alta no aparece.
 - `POST /api/markets/refresh-all` (admin) · `POST /api/admin/force-history-update`
   (+ `/status`; **`?full=true`** = reconstrucción completa: ignora lo guardado y baja
   5 años. Sin él, cada valor arranca en su última fecha almacenada y **nunca rellena
@@ -850,7 +857,7 @@ Esta sección es **operacional**: cómo hacer cambios y releases sin saltarse pa
 2. Actualizar CHANGELOG.md con la nueva entrada
    + bloque «Entorno de construcción» (ver abajo)   ← permite rollback informado
 3. pytest — todo en verde
-4. cd frontend && npm run build       ← IMPRESCINDIBLE
+4. cd frontend && npm run build       ← IMPRESCINDIBLE, y DESPUÉS del paso 1
 5. python gen_instrucciones.py        (regenera PDF)
 6. printf '#!/bin/sh\n...' > entrypoint.sh   ← debe empezar 0x23 0x21
 7. Generar zip (script Python al final de este documento)
@@ -926,6 +933,9 @@ necesite Node ni acceso a npm.
 - No contiene `backend/.env`, `.claude/`, `CLAUDE.md`
 - Contiene `frontend/dist/assets/*.js` con timestamp reciente
 - Iconos PWA presentes en `frontend/dist/icons/`
+- **Ninguna base de datos dentro** (ni por nombre ni por cabecera SQLite)
+- **Tamaño en linea con la version anterior**: un salto de 944 KB a 5,4 MB es
+  la señal de que se ha colado algo que no debia
 
 #### Script de generación de zip
 
@@ -940,7 +950,7 @@ EXCLUDE_DIRS = {'.git', '.claude', 'venv', '.venv', 'node_modules',
                 'finanzas.egg-info', '__pycache__', '.pytest_cache',
                 '.mypy_cache', 'htmlcov'}
 EXCLUDE_FILES = {'backend/.env', 'CLAUDE.md', 'gen_instrucciones.py'}
-EXCLUDE_EXT   = {'.pyc', '.pyo', '.log', '.db', '.db-shm', '.db-wal'}
+EXCLUDE_EXT   = {'.pyc', '.pyo', '.log'}
 
 def should_exclude(rel):
     parts = rel.split('/')
@@ -949,6 +959,10 @@ def should_exclude(rel):
     _, ext = os.path.splitext(rel)
     if ext in EXCLUDE_EXT: return True
     base = os.path.basename(rel)
+    # CUALQUIER base de datos, con el sufijo que sea: .db, .db-shm, .db-wal y
+    # tambien .db.bak-20260821-142941. Comparar splitext()[1] contra {'.db',...}
+    # NO vale: para ese nombre devuelve '.bak-20260821-142941'.
+    if '.db' in base: return True
     if base.startswith('finanzas-v') and base.endswith('.zip'): return True
     return False
 
@@ -1254,6 +1268,62 @@ docker compose up --build
   pendiente de resolver (o se trackea de verdad, o no se trackea y el zip lo toma
   del disco, como ya hace). Mientras siga así, **revisar `git status` tras cada
   build**.
+- **El zip se distribuye: no puede llevar datos de usuarios.** Se coló
+  `finanzas.db.bak-20260821-142941` —18 MB con la BD real: usuarios, hashes de
+  contraseña, emails y carteras— y llegó a producción. El filtro comparaba
+  `os.path.splitext(rel)[1]` contra `{'.db','.db-shm','.db-wal'}`, y para ese
+  nombre `splitext` devuelve `.bak-20260821-142941`: no coincidía con nada.
+  **`.gitignore` sí lo cubría** (`*.db.bak-*`), pero el script del zip no lee
+  `.gitignore`, tiene sus propias reglas — dos listas de exclusión que hay que
+  mantener en paralelo y que divergen en silencio. La única señal era el tamaño:
+  944 KB → 5,4 MB. **Reglas**: excluir por `'.db' in basename`, no por extensión;
+  comprobar el zip por cabecera mágica además de por nombre; y mirar el tamaño
+  contra la release anterior. Cubierto desde la v1.24.3 en `test_distribution.py`.
+- **El `npm run build` va DESPUÉS del bump de versión, no antes.** La versión que
+  se ve en el login y en el menú **no se lee de `package.json` en ejecución**:
+  `Login.jsx` y `Navigation.jsx` hacen `import { version } from '../../package.json'`
+  y Vite lo resuelve en tiempo de compilación, incrustándolo como literal en el
+  bundle. Compilar antes de subir la versión produce un zip que pasa **todas** las
+  verificaciones —el `package.json` que lleva dentro es el correcto— y una
+  aplicación desplegada que muestra la versión anterior. Pasó en la v1.24.3 y se
+  perdió un despliegue buscándolo en la caché del navegador y en el service worker
+  de la PWA, que es donde parece estar. **Diagnóstico rápido**: si el backend
+  responde la versión nueva (`docker exec … python -c "from app.main import app;
+  print(app.version)"`) y la interfaz muestra la vieja, es el bundle, no la caché.
+  Desde la v1.24.3 lo cubren dos tests en `test_distribution.py`.
+- **`auto_adjust=False` NO evita el ajuste por splits: `price_history` está
+  SIEMPRE split-ajustado.** `auto_adjust` solo gobierna el ajuste por
+  **dividendos**; yfinance reescala la serie entera hacia atrás en cuanto hay un
+  split. Comprobado contra yfinance 1.6 con el contrasplit 1:25 de AMP.MC: el
+  cierre devuelto es idéntico con `True` y con `False`. El código creía lo
+  contrario y lo tenía documentado como tal. Consecuencias: (1) el número de
+  acciones debe estar en unidades **post-split en toda la serie** — para eso está
+  `normalize_splits`, que normaliza las transacciones **anteriores** a la
+  `ex_date`; (2) **un split no registrado en `security_splits` deforma la
+  valoración por su factor**, y `/history/coverage` no puede verlo, porque no es
+  un dato que falte sino un dato incoherente: la curva sale completa y creíble.
+  De ahí `GET /admin/splits/detect`. **Regla**: al dar de alta un valor con
+  historia larga, comprobar si tiene splits; y ante un gráfico raro, comparar el
+  precio pagado con el cierre de ese día antes de buscar en otro sitio.
+- **Un test que fabrica datos que el proveedor real nunca produce no cubre
+  nada.** `test_history_split_no_infla_valor_pre_split` daba VERDE con el bug de
+  splits vivo porque insertaba a mano un cierre pre-split *sin ajustar*. Los 614
+  tests estaban en verde y el fallo llevaba en producción desde que existe la
+  función. Es la lección de yfinance con una vuelta de tuerca: aquí ni siquiera
+  hacía falta red para detectarlo, bastaba con que el test hubiera usado la
+  convención real. **Regla**: al escribir un test sobre datos de un proveedor,
+  verificar la convención contra el proveedor UNA vez y dejarlo escrito en el
+  docstring.
+- **httpx SUSTITUYE la query string cuando se le pasa `params`** (requests la
+  fusiona). Un `?format=csvdata` dentro del literal de la URL se descartaba, el
+  BCE respondía SDMX-ML en vez de CSV y el parser CSV devolvía `{}` **sin lanzar
+  nada**. El job insertaba cero filas, hacía `commit()` y lo registraba como
+  éxito: `ecb_rates` estuvo vacía indefinidamente y toda valoración en divisa
+  caía a un tipo plano sacado de la última transacción (de cualquier usuario).
+  **Dos reglas**: los parámetros de una petición van TODOS en `params`, nunca
+  mezclados con el literal; y **una descarga vacía no es un éxito** — si el rango
+  contiene días hábiles y vuelven cero registros, hay que avisar. Mismo patrón
+  que el gráfico incompleto: el silencio es el fallo.
 - **Las tarjetas (snapshot) y el gráfico (histórico) son rutas de datos
   INDEPENDIENTES.** El gráfico lee `price_history` de la BD; las tarjetas (precio,
   variación, Mín./Máx.) leen `price_snapshots`, que solo se escribe si

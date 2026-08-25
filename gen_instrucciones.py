@@ -5,7 +5,7 @@ Ejecutar desde la raiz del proyecto:
 """
 from fpdf import FPDF
 
-VERSION = "1.24.2"
+VERSION = "1.24.3"
 TITLE   = f"JSG Soft. {VERSION} - Manual de usuario"
 
 SECTIONS = [
@@ -107,6 +107,39 @@ SECTIONS = [
         "    y COOKIE_SECURE=false; Caddy servira HTTP sin intentar obtener cert.",
         "  - Los certificados y la config de Caddy se guardan en el volumen",
         "    caddy-data (persistente); no se pierden al reiniciar el contenedor.",
+    ]),
+    ("Novedades en v1.24.3", [
+        "Deteccion de splits no registrados (Panel de Administracion > Valores):",
+        "  - Boton 'Buscar splits'. Compara el precio pagado en cada operacion",
+        "    con la cotizacion de ese mismo dia, en las carteras de TODOS los",
+        "    usuarios, y lista los valores cuyo desfase solo se explica por un",
+        "    split o contrasplit que falta por dar de alta.",
+        "  - Muestra el factor detectado, el ratio sugerido y que usuarios estan",
+        "    afectados. El boton 'Splits' de cada fila abre el formulario con el",
+        "    ratio ya rellenado.",
+        "  - La FECHA EFECTIVA no se puede deducir de los datos: hay que",
+        "    consultarla en el proveedor antes de registrar el split.",
+        "  - Lo que ya esta correctamente registrado no aparece en la lista.",
+        "",
+        "Por que importa: las cotizaciones llegan ya ajustadas por el split, pero",
+        "el numero de acciones no. Si el evento no esta registrado, la valoracion",
+        "de esa posicion se desvia por el factor del split (un contrasplit 1:25",
+        "sin registrar multiplica por 25 el valor mostrado en el grafico).",
+        "",
+        "Grafico de evolucion: tramos sin cotizacion",
+        "  - El tramo anterior a la primera cotizacion de un valor se valora",
+        "    ahora a PRECIO DE COSTE en vez de a cero. Antes esas posiciones",
+        "    desaparecian del total y hundian la curva.",
+        "  - El aviso del grafico distingue dos casos: historico incompleto que",
+        "    se repara con la reconstruccion completa, y valores de los que el",
+        "    proveedor no publica serie diaria, donde reconstruir no cambia nada.",
+        "",
+        "Correcciones importantes:",
+        "  - Los tipos de cambio del BCE no se estaban descargando nunca por un",
+        "    fallo en el formato de la peticion. Las valoraciones en divisa usaban",
+        "    un tipo fijo. Ya se descargan; la primera ejecucion baja 5 anos.",
+        "  - El tipo de cambio de respaldo ya no se toma de las operaciones de",
+        "    otro usuario.",
     ]),
     ("Novedades en v1.5.0", [
         "ETFs y criptomonedas:",

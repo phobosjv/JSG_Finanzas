@@ -26,6 +26,7 @@ Ejecutar:  pytest tests/test_distribution.py -v
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import zipfile
@@ -572,4 +573,124 @@ def test_entrypoint_migraciones_en_el_zip():
     assert versiones, (
         f"El zip '{zip_name}' no incluye las migraciones de "
         "backend/alembic/versions/."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4. La version del bundle compilado coincide con package.json
+# ---------------------------------------------------------------------------
+
+def _version_de_package_json(raw: bytes) -> str:
+    return json.loads(raw.decode("utf-8"))["version"]
+
+
+def _bundle_principal(nombres) -> str | None:
+    """Nombre del bundle de aplicacion dentro de frontend/dist/assets."""
+    cands = [
+        n for n in nombres
+        if "frontend/dist/assets/index." in n.replace("\\", "/") and n.endswith(".js")
+    ]
+    return cands[0] if cands else None
+
+
+def test_bundle_compilado_lleva_la_version_de_package_json():
+    """
+    El numero de version que se ve en la aplicacion sale del BUNDLE, no del
+    fichero: Login.jsx y Navigation.jsx hacen 'import { version } from
+    package.json', y Vite lo incrusta como literal en tiempo de compilacion.
+
+    Bug prevenido (v1.24.3): se compilo el frontend ANTES de subir la version,
+    asi que package.json decia 1.24.3 y el bundle seguia diciendo 1.24.2. El zip
+    pasaba todas las verificaciones —el package.json que lleva dentro es el
+    correcto— y la aplicacion desplegada mostraba la version anterior en el
+    login. Se perdio un despliegue entero buscandolo en la cache del navegador y
+    en el service worker de la PWA.
+
+    Regla: en la secuencia de release, 'npm run build' va SIEMPRE despues del
+    bump de version. Este test lo comprueba en el disco.
+    """
+    dist = os.path.join(PROJECT_ROOT, "frontend", "dist", "assets")
+    pkg = os.path.join(PROJECT_ROOT, "frontend", "package.json")
+    if not os.path.isdir(dist) or not os.path.exists(pkg):
+        pytest.skip("frontend/dist o package.json no disponibles")
+
+    version = _version_de_package_json(open(pkg, "rb").read())
+    bundles = [f for f in os.listdir(dist) if f.startswith("index.") and f.endswith(".js")]
+    assert bundles, "no hay bundle index.*.js en frontend/dist/assets"
+
+    encontrado = any(
+        version in open(os.path.join(dist, b), encoding="utf-8", errors="ignore").read()
+        for b in bundles
+    )
+    assert encontrado, (
+        f"package.json dice {version} pero ningun bundle de frontend/dist/assets "
+        f"lo contiene: {bundles}. El frontend se compilo ANTES del bump de version; "
+        "hay que volver a ejecutar 'npm run build' y regenerar el zip."
+    )
+
+
+def test_zip_lleva_el_bundle_con_la_version_correcta():
+    """Lo mismo, pero dentro del zip que se sube al servidor."""
+    zip_path = _latest_zip(PROJECT_ROOT)
+    if zip_path is None:
+        pytest.skip("no hay zip de distribucion generado")
+
+    with zipfile.ZipFile(zip_path) as zf:
+        nombres = zf.namelist()
+        if "frontend/package.json" not in nombres:
+            pytest.skip("el zip no incluye frontend/package.json")
+        version = _version_de_package_json(zf.read("frontend/package.json"))
+        bundle = _bundle_principal(nombres)
+        assert bundle, f"el zip no lleva bundle de aplicacion: {os.path.basename(zip_path)}"
+        contenido = zf.read(bundle).decode("utf-8", errors="ignore")
+
+    assert version in contenido, (
+        f"{os.path.basename(zip_path)}: package.json dice {version} pero {bundle} no "
+        "lo contiene. El zip se genero con un build anterior al bump de version; "
+        "la aplicacion desplegada mostraria la version antigua."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 5. El zip no lleva ninguna base de datos
+# ---------------------------------------------------------------------------
+
+def test_zip_no_contiene_bases_de_datos():
+    """
+    El zip de distribucion NO puede llevar ningun fichero SQLite.
+
+    Bug prevenido (v1.24.3): se colo 'finanzas.db.bak-20260821-142941', 18 MB con
+    la base de datos REAL —usuarios, hashes de contrasena, emails y carteras
+    completas— y llego a subirse a produccion. El filtro del script comparaba
+    'os.path.splitext(rel)[1]' contra {'.db', '.db-shm', '.db-wal'}, pero para ese
+    nombre splitext devuelve '.bak-20260821-142941', asi que no coincidia con
+    nada. Git si lo ignoraba ('*.db.bak-*' en .gitignore), pero el script del zip
+    no usa .gitignore: tiene sus propias reglas.
+
+    La unica senal era el tamano: 5,4 MB frente a los 944 KB de la version
+    anterior. Ninguna verificacion lo miraba.
+
+    Se comprueba por partida doble, porque el nombre se puede disfrazar:
+    por nombre y por la cabecera magica de SQLite.
+    """
+    zip_path = _latest_zip(PROJECT_ROOT)
+    if zip_path is None:
+        pytest.skip("no hay zip de distribucion generado")
+
+    culpables: list[str] = []
+    with zipfile.ZipFile(zip_path) as zf:
+        for info in zf.infolist():
+            base = os.path.basename(info.filename)
+            if ".db" in base:
+                culpables.append(f"{info.filename} (por nombre)")
+                continue
+            if info.file_size > 512:
+                with zf.open(info) as fh:
+                    if fh.read(16) == b"SQLite format 3\x00":
+                        culpables.append(f"{info.filename} (cabecera SQLite)")
+
+    assert not culpables, (
+        f"{os.path.basename(zip_path)} incluye bases de datos:\n"
+        + "\n".join(f"  - {c}" for c in culpables)
+        + "\nEl zip se distribuye: no puede llevar datos de usuarios."
     )

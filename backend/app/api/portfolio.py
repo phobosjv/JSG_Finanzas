@@ -49,7 +49,7 @@ from app.schemas.portfolio import (
     TransferCreate, TransferResult, TransferUpdate,
 )
 from app.services.calculations import (
-    Transaction, compute_position, consumed_cost_fifo, daily_change,
+    Split, Transaction, compute_position, consumed_cost_fifo, daily_change,
     normalize_splits, value_position,
 )
 from app.services.recurring import contribution_dates_until, nth_contribution_date
@@ -84,7 +84,7 @@ def _build_position_summary(pos: Position, repo: PortfolioRepository, db) -> Pos
     current_price   = snap.last_price       if snap else None
     max_1y          = snap.max_1y           if snap else None
 
-    current_rate = latest_rate(db, sec.currency)
+    current_rate = latest_rate(db, sec.currency, pos.user_id)
     daily_chg_pct   = snap.daily_change_pct if snap else None
 
     if current_price is None:
@@ -608,6 +608,63 @@ def _history_candidates(
     return salida
 
 
+def _normalized_moves(tx_rows, split_rows) -> list[tuple[str, str, Decimal, Decimal]]:
+    """Movimientos '(fecha_iso, tipo, acciones, importe_eur)' con acciones POST-SPLIT.
+
+    Las cotizaciones de Yahoo llegan SIEMPRE ajustadas por splits: 'auto_adjust'
+    solo gobierna el ajuste por dividendos, no el de splits (comprobado contra
+    yfinance 1.6: el cierre de un valor con contrasplit 1:25 es identico con
+    auto_adjust True y False). Por tanto el numero de acciones tiene que estar en
+    unidades post-split en TODA la serie, no solo a partir de la ex_date.
+
+    Antes se acumulaban las acciones en crudo y se reescalaba 'running_shares' al
+    llegar a la ex_date, que es justo al reves de lo que hace normalize_splits
+    ('ex_date > tx.date'). Resultado: el tramo ANTERIOR al split quedaba con
+    acciones viejas contra precios ya ajustados, inflado o hundido por el factor
+    del split. Con un contrasplit 1:25 posterior a la venta, la posicion valia 25
+    veces de mas durante toda su vida y el error no se corregia nunca, porque
+    para la ex_date ya habia cero acciones.
+
+    Se delega en normalize_splits, la MISMA funcion que usa el FIFO y el informe
+    fiscal, en vez de reimplementar el criterio aqui: duplicarlo es lo que hizo
+    que divergieran.
+
+    'importe_eur' = acciones x precio, convertido con el exchange_rate DE LA
+    PROPIA operacion (el que se guardo ese dia), no con el tipo de hoy. Sirve
+    para valorar a coste el tramo sin cotizaciones. Es invariante al split,
+    porque normalize_splits multiplica acciones y divide precio.
+    """
+    if not split_rows:
+        return [
+            (tx.date, tx.type, tx.shares, tx.shares * tx.price / tx.exchange_rate)
+            for tx in tx_rows
+        ]
+
+    splits = [
+        Split(
+            ex_date=date_type.fromisoformat(sp.ex_date),
+            ratio_num=sp.ratio_num,
+            ratio_den=sp.ratio_den,
+        )
+        for sp in split_rows
+    ]
+    txs = [
+        Transaction(
+            type=tx.type,
+            date=date_type.fromisoformat(tx.date),
+            shares=tx.shares,
+            price=tx.price,
+            fee=tx.fee,
+            exchange_rate=tx.exchange_rate,
+        )
+        for tx in tx_rows
+    ]
+    return [
+        (t.date.isoformat(), t.type, t.shares, t.shares * t.price / t.exchange_rate)
+        for t in normalize_splits(txs, splits)
+    ]
+
+
 def _history_inputs(
     db: Session,
     user_id: int,
@@ -664,7 +721,7 @@ def _history_inputs(
     ).all():
         splits_por_sec[sp.security_id].append(sp)
 
-    sec_series: list[tuple[Decimal, list, list, list[tuple[str, Decimal]]]] = []
+    sec_series: list[tuple[str, list[tuple[str, str, Decimal, Decimal]], list[tuple[str, Decimal]]]] = []
     all_dates: set[str] = set()
     excluded: list[dict] = []
 
@@ -683,7 +740,11 @@ def _history_inputs(
             })
             continue
 
-        sec_series.append((sec.currency, list(tx_rows), splits_por_sec.get(sec.id, []), prices))
+        sec_series.append((
+            sec.currency,
+            _normalized_moves(tx_rows, splits_por_sec.get(sec.id, [])),
+            prices,
+        ))
         all_dates.update(d for d, _ in prices)
 
     return sec_series, all_dates, excluded
@@ -722,7 +783,7 @@ def _history_series(
     # tipo de hoy para toda la serie, lo que distorsionaba la curva (y los
     # retornos por periodo que se apoyan en ella) de los valores en divisa.
     # Se precargan los tipos por divisa y se busca por fecha con bisect (rápido).
-    currencies = {cur for cur, _, _, _ in sec_series if cur != "EUR"}
+    currencies = {cur for cur, _, _ in sec_series if cur != "EUR"}
     rate_index: dict[str, tuple[list[str], list[Decimal]]] = {}
     fallback_rate: dict[str, Decimal] = {}
     for cur in currencies:
@@ -730,7 +791,7 @@ def _history_series(
             select(EcbRate).where(EcbRate.currency == cur).order_by(EcbRate.date)
         ).all()
         rate_index[cur] = ([r.date for r in rows], [r.rate for r in rows])
-        fallback_rate[cur] = latest_rate(db, cur)
+        fallback_rate[cur] = latest_rate(db, cur, user_id)
 
     def _rate_for(cur: str, d: str) -> Decimal:
         """Tipo de 'cur' vigente en la fecha 'd' (más reciente <= d). 1 para EUR.
@@ -748,35 +809,48 @@ def _history_series(
     axis = sorted(all_dates)
     date_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
-    for currency, tx_rows, split_rows, prices in sec_series:
+    for currency, moves, prices in sec_series:
 
         running_shares = Decimal("0")
-        tx_idx = 0
-        n_tx = len(tx_rows)
-        split_idx = 0
-        n_sp = len(split_rows)
+        running_cost = Decimal("0")     # coste vivo en EUR (retirada proporcional)
+        mv_idx = 0
+        n_mv = len(moves)
         price_idx = 0
         n_p = len(prices)
         last_close: Decimal | None = None
 
-        # Tres punteros sobre el eje global: splits (progresivos), transacciones
-        # y último cierre (carry-forward). Los splits se aplican ANTES que las tx
-        # del mismo día: coherente con _normalize_splits (usa 'ex_date > tx.date'),
-        # que trata las compras ON the ex_date como post-split.
+        # Dos punteros sobre el eje global: movimientos y último cierre
+        # (carry-forward). Las acciones llegan ya en unidades post-split desde
+        # _normalized_moves, coherentes con los precios ajustados de Yahoo, así
+        # que aquí no se reescala nada.
         for d in axis:
-            while split_idx < n_sp and split_rows[split_idx].ex_date <= d:
-                sp = split_rows[split_idx]
-                running_shares *= Decimal(sp.ratio_num) / Decimal(sp.ratio_den)
-                split_idx += 1
-            while tx_idx < n_tx and tx_rows[tx_idx].date <= d:
-                tx = tx_rows[tx_idx]
-                running_shares += tx.shares if tx.type in ("buy", "transfer_in") else -tx.shares
-                tx_idx += 1
+            while mv_idx < n_mv and moves[mv_idx][0] <= d:
+                _fecha, tipo, shares, importe = moves[mv_idx]
+                if tipo in ("buy", "transfer_in"):
+                    running_shares += shares
+                    running_cost += importe
+                else:
+                    # Salida proporcional del coste vivo. En el tramo que nos
+                    # importa (antes de la primera cotizacion) casi siempre solo
+                    # hay compras, asi que coincide con FIFO.
+                    if running_shares > Decimal("0"):
+                        running_cost -= running_cost * (shares / running_shares)
+                    running_shares -= shares
+                mv_idx += 1
             while price_idx < n_p and prices[price_idx][0] <= d:
                 last_close = prices[price_idx][1]
                 price_idx += 1
-            if last_close is not None and running_shares > Decimal("0"):
-                date_totals[d] += running_shares * last_close / _rate_for(currency, d)
+            if running_shares > Decimal("0"):
+                if last_close is not None:
+                    date_totals[d] += running_shares * last_close / _rate_for(currency, d)
+                elif running_cost > Decimal("0"):
+                    # Sin cotizacion todavia para este valor. Valorarlo a CERO,
+                    # que es lo que se hacia antes, es la unica cifra que sabemos
+                    # con certeza que es falsa: la posicion desaparecia del total
+                    # y la curva se hundia. Se usa el coste vivo, que es lo que
+                    # el usuario pago de verdad. Ya esta en EUR (convertido con el
+                    # tipo de cada operacion), asi que no se vuelve a convertir.
+                    date_totals[d] += running_cost
 
     return [{"date": d, "value": float(date_totals[d])} for d in sorted(date_totals)]
 
@@ -810,6 +884,14 @@ def get_portfolio_history(
 # dejar pasar un tramo visible en el grafico.
 _TOLERANCIA_HUECO_DIAS = 7
 
+# Por debajo de esto no hay una serie, hay cierres sueltos. Distingue un hueco
+# REPARABLE (la fuente publica la serie, nuestra BD esta truncada -> full=true lo
+# arregla) de un valor del que el proveedor sencillamente NO publica historico
+# (p. ej. NXTE.XD, del Continuo: Yahoo devuelve un unico cierre). Es una
+# heuristica, pero la diferencia importa: mandar al admin a pulsar un boton que
+# no puede funcionar convierte el aviso en ruido permanente.
+_MIN_FILAS_SERIE_REAL = 10
+
 
 def _hueco_dias(desde: str, hasta: str) -> int:
     """Dias naturales entre dos fechas ISO. Negativo si 'hasta' es anterior."""
@@ -835,10 +917,14 @@ def get_history_coverage(
         su primera compra. No se valoran en cero: desaparecen del total, así que
         la curva queda POR DEBAJO del valor real.
       - 'partial_history': posiciones con cotizaciones que EMPIEZAN despues de la
-        primera compra. Entran en el gráfico, pero no aportan nada en el tramo
-        anterior, que queda hundido. Se detecta desde la v1.24.2: antes bastaba
-        con que existiera una cotización posterior a la compra, así que un
-        histórico truncado pasaba sin aviso.
+        primera compra. Entran en el gráfico; desde la v1.24.3 el tramo anterior
+        se valora a COSTE en vez de a cero, así que ya no hunde la curva, pero
+        sigue sin ser precio de mercado y hay que decirlo. Se detecta desde la
+        v1.24.2: antes bastaba con que existiera una cotización posterior a la
+        compra, así que un histórico truncado pasaba sin aviso.
+        Cada entrada lleva 'no_series': True cuando el proveedor no publica serie
+        para ese valor (cierres sueltos), en cuyo caso reconstruir el histórico
+        NO lo arregla y no hay que sugerirlo.
       - 'missing_rates': divisas sin histórico de tipos del BCE. No excluyen
         nada, pero fuerzan a convertir toda la serie con el tipo más reciente en
         vez del de cada fecha, deformando la curva de esos valores.
@@ -865,25 +951,26 @@ def get_history_coverage(
     # que MAX(date) la alcance. Una agregada en vez de traer las filas. (En la
     # 1.24.0 este endpoint llamaba a _history_inputs y repetia entero el trabajo
     # del grafico: +320 ms y +108 consultas en cada carga de «Mi cartera».)
-    rango_por_sec: dict[int, tuple[str, str]] = {}
+    rango_por_sec: dict[int, tuple[str, str, int]] = {}
     if candidatas:
-        for sid, primera, ultima in db.execute(
+        for sid, primera, ultima, filas in db.execute(
             select(
                 PriceHistory.security_id,
                 func.min(PriceHistory.date),
                 func.max(PriceHistory.date),
+                func.count(),
             )
             .where(PriceHistory.security_id.in_({sec.id for _, sec, _, _ in candidatas}))
             .group_by(PriceHistory.security_id)
         ).all():
-            rango_por_sec[sid] = (primera, ultima)
+            rango_por_sec[sid] = (primera, ultima, filas)
 
     excluded: list[dict] = []
     parcial: list[dict] = []
     monedas: set[str] = set()
     for pos, sec, _tx, first_buy_date in candidatas:
         rango = rango_por_sec.get(sec.id)
-        primera, ultima = rango if rango else (None, None)
+        primera, ultima, filas = rango if rango else (None, None, 0)
 
         if ultima is None or ultima < first_buy_date:
             # Sin ninguna cotizacion posterior a la compra: la posicion no se
@@ -913,6 +1000,10 @@ def get_history_coverage(
                 "name": sec.name,
                 "since": first_buy_date,
                 "from": primera,
+                "rows": filas,
+                # False -> reparable con reconstruccion completa.
+                # True  -> el proveedor no publica serie; no hay boton que valga.
+                "no_series": filas < _MIN_FILAS_SERIE_REAL,
             })
 
     # Divisas presentes en el gráfico que no tienen NINGÚN tipo del BCE guardado:

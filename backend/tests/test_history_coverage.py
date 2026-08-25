@@ -222,3 +222,107 @@ def test_hueco_mayor_que_la_tolerancia_si_se_marca(admin_client, seed_markets, e
         s.commit()
     data = admin_client.get("/api/portfolio/history/coverage").json()
     assert [p["ticker"] for p in data["partial_history"]] == ["HUECO.MC"]
+
+
+def test_tramo_sin_cotizaciones_se_valora_a_coste(admin_client, seed_markets, engine):
+    """
+    v1.24.3: el tramo anterior a la primera cotizacion de un valor se valora a
+    COSTE, no a cero.
+
+    Incidente real: NXTE.XD, un valor muy iliquido del Continuo del que Yahoo
+    solo publica cierres sueltos. Comprado en marzo de 2025, su primera fila en
+    'price_history' era de agosto de 2026. Durante 535 dias la posicion aportaba
+    CERO al total —2.500 acciones que costaron 1.213 EUR— y el dia que llegaba la
+    cotizacion la curva pegaba un salto de +2.775 EUR. Y no habia forma de
+    arreglarlo: el boton de reconstruir historico no puede inventar una serie que
+    la fuente no publica.
+
+    Cero es la unica cifra que SABEMOS falsa. El coste vivo es lo que el usuario
+    pago de verdad, asi que es lo que se usa mientras no haya mercado.
+
+    Escenario (A da el eje de fechas, B es el valor sin serie todavia):
+      A: 10 acc x 100 EUR, con cotizaciones el 02-01 y el 02-06.
+      B:  100 acc x   5 EUR = 500 EUR de coste, cotiza SOLO a partir del 02-06.
+      2025-01-02 -> 1.000 (A) + 500 (B a coste) = 1.500
+      2025-06-02 -> 1.000 (A) + 600 (B a mercado, 100 x 6) = 1.600
+    """
+    sec_a = _crear_security(admin_client, "EJEA.MC")
+    pos_a = admin_client.post("/api/portfolio/positions", json={"security_id": sec_a}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos_a}/transactions", json={
+        "type": "buy", "date": "2025-01-02", "shares": "10", "price": "100",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+
+    sec_b = _crear_security(admin_client, "ILIQ.MC")
+    pos_b = admin_client.post("/api/portfolio/positions", json={"security_id": sec_b}).json()["id"]
+    admin_client.post(f"/api/portfolio/{pos_b}/transactions", json={
+        "type": "buy", "date": "2025-01-02", "shares": "100", "price": "5",
+        "fee": "0", "currency": "EUR", "exchange_rate": "1",
+    })
+
+    with Session(engine) as s:
+        s.add_all([
+            PriceHistory(security_id=sec_a, date="2025-01-02", close=D("100")),
+            PriceHistory(security_id=sec_a, date="2025-06-02", close=D("100")),
+            # B solo cotiza al final: el tramo anterior no tiene mercado.
+            PriceHistory(security_id=sec_b, date="2025-06-02", close=D("6")),
+        ])
+        s.commit()
+
+    by_date = {h["date"]: h["value"] for h in admin_client.get("/api/portfolio/history").json()}
+
+    assert abs(by_date["2025-01-02"] - 1_500.0) < 0.01, (
+        f"tramo sin cotizacion valorado a {by_date['2025-01-02']}, esperado 1500 "
+        "(1000 de A + 500 del coste de B)"
+    )
+    assert abs(by_date["2025-06-02"] - 1_600.0) < 0.01, (
+        f"con cotizacion deberia valer 1600, vale {by_date['2025-06-02']}"
+    )
+
+
+def test_coverage_distingue_truncado_de_valor_sin_serie(admin_client, seed_markets, engine):
+    """
+    v1.24.3: 'partial_history' marca con 'no_series' los valores de los que el
+    proveedor NO publica serie.
+
+    La diferencia no es cosmetica. Un historico truncado se repara con la
+    reconstruccion completa del AdminPanel; un valor del que Yahoo solo devuelve
+    cierres sueltos (NXTE.XD y otros iliquidos del Continuo) no se repara nunca.
+    Sugerir el boton en ese caso deja un aviso encendido para siempre, y un aviso
+    que no se puede apagar acaba ignorandose.
+
+    TRUNC: 40 cierres diarios que empiezan tarde   -> reparable  (no_series False)
+    SUELTO: 2 cierres sueltos que empiezan tarde    -> sin serie  (no_series True)
+    """
+    sec_trunc = _crear_security(admin_client, "TRUNC.MC")
+    _posicion_con_compra(admin_client, sec_trunc, d="2024-01-10")
+    sec_suelto = _crear_security(admin_client, "SUELTO.MC")
+    _posicion_con_compra(admin_client, sec_suelto, d="2024-01-10")
+
+    with Session(engine) as s:
+        # Serie de verdad, solo que empieza un ano despues de la compra.
+        s.add_all([
+            PriceHistory(security_id=sec_trunc, date=f"2025-02-{d:02d}", close=D("100"))
+            for d in range(1, 29)
+        ] + [
+            PriceHistory(security_id=sec_trunc, date=f"2025-03-{d:02d}", close=D("100"))
+            for d in range(1, 13)
+        ])
+        # Cierres sueltos: el proveedor no publica serie para este valor.
+        s.add_all([
+            PriceHistory(security_id=sec_suelto, date="2025-02-03", close=D("100")),
+            PriceHistory(security_id=sec_suelto, date="2025-02-04", close=D("101")),
+        ])
+        s.commit()
+
+    parcial = admin_client.get("/api/portfolio/history/coverage").json()["partial_history"]
+    por_ticker = {p["ticker"]: p for p in parcial}
+
+    assert "TRUNC.MC" in por_ticker and "SUELTO.MC" in por_ticker, por_ticker
+    assert por_ticker["TRUNC.MC"]["no_series"] is False, (
+        "40 cierres diarios son una serie truncada, reparable con full=true"
+    )
+    assert por_ticker["SUELTO.MC"]["no_series"] is True, (
+        "2 cierres sueltos no son una serie: reconstruir el historico no lo arregla"
+    )
+    assert por_ticker["TRUNC.MC"]["rows"] == 40

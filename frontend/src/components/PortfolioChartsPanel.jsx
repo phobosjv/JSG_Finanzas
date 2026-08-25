@@ -271,9 +271,16 @@ export function HistoryChart({ history, t, coverage }) {
   // del total en vez de valer cero). 'coverage' es opcional: si no llega, o si
   // la llamada falló, el gráfico se comporta como siempre.
   const faltanPrecios = coverage?.missing_history ?? []
-  const truncados     = coverage?.partial_history ?? []
+  const parciales     = coverage?.partial_history ?? []
   const faltanTipos   = coverage?.missing_rates ?? []
-  const incompleto    = faltanPrecios.length > 0 || truncados.length > 0 || faltanTipos.length > 0
+  // Un hueco REPARABLE (la fuente tiene la serie, nuestra BD está truncada) y un
+  // valor del que el proveedor no publica serie piden mensajes distintos: en el
+  // segundo caso reconstruir el histórico no hace nada, y sugerirlo dejaría el
+  // aviso encendido para siempre.
+  const truncados     = parciales.filter(p => !p.no_series)
+  const sinSerie      = parciales.filter(p =>  p.no_series)
+  const incompleto    = faltanPrecios.length > 0 || parciales.length > 0 || faltanTipos.length > 0
+  const reparable     = faltanPrecios.length > 0 || truncados.length > 0 || faltanTipos.length > 0
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
@@ -389,14 +396,29 @@ export function HistoryChart({ history, t, coverage }) {
                   </span>
                 </div>
               )}
+              {sinSerie.length > 0 && (
+                <div style={{ marginTop: 2 }}>
+                  {t('portfolio.hist_no_series')}{' '}
+                  <span style={{ wordBreak: 'break-word' }}>
+                    {sinSerie.map(p => `${p.ticker} (${t('portfolio.hist_partial_from')} ${p.from})`).join(', ')}
+                  </span>
+                </div>
+              )}
               {faltanTipos.length > 0 && (
                 <div style={{ marginTop: 2 }}>
                   {t('portfolio.hist_missing_rates')} {faltanTipos.join(', ')}
                 </div>
               )}
-              <div style={{ marginTop: 4, color: 'var(--text-muted)' }}>
-                {t('portfolio.hist_incomplete_hint')}
-              </div>
+              {reparable && (
+                <div style={{ marginTop: 4, color: 'var(--text-muted)' }}>
+                  {t('portfolio.hist_incomplete_hint')}
+                </div>
+              )}
+              {sinSerie.length > 0 && (
+                <div style={{ marginTop: 4, color: 'var(--text-muted)' }}>
+                  {t('portfolio.hist_no_series_hint')}
+                </div>
+              )}
             </div>
           )}
         </div>

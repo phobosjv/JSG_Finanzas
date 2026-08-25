@@ -16,21 +16,33 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import EcbRate, TransactionRow
+from app.models import EcbRate, Position, TransactionRow
 
 _ONE = Decimal("1")
 
 
-def _latest_tx_rate(db: Session, currency: str) -> Decimal | None:
-    """Último exchange_rate registrado en una transacción de esa divisa, o None."""
-    return db.scalar(
-        select(TransactionRow.exchange_rate)
-        .where(TransactionRow.currency == currency)
-        .order_by(TransactionRow.date.desc())
+def _latest_tx_rate(
+    db: Session, currency: str, user_id: int | None = None
+) -> Decimal | None:
+    """Último exchange_rate registrado en una transacción de esa divisa, o None.
+
+    'user_id' acota la búsqueda a las transacciones de ESE usuario. Sin él, el
+    respaldo salía de la última operación en esa divisa de CUALQUIER usuario:
+    con 'ecb_rates' vacía, la cartera de un usuario se valoraba con el tipo que
+    había tecleado otro. Se deja opcional para los pocos sitios sin contexto de
+    usuario, pero pasarlo es lo correcto.
+    """
+    stmt = select(TransactionRow.exchange_rate).where(
+        TransactionRow.currency == currency
     )
+    if user_id is not None:
+        stmt = stmt.join(
+            Position, Position.id == TransactionRow.position_id
+        ).where(Position.user_id == user_id)
+    return db.scalar(stmt.order_by(TransactionRow.date.desc()))
 
 
-def latest_rate(db: Session, currency: str) -> Decimal:
+def latest_rate(db: Session, currency: str, user_id: int | None = None) -> Decimal:
     """Tipo más reciente para 'currency' (1 para EUR)."""
     if currency == "EUR":
         return _ONE
@@ -41,10 +53,12 @@ def latest_rate(db: Session, currency: str) -> Decimal:
     )
     if row is not None:
         return row.rate
-    return _latest_tx_rate(db, currency) or _ONE
+    return _latest_tx_rate(db, currency, user_id) or _ONE
 
 
-def rate_on_date(db: Session, currency: str, date_str: str) -> Decimal:
+def rate_on_date(
+    db: Session, currency: str, date_str: str, user_id: int | None = None
+) -> Decimal:
     """
     Tipo de 'currency' vigente en 'date_str' (el del día hábil anterior o igual).
     1 para EUR. Si no hay dato anterior, cae al más reciente disponible; si no
@@ -59,4 +73,4 @@ def rate_on_date(db: Session, currency: str, date_str: str) -> Decimal:
     )
     if row is not None:
         return row.rate
-    return latest_rate(db, currency)
+    return latest_rate(db, currency, user_id)
